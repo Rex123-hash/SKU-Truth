@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+node_modules/
+.next/
+dist/
+build/
+*.egg-info/
+
+# The ETIM 10.0 archive itself IS committed (ODC-BY 1.0 permits redistribution with
+# attribution — see data/etim/ATTRIBUTION.md). Only derived caches are ignored.
+data/etim/build/
