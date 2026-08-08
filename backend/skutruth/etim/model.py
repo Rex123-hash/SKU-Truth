@@ -82,13 +82,59 @@ class EtimClass:
         return len(self.features)
 
 
+@dataclass(frozen=True, slots=True)
+class EtimStats:
+    """Parsed record counts, excluding CSV headers.
+
+    Produced by `scripts/etim_stats.py` and asserted in tests, so a count quoted in
+    the pitch is always a number this repository can reproduce.
+    """
+
+    classes: int
+    groups: int
+    features: int
+    units: int
+    values: int
+    class_feature_rows: int
+    class_feature_value_rows: int
+    synonym_rows: int
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "classes": self.classes,
+            "groups": self.groups,
+            "features": self.features,
+            "units": self.units,
+            "values": self.values,
+            "class_feature_rows": self.class_feature_rows,
+            "class_feature_value_rows": self.class_feature_value_rows,
+            "synonym_rows": self.synonym_rows,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class IntegrityIssue:
+    """A referential-integrity violation found while loading."""
+
+    kind: str
+    detail: str
+
+
 @dataclass(frozen=True)
 class EtimModel:
     """The whole classification model, indexed for lookup."""
 
-    release: str
+    release: str  # e.g. "10.0"
+    language: str  # ETIM language code; "EN" is the open master model
     classes: dict[str, EtimClass]
     units: dict[str, str] = field(default_factory=dict)  # EUxxxxxx -> "A"
+    stats: EtimStats | None = None
+    integrity_issues: tuple[IntegrityIssue, ...] = ()
+
+    @property
+    def version_label(self) -> str:
+        """Stamped onto every exported record, per the ODC-BY attribution requirement."""
+        return f"ETIM {self.release} ({self.language})"
 
     def get(self, class_id: str) -> EtimClass | None:
         return self.classes.get(class_id)

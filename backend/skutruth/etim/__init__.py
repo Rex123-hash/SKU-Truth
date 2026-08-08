@@ -5,15 +5,34 @@ completeness metric), canonical units, and allowed picklist values. Loaded from 
 vendored ODC-BY licensed release; see data/etim/ATTRIBUTION.md.
 """
 
-from .loader import DEFAULT_ARCHIVE, DEFAULT_RELEASE, load_etim
-from .model import EtimAllowedValue, EtimClass, EtimFeature, EtimModel
+from .loader import (
+    DEFAULT_ARCHIVE,
+    DEFAULT_LANGUAGE,
+    DEFAULT_RELEASE,
+    EXPECTED_ARCHIVE_SHA256,
+    archive_sha256,
+    load_etim,
+)
+from .model import (
+    EtimAllowedValue,
+    EtimClass,
+    EtimFeature,
+    EtimModel,
+    EtimStats,
+    IntegrityIssue,
+)
 
 __all__ = [
     "DEFAULT_ARCHIVE",
+    "DEFAULT_LANGUAGE",
     "DEFAULT_RELEASE",
+    "EXPECTED_ARCHIVE_SHA256",
     "EtimAllowedValue",
     "EtimClass",
     "EtimFeature",
     "EtimModel",
+    "EtimStats",
+    "IntegrityIssue",
+    "archive_sha256",
     "load_etim",
 ]

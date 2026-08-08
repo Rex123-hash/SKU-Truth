@@ -1,10 +1,12 @@
-"""Typed attribute values, one variant per ETIM feature type.
+"""Typed attribute values, one variant per ETIM feature type, plus derivation lineage.
 
 FROZEN CONTRACT — see contracts/README.md before changing anything here.
 
-Every value carries `raw`, the text as it appeared in the source, alongside the
-normalised form. Normalisation is deterministic and reversible-by-inspection:
-a reviewer can always see what the document said and what we turned it into.
+Every value carries `raw`, the text as it appeared in the source, and a `Derivation`
+recording how the normalized form was produced from it. A normalized value does not
+need its own quote — `18 A` derived from a source that said `18000 mA` is supported by
+the quote for `18000 mA` plus a deterministic, versioned transform. Lineage, not a
+second quote, is what makes the normalized value defensible.
 """
 
 from __future__ import annotations
@@ -13,13 +15,46 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .enums import EtimFeatureType
+from .enums import DerivationKind, EtimFeatureType
+
+
+class Derivation(BaseModel):
+    """How a normalized value was produced from raw source text.
+
+    `transform_id` is versioned so that a re-run can prove it applied the same rule.
+    No language model participates in any derivation.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    kind: DerivationKind = DerivationKind.VERBATIM
+    transform_id: str = Field(
+        default="verbatim@v1",
+        description="Versioned identifier of the deterministic transform applied",
+    )
+    detail: str | None = Field(
+        default=None, description="Human-readable trace, e.g. '18000 mA -> 18 A (x1e-3)'"
+    )
+
+    @model_validator(mode="after")
+    def _non_verbatim_explains_itself(self) -> Derivation:
+        if self.kind is not DerivationKind.VERBATIM and not self.detail:
+            raise ValueError(f"derivation {self.kind} must record a `detail` trace")
+        return self
+
+    @property
+    def is_verbatim(self) -> bool:
+        return self.kind is DerivationKind.VERBATIM
+
+
+VERBATIM = Derivation()
 
 
 class _ValueBase(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     raw: str = Field(min_length=1, description="Verbatim value text from the source")
+    derivation: Derivation = VERBATIM
 
     def display(self) -> str:  # pragma: no cover - overridden
         raise NotImplementedError
@@ -43,7 +78,9 @@ class RangeValue(_ValueBase):
 
     @model_validator(mode="after")
     def _min_le_max(self) -> RangeValue:
-        # Definitional, not physical: an ETIM range with min > max is malformed by construction.
+        # Definitional, not physical: an ETIM range with min > max is malformed by
+        # construction. This is the only class of constraint we assert -- no
+        # cross-attribute engineering formulas are used as truth validators.
         if self.minimum > self.maximum:
             raise ValueError(f"range minimum {self.minimum} exceeds maximum {self.maximum}")
         return self
@@ -77,8 +114,8 @@ AttributeValue = Annotated[
     Field(discriminator="kind"),
 ]
 
-#: Which value variant each ETIM feature type must produce. Enforced by the
-#: deterministic validator, so a model cannot return a string for a numeric feature.
+#: Which value variant each ETIM feature type must produce. Enforced by
+#: `ProductAttribute`, so a model cannot return a string for a numeric feature.
 VALUE_KIND_FOR_FEATURE_TYPE: dict[EtimFeatureType, str] = {
     EtimFeatureType.NUMERIC: "numeric",
     EtimFeatureType.RANGE: "range",

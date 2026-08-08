@@ -9,9 +9,21 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from .enums import AttributeStatus, EtimFeatureType, IdentityKind, RunMode
-from .evidence import Conflict, EvidenceCluster
-from .value import AttributeValue
+from .conditions import ConditionCompleteness, ConditionSet
+from .coverage import CoverageReport
+from .enums import (
+    Applicability,
+    AttributeStatus,
+    EtimFeatureType,
+    FamilyInvariance,
+    IdentityDisposition,
+    RunMode,
+    SupportGrade,
+    WithheldReason,
+)
+from .evidence import Conflict, Evidence, EvidenceGroup
+from .support import SupportFactors, compute_support_factors, derive_support_grade
+from .value import VALUE_KIND_FOR_FEATURE_TYPE, AttributeValue
 
 
 class ProductInput(BaseModel):
@@ -26,77 +38,81 @@ class ProductInput(BaseModel):
 
 
 class VariantAxis(BaseModel):
-    """A dimension along which members of a resolved FAMILY differ.
+    """A discriminator that the supplied reference leaves unbound.
 
     This is the machine-readable form of "we cannot answer that until you tell us
-    which variant". Surfacing it turns an abstention into a single precise question.
+    which variant", and it turns an abstention into one precise question. Options are
+    recorded only from evidence, never assumed.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     etim_feature_id: str | None = None
     name: str = Field(min_length=1, description="e.g. 'Rated control supply voltage'")
-    observed_values: list[str] = Field(default_factory=list)
-    example_mpns: list[str] = Field(default_factory=list)
+    observed_options: tuple[str, ...] = ()
+    example_mpns: tuple[str, ...] = ()
+    evidence_ids: tuple[str, ...] = Field(
+        default=(), description="Evidence that established this axis exists"
+    )
 
 
 class ProductIdentity(BaseModel):
-    """What the input actually refers to.
+    """What the input was determined to refer to.
 
-    A FAMILY resolution is not a failure — it is the correct answer for an input
-    like `LC1D18`, which is a TeSys D family stem rather than an orderable SKU.
+    `FAMILY_OR_INCOMPLETE_REFERENCE` asserts only that a discriminator is unbound. It
+    does not assert that the reference is unorderable — some channels do list a family
+    stem or configurable base reference as a purchasable record, and claiming otherwise
+    would be an inference we cannot support.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    kind: IdentityKind
+    disposition: IdentityDisposition
     brand_normalized: str | None = None
     mpn_normalized: str | None = None
     canonical_name: str | None = None
-    confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str = Field(min_length=1, description="Shown to the reviewer verbatim")
-    variant_axes: list[VariantAxis] = Field(default_factory=list)
-    candidate_mpns: list[str] = Field(
-        default_factory=list, description="Orderable SKUs under a FAMILY, or rival readings"
+
+    variant_axes: tuple[VariantAxis, ...] = ()
+    candidate_mpns: tuple[str, ...] = Field(
+        default=(), description="Exact child references, or rival readings when CONTRADICTORY"
     )
+    resolved_from: str | None = Field(
+        default=None, description="Prior MPN this run resolved from, after a variant selection"
+    )
+    evidence_ids: tuple[str, ...] = ()
 
     @model_validator(mode="after")
-    def _family_declares_variance(self) -> ProductIdentity:
-        if self.kind is IdentityKind.FAMILY and not (self.variant_axes or self.candidate_mpns):
+    def _incomplete_reference_names_its_discriminator(self) -> ProductIdentity:
+        if self.disposition is IdentityDisposition.FAMILY_OR_INCOMPLETE_REFERENCE and not (
+            self.variant_axes or self.candidate_mpns
+        ):
             raise ValueError(
-                "a FAMILY identity must declare at least one variant axis or candidate MPN; "
-                "otherwise it is indistinguishable from an EXACT_SKU"
+                "FAMILY_OR_INCOMPLETE_REFERENCE must name the unbound discriminator "
+                "(a variant axis) or the candidate exact references; otherwise the "
+                "disposition is unfalsifiable"
             )
         return self
 
+    @model_validator(mode="after")
+    def _contradictory_shows_the_rival_readings(self) -> ProductIdentity:
+        if self.disposition is IdentityDisposition.CONTRADICTORY and len(self.candidate_mpns) < 2:
+            raise ValueError("CONTRADICTORY must list at least two rival readings")
+        return self
 
-class ConfidenceFactors(BaseModel):
-    """The decomposition behind a confidence number.
-
-    Every term is displayed in the Evidence Drawer. No language model produces any
-    of these values; they are computed from measurable properties of the evidence.
-    Until the held-out evaluation set is large enough to calibrate against, the
-    aggregate is documented as an uncalibrated ordinal score — see `calibrated`.
-    """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    authority_prior: float = Field(ge=0.0, le=1.0)
-    modality: float = Field(ge=0.0, le=1.0)
-    sku_specificity: float = Field(ge=0.0, le=1.0)
-    independent_cluster_agreement: float = Field(ge=0.0, le=1.0)
-    etim_validation: float = Field(ge=0.0, le=1.0)
-    recency: float = Field(ge=0.0, le=1.0)
-
-    calibrated: bool = Field(
-        default=False,
-        description="True only when the aggregate was mapped through a fitted "
-        "calibration curve on held-out data. False means ordinal score, not probability.",
-    )
+    @property
+    def is_exact(self) -> bool:
+        return self.disposition is IdentityDisposition.EXACT
 
 
 class ProductAttribute(BaseModel):
-    """One attribute on the golden record, with everything needed to defend it."""
+    """One ETIM feature on the record, with everything needed to defend or refuse it.
+
+    Three independent axes, deliberately not collapsed into one enum:
+      * `applicability` — does this feature apply to this product at all?
+      * `status`        — did we accept a value?
+      * `support_grade` / `withheld_reason` — how strong, or why not.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -104,65 +120,194 @@ class ProductAttribute(BaseModel):
     name: str = Field(min_length=1)
     feature_type: EtimFeatureType
     expected_unit: str | None = Field(default=None, description="Unit ETIM mandates for the class")
+    buyer_critical: bool = Field(
+        default=False, description="In the hand-reviewed buyer-critical subset for this class"
+    )
 
-    value: AttributeValue | None = None
+    applicability: Applicability = Applicability.UNKNOWN
     status: AttributeStatus
-    confidence: float = Field(ge=0.0, le=1.0)
-    confidence_factors: ConfidenceFactors | None = None
+    value: AttributeValue | None = None
+    bound_conditions: ConditionSet = Field(default_factory=ConditionSet)
+    family_invariance: FamilyInvariance = FamilyInvariance.NOT_REQUIRED
 
-    evidence_clusters: list[EvidenceCluster] = Field(default_factory=list)
-    conflicts: list[Conflict] = Field(default_factory=list)
+    support_grade: SupportGrade | None = None
+    support_factors: SupportFactors | None = None
+    withheld_reason: WithheldReason | None = None
+
+    evidence_groups: tuple[EvidenceGroup, ...] = ()
+    conflicts: tuple[Conflict, ...] = ()
+
+    # ---- invariants ----------------------------------------------------------
 
     @model_validator(mode="after")
-    def _abstention_carries_no_value(self) -> ProductAttribute:
-        abstained = {AttributeStatus.INSUFFICIENT_EVIDENCE, AttributeStatus.VARIANT_DEPENDENT}
-        if self.status in abstained and self.value is not None:
-            raise ValueError(f"status {self.status} must not carry a committed value")
-        if self.status not in abstained and self.value is None:
-            raise ValueError(f"status {self.status} requires a value")
+    def _status_and_value_agree(self) -> ProductAttribute:
+        if self.status is AttributeStatus.ACCEPTED and self.value is None:
+            raise ValueError("ACCEPTED requires a value")
+        if self.status is AttributeStatus.WITHHELD and self.value is not None:
+            raise ValueError("WITHHELD must not carry a value")
         return self
 
     @model_validator(mode="after")
-    def _committed_values_are_supported(self) -> ProductAttribute:
-        # The core invariant of the whole system: no committed value without evidence.
-        if self.value is not None and not self.evidence_clusters:
+    def _withheld_explains_itself(self) -> ProductAttribute:
+        if self.status is AttributeStatus.WITHHELD and self.withheld_reason is None:
+            raise ValueError("WITHHELD requires a withheld_reason; the user must know why")
+        if self.status is AttributeStatus.ACCEPTED and self.withheld_reason is not None:
+            raise ValueError("ACCEPTED must not carry a withheld_reason")
+        return self
+
+    @model_validator(mode="after")
+    def _not_applicable_is_consistent(self) -> ProductAttribute:
+        na = Applicability.NOT_APPLICABLE
+        if self.applicability is na and self.status is AttributeStatus.ACCEPTED:
+            raise ValueError("a NOT_APPLICABLE feature cannot carry an accepted value")
+        if (
+            self.withheld_reason is WithheldReason.NOT_APPLICABLE
+            and self.applicability is not na
+        ):
+            raise ValueError("withheld as NOT_APPLICABLE but applicability is not NOT_APPLICABLE")
+        return self
+
+    @model_validator(mode="after")
+    def _value_matches_the_etim_feature_type(self) -> ProductAttribute:
+        if self.value is None:
+            return self
+        expected = VALUE_KIND_FOR_FEATURE_TYPE[self.feature_type]
+        if self.value.kind != expected:
             raise ValueError(
-                f"attribute {self.etim_feature_id} commits to a value with no evidence cluster"
+                f"feature {self.etim_feature_id} is ETIM type {self.feature_type} and requires a "
+                f"{expected!r} value, got {self.value.kind!r}"
+            )
+        if (
+            self.expected_unit
+            and self.value.kind in {"numeric", "range"}
+            and self.value.unit != self.expected_unit
+        ):
+            raise ValueError(
+                f"feature {self.etim_feature_id} mandates unit {self.expected_unit!r}, "
+                f"value carries {self.value.unit!r}; normalize before accepting"
             )
         return self
 
     @model_validator(mode="after")
-    def _verified_needs_independent_corroboration(self) -> ProductAttribute:
-        if self.status is AttributeStatus.VERIFIED and len(self.evidence_clusters) < 2:
+    def _accepted_values_have_a_verified_span(self) -> ProductAttribute:
+        """The central promise: no acceptance without a span we located ourselves.
+
+        A normalized value does not need its own quote — lineage through
+        `value.derivation` back to a verified raw fragment is what supports it.
+        """
+        if self.status is not AttributeStatus.ACCEPTED:
+            return self
+        verified = [e for g in self.evidence_groups for e in g.verified_members]
+        if not verified:
             raise ValueError(
-                "VERIFIED requires >=2 independent evidence clusters; "
-                "use SINGLE_SOURCE when only one survives independence clustering"
+                f"attribute {self.etim_feature_id} accepts a value with no verified span; "
+                "unverified evidence may not support an accepted value"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _support_grade_is_derived_not_asserted(self) -> ProductAttribute:
+        """The grade must equal what the documented rule produces from this evidence."""
+        if self.status is not AttributeStatus.ACCEPTED:
+            if self.support_grade is not None:
+                raise ValueError("a withheld attribute must not carry a support grade")
+            return self
+
+        factors = compute_support_factors(
+            [e for g in self.evidence_groups for e in g.members],
+            family_invariance=self.family_invariance,
+            condition_completeness=self.bound_conditions.completeness,
+        )
+        expected = derive_support_grade(factors)
+        if expected is None:
+            raise ValueError(
+                "the support rule refuses to grade this evidence, so the value must be "
+                "withheld rather than accepted"
+            )
+        if self.support_grade != expected:
+            raise ValueError(
+                f"support_grade {self.support_grade} was asserted, but the rule "
+                f"({factors.rule_version}) derives {expected}; grades are computed, not set"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _unproven_family_invariance_blocks_acceptance(self) -> ProductAttribute:
+        if (
+            self.status is AttributeStatus.ACCEPTED
+            and self.family_invariance is FamilyInvariance.UNPROVEN
+        ):
+            raise ValueError(
+                "family invariance is UNPROVEN, so this value is not in scope for the "
+                "resolved identity and must be withheld"
+            )
+        return self
+
+    # ---- convenience ---------------------------------------------------------
+
+    @property
+    def is_accepted(self) -> bool:
+        return self.status is AttributeStatus.ACCEPTED
+
+    @property
+    def counts_toward_coverage(self) -> bool:
+        """Only applicable features can be a gap or a fill."""
+        return self.applicability is Applicability.APPLICABLE
+
+    @property
+    def all_evidence(self) -> list[Evidence]:
+        return [e for g in self.evidence_groups for e in g.members]
+
+
+def accepted_attribute_factors(attr: ProductAttribute) -> SupportFactors:
+    """Recompute the factor bag for display. Kept public so the UI and eval agree."""
+    return compute_support_factors(
+        attr.all_evidence,
+        family_invariance=attr.family_invariance,
+        condition_completeness=attr.bound_conditions.completeness,
+        independent_root_count=len(attr.evidence_groups),
+    )
+
+
+class RunProvenance(BaseModel):
+    """How this run's external interactions were obtained.
+
+    A REPLAY run replays interactions that were really captured earlier. It is not
+    synthetic, and it is not fresh. `captured_at` is mandatory for REPLAY and MIXED so
+    the UI can always state the age of what it is showing.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    mode: RunMode
+    captured_at: datetime | None = Field(
+        default=None, description="When the replayed interactions were originally recorded"
+    )
+    cassette_id: str | None = None
+    extraction_model: str | None = None
+    provider_surface: str | None = Field(default=None, description="e.g. 'vertex-ai:us-central1'")
+    sdk_version: str | None = None
+
+    @model_validator(mode="after")
+    def _replay_states_its_capture_date(self) -> RunProvenance:
+        if self.mode in {RunMode.REPLAY, RunMode.MIXED} and self.captured_at is None:
+            raise ValueError(
+                f"{self.mode} must record captured_at; a replayed run must never be able to "
+                "present itself as fresh"
             )
         return self
 
     @property
-    def is_abstention(self) -> bool:
-        return self.status in {
-            AttributeStatus.INSUFFICIENT_EVIDENCE,
-            AttributeStatus.VARIANT_DEPENDENT,
-        }
+    def is_publishable_evaluation(self) -> bool:
+        """MIXED runs are barred from published evaluation and the public demo."""
+        return self.mode is not RunMode.MIXED
 
-
-class CommerceContent(BaseModel):
-    """Generated copy. Constrained to facts already committed on the record."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    title: str | None = None
-    short_description: str | None = None
-    long_description: str | None = None
-    feature_bullets: list[str] = Field(default_factory=list)
-    keywords: list[str] = Field(default_factory=list)
-    grounded_feature_ids: list[str] = Field(
-        default_factory=list,
-        description="Attributes the copy is permitted to reference. Anything outside "
-        "this set appearing in the copy is an unsupported claim.",
-    )
+    def banner(self) -> str:
+        if self.mode is RunMode.LIVE:
+            return "LIVE RUN"
+        stamp = self.captured_at.date().isoformat() if self.captured_at else "unknown date"
+        label = "RECORDED REPLAY" if self.mode is RunMode.REPLAY else "MIXED LIVE/REPLAY"
+        return f"{label} — captured {stamp}"
 
 
 class RunCost(BaseModel):
@@ -175,6 +320,7 @@ class RunCost(BaseModel):
     usd: float = 0.0
     model_calls: int = 0
     search_queries: int = 0
+    artifacts_fetched: int = 0
     cache_hits: int = 0
     wall_seconds: float = 0.0
 
@@ -186,37 +332,99 @@ class GoldenRecord(BaseModel):
 
     record_id: str
     run_id: str
-    run_mode: RunMode = Field(
-        description="LIVE or REPLAY. A REPLAY run replays previously recorded real "
-        "interactions and is labelled as such wherever it is displayed."
-    )
     created_at: datetime
+    provenance: RunProvenance
 
     input: ProductInput
     identity: ProductIdentity
+
+    etim_release: str = Field(default="10.0", description="ETIM release the schema came from")
+    etim_language: str = Field(default="EN", description="ETIM language code")
     etim_class_id: str | None = Field(default=None, pattern=r"^EC\d{6}$")
     etim_class_name: str | None = None
 
-    attributes: list[ProductAttribute] = Field(default_factory=list)
-    commerce: CommerceContent | None = None
+    attributes: tuple[ProductAttribute, ...] = ()
+    coverage: CoverageReport | None = None
     cost: RunCost = Field(default_factory=RunCost)
 
-    @property
-    def committed(self) -> list[ProductAttribute]:
-        return [a for a in self.attributes if not a.is_abstention]
+    @model_validator(mode="after")
+    def _non_exact_identity_gates_attribute_acceptance(self) -> GoldenRecord:
+        """Identity is a hard gate, not advice.
 
-    @property
-    def abstained(self) -> list[ProductAttribute]:
-        return [a for a in self.attributes if a.is_abstention]
-
-    @property
-    def completeness(self) -> float:
-        """Fraction of ETIM-expected attributes for the class that carry a value.
-
-        The denominator is the class's full expected feature set, so an abstention
-        costs completeness exactly as much as a miss. That is deliberate: abstention
-        is honest, not free.
+        When identity is not EXACT, an accepted value must be explicitly proven
+        invariant at the family scope. Observing one child is not proof, and the
+        contract will not let a stage skip that step.
         """
-        if not self.attributes:
-            return 0.0
-        return len(self.committed) / len(self.attributes)
+        if self.identity.is_exact:
+            return self
+        offenders = [
+            a.etim_feature_id
+            for a in self.attributes
+            if a.is_accepted and a.family_invariance is not FamilyInvariance.PROVEN
+        ]
+        if offenders:
+            raise ValueError(
+                f"identity is {self.identity.disposition}, so accepted attributes must have "
+                f"family_invariance=PROVEN; offending features: {', '.join(offenders)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _exact_identity_does_not_claim_family_proofs(self) -> GoldenRecord:
+        if not self.identity.is_exact:
+            return self
+        offenders = [
+            a.etim_feature_id
+            for a in self.attributes
+            if a.family_invariance is FamilyInvariance.PROVEN
+        ]
+        if offenders:
+            raise ValueError(
+                "identity is EXACT, so family invariance is NOT_REQUIRED; "
+                f"remove the PROVEN claim from: {', '.join(offenders)}"
+            )
+        return self
+
+    @property
+    def accepted(self) -> list[ProductAttribute]:
+        return [a for a in self.attributes if a.is_accepted]
+
+    @property
+    def withheld(self) -> list[ProductAttribute]:
+        return [a for a in self.attributes if not a.is_accepted]
+
+    def build_coverage(self) -> CoverageReport:
+        """Derive the coverage report from the attributes actually on the record."""
+        applicable = [a for a in self.attributes if a.applicability is Applicability.APPLICABLE]
+        not_applicable = [
+            a for a in self.attributes if a.applicability is Applicability.NOT_APPLICABLE
+        ]
+        unknown = [a for a in self.attributes if a.applicability is Applicability.UNKNOWN]
+        critical = [a for a in self.attributes if a.buyer_critical]
+        critical_applicable = [
+            a for a in critical if a.applicability is Applicability.APPLICABLE
+        ]
+        return CoverageReport(
+            etim_class_id=self.etim_class_id,
+            etim_features_total=len(self.attributes),
+            applicable_total=len(applicable),
+            not_applicable_total=len(not_applicable),
+            applicability_unknown_total=len(unknown),
+            accepted_total=sum(1 for a in applicable if a.is_accepted),
+            buyer_critical_total=len(critical),
+            buyer_critical_applicable=len(critical_applicable),
+            buyer_critical_accepted=sum(1 for a in critical_applicable if a.is_accepted),
+        )
+
+
+__all__ = [
+    "ConditionCompleteness",
+    "GoldenRecord",
+    "ProductAttribute",
+    "ProductIdentity",
+    "ProductInput",
+    "RunCost",
+    "RunProvenance",
+    "VariantAxis",
+    "accepted_attribute_factors",
+]

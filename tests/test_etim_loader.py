@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import pytest
 from skutruth.contracts import EtimFeatureType
-from skutruth.etim import load_etim
+from skutruth.etim import (
+    DEFAULT_ARCHIVE,
+    EXPECTED_ARCHIVE_SHA256,
+    archive_sha256,
+    load_etim,
+)
 
 
 @pytest.fixture(scope="module")
@@ -24,7 +29,12 @@ def contactor(etim):
 
 
 class TestArchiveParses:
+    def test_archive_hash_is_pinned(self):
+        """A silent data swap must fail loudly in a project about data quality."""
+        assert archive_sha256(DEFAULT_ARCHIVE) == EXPECTED_ARCHIVE_SHA256
+
     def test_class_count_matches_release(self, etim):
+        """5,640 parsed records, headers excluded — matches ETIM's own release note."""
         assert len(etim) == 5640
 
     def test_units_are_loaded(self, etim):
@@ -34,6 +44,54 @@ class TestArchiveParses:
 
     def test_loading_is_cached(self, etim):
         assert load_etim() is etim
+
+    def test_release_and_language_are_recorded(self, etim):
+        """Required for ODC-BY attribution and stamped onto every exported record."""
+        assert etim.release == "10.0"
+        assert etim.language == "EN"
+        assert etim.version_label == "ETIM 10.0 (EN)"
+
+
+class TestParsedStatistics:
+    """Every ETIM count quoted anywhere must be reproducible by scripts/etim_stats.py."""
+
+    def test_counts_exclude_csv_headers(self, etim):
+        assert etim.stats is not None
+        assert etim.stats.as_dict() == {
+            "classes": 5640,
+            "groups": 159,
+            "features": 17377,
+            "units": 188,
+            "values": 16163,
+            "class_feature_rows": 76625,
+            "class_feature_value_rows": 201284,
+            "synonym_rows": 37058,
+        }
+
+    def test_stats_agree_with_the_parsed_model(self, etim):
+        assert etim.stats.classes == len(etim.classes)
+        assert etim.stats.units == len(etim.units)
+
+
+class TestReferentialIntegrity:
+    def test_no_dangling_references_in_the_shipped_release(self, etim):
+        assert etim.integrity_issues == ()
+
+    def test_every_class_feature_unit_resolves(self, etim):
+        for cls in etim.classes.values():
+            for f in cls.features:
+                if f.unit is not None:
+                    assert f.unit in etim.units.values()
+
+    def test_every_class_belongs_to_a_known_group(self, etim):
+        for cls in etim.classes.values():
+            assert cls.group_name, f"{cls.class_id} has an unresolved group {cls.group_id}"
+
+    def test_every_picklist_value_has_text(self, etim):
+        for cls in etim.classes.values():
+            for f in cls.features:
+                for v in f.allowed_values:
+                    assert v.text.strip()
 
 
 class TestPowerContactorClass:
