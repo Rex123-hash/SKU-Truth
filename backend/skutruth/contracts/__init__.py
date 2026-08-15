@@ -28,6 +28,7 @@ from .enums import (
     WithheldReason,
 )
 from .evidence import Conflict, Evidence, EvidenceGroup, SourceArtifact, SpanLocator
+from .mpn import canonical_mpn, mpn_matches
 from .product import (
     GoldenRecord,
     ProductAttribute,
@@ -44,6 +45,7 @@ from .support import (
     SupportFactors,
     compute_support_factors,
     derive_support_grade,
+    is_eligible_evidence,
 )
 from .value import (
     VALUE_KIND_FOR_FEATURE_TYPE,
@@ -100,6 +102,9 @@ __all__ = [
     "VariantAxis",
     "WithheldReason",
     "accepted_attribute_factors",
+    "canonical_mpn",
     "compute_support_factors",
     "derive_support_grade",
+    "is_eligible_evidence",
+    "mpn_matches",
 ]

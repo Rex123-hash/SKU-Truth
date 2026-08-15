@@ -29,14 +29,23 @@ from .enums import (
     SupportGrade,
 )
 from .evidence import Evidence
+from .mpn import mpn_matches
 
 #: Bumped whenever the factor set or the grade rule changes, so that stored records
 #: record which version graded them. The factor bag is intentionally open: new
 #: factors can be logged without a contract break, and only the documented keys
 #: participate in the rule.
+#:
 #: v2 replaced the `exact_identity_scope` factor with `scope_established`, which a
 #: family-scoped span can satisfy when it proves the value holds across the family.
-SUPPORT_RULE_VERSION = "support@v2"
+#:
+#: v3 changed *which evidence is eligible to grade a value*. Grading now sees only
+#: spans that support the accepted value (or its deterministic derivation) and that
+#: are anchored to the resolved MPN. The same serialized evidence can therefore grade
+#: differently than it did under v2 — an exact-SKU artifact for another part used to
+#: set `scope_established`, and no longer can — so a stored v2 grade is not
+#: reproducible under v3 and the version had to move.
+SUPPORT_RULE_VERSION = "support@v3"
 
 #: Factors we log today. Logging is not the same as using: `independent_root_count`
 #: is recorded from day one so P1 clustering has history to work with, but it does
@@ -80,6 +89,32 @@ def _is_structured(modality: EvidenceModality) -> bool:
     }
 
 
+def is_eligible_evidence(ev: Evidence, identity_anchor_mpn: str | None) -> bool:
+    """Whether this span is allowed to speak for the product the record resolved to.
+
+    An artifact scoped to one exact commercial reference only speaks for *that*
+    reference. When the record resolved to an exact MPN, such an artifact is eligible
+    only if it covers that MPN — an exact-SKU datasheet for a different part is not
+    weak evidence about this product, it is evidence about a different product.
+    An artifact that does not say which reference it covers cannot be shown to cover
+    this one, so it is ineligible too.
+
+    Family- and range-scoped artifacts are not filtered here. They legitimately
+    describe a set that includes this reference, and whether they establish scope is
+    decided separately by `_establishes_scope`.
+
+    When `identity_anchor_mpn` is `None` — the record is family-level, unknown, or
+    contradictory — nothing is filtered. Exact child artifacts are precisely what
+    proves invariance across a family, and demanding they match a family stem would
+    break that.
+    """
+    if identity_anchor_mpn is None:
+        return True
+    if ev.identity_scope is not IdentityScope.EXACT_SKU:
+        return True
+    return mpn_matches(ev.artifact.covers_mpn, identity_anchor_mpn)
+
+
 def _establishes_scope(ev: Evidence) -> bool:
     """Whether this span pins the value to the product we are describing.
 
@@ -92,6 +127,9 @@ def _establishes_scope(ev: Evidence) -> bool:
     A family document that merely happens to list one child's value satisfies
     neither, and cannot establish scope. Grade is a statement about how well the
     *attribute* is supported, not about how the document happens to be scoped.
+
+    Callers pass only eligible evidence (see `is_eligible_evidence`), so an
+    exact-SKU artifact reaching here is already known to cover this reference.
     """
     if ev.identity_scope is IdentityScope.EXACT_SKU:
         return True

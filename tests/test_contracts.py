@@ -8,6 +8,7 @@ import pytest
 from conftest import (
     AC1_400V,
     AC3_400V,
+    group_for,
     make_artifact,
     make_attribute,
     make_evidence,
@@ -50,8 +51,10 @@ from skutruth.contracts import (
     SupportGrade,
     VariantAxis,
     WithheldReason,
+    canonical_mpn,
     compute_support_factors,
     derive_support_grade,
+    mpn_matches,
 )
 
 # --------------------------------------------------------------------------------------
@@ -61,7 +64,7 @@ from skutruth.contracts import (
 
 class TestAcceptedValuesNeedAVerifiedSpan:
     def test_accepted_value_with_no_evidence_is_rejected(self):
-        with pytest.raises(ValidationError, match="no verified span"):
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
             make_attribute(evidence_groups=())
 
     def test_unverified_evidence_cannot_support_acceptance(self):
@@ -69,7 +72,7 @@ class TestAcceptedValuesNeedAVerifiedSpan:
         unverified = make_group(
             members=[make_evidence(verification=EvidenceVerification.UNVERIFIED, page=None)]
         )
-        with pytest.raises(ValidationError, match="no verified span"):
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
             make_attribute(evidence_groups=(unverified,))
 
     def test_exact_span_supports_acceptance(self):
@@ -499,12 +502,13 @@ class TestIdentityGatesAcceptance:
     def test_family_identity_blocks_unproven_attributes(self):
         """Observing one child does not prove invariance across the family."""
         with pytest.raises(ValidationError, match="family_invariance=PROVEN"):
-            _record(FAMILY_IDENTITY, (make_attribute(),))
+            _record(FAMILY_IDENTITY, (make_attribute(identity_anchor_mpn=None),))
 
     def test_family_identity_allows_invariants_proven_by_a_variant_table(self):
         attr = make_attribute(
             family_invariance=FamilyInvariance.PROVEN,
             evidence_groups=(make_family_proof_group(),),
+            identity_anchor_mpn=None,
         )
         record = _record(FAMILY_IDENTITY, (attr,))
         assert record.accepted[0].family_invariance is FamilyInvariance.PROVEN
@@ -513,6 +517,7 @@ class TestIdentityGatesAcceptance:
         attr = make_attribute(
             family_invariance=FamilyInvariance.PROVEN,
             evidence_groups=make_two_child_groups(),
+            identity_anchor_mpn=None,
         )
         assert _record(FAMILY_IDENTITY, (attr,)).accepted[0].is_accepted
 
@@ -533,6 +538,7 @@ class TestIdentityGatesAcceptance:
             withheld_reason=WithheldReason.VARIANT_DEPENDENT,
             family_invariance=FamilyInvariance.UNPROVEN,
             evidence_groups=(),
+            identity_anchor_mpn=None,
         )
         record = _record(FAMILY_IDENTITY, (withheld,))
         assert record.withheld[0].withheld_reason is WithheldReason.VARIANT_DEPENDENT
@@ -582,6 +588,29 @@ class TestConditions:
         )
         assert not partial.is_complete
         assert ConditionKind.VOLTAGE in partial.missing_kinds
+
+    def test_a_kind_may_not_be_bound_twice_with_different_values(self):
+        """Codex counterexample 4: the dict reduction would silently drop one."""
+        with pytest.raises(ValidationError, match="bound more than once"):
+            ConditionSet(
+                conditions=(
+                    Condition(kind=ConditionKind.UTILIZATION_CATEGORY, value="AC-3"),
+                    Condition(kind=ConditionKind.UTILIZATION_CATEGORY, value="AC-1"),
+                )
+            )
+
+    def test_a_kind_may_not_be_bound_twice_even_with_equal_values(self):
+        """A redundant binding is still not a normalized operating point."""
+        with pytest.raises(ValidationError, match="bound more than once"):
+            ConditionSet(
+                conditions=(
+                    Condition(kind=ConditionKind.UTILIZATION_CATEGORY, value="AC-3"),
+                    Condition(kind=ConditionKind.UTILIZATION_CATEGORY, value="AC-3"),
+                )
+            )
+
+    def test_distinct_kinds_are_fine(self):
+        assert len(AC3_400V.conditions) == 2
 
     def test_lookup_by_kind(self):
         assert AC3_400V.get(ConditionKind.UTILIZATION_CATEGORY).value == "AC-3"
@@ -666,6 +695,96 @@ class TestEvidenceGroupCoherence:
             make_group("")
 
 
+class TestAcceptedValueIsTiedToItsEvidence:
+    """Codex counterexample 1: evidence for some *other* value licensed acceptance."""
+
+    def test_evidence_for_a_different_value_cannot_license_acceptance(self):
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
+            make_attribute(
+                value=NumericValue(raw="18 A", number=18.0, unit="A"),
+                evidence_groups=(make_group(number=32.0),),
+            )
+
+    def test_evidence_for_a_different_value_cannot_reach_grade_a(self):
+        """Not merely a weaker grade — the value may not be accepted at all."""
+        for grade in (SupportGrade.A, SupportGrade.B, SupportGrade.C):
+            with pytest.raises(ValidationError):
+                make_attribute(
+                    value=NumericValue(raw="18 A", number=18.0, unit="A"),
+                    evidence_groups=(make_group(number=32.0),),
+                    support_grade=grade,
+                )
+
+    def test_semantically_equal_evidence_licenses_acceptance(self):
+        attr = make_attribute(
+            value=NumericValue(raw="18 A", number=18.0, unit="A"),
+            evidence_groups=(
+                make_group(members=[make_evidence(observed=NumericValue(
+                    raw="18.0 A", number=18.0, unit="A"
+                ))], number=18.0),
+            ),
+        )
+        assert attr.support_grade is SupportGrade.A
+
+    def test_deterministic_unit_conversion_still_licenses_acceptance(self):
+        """The legitimate derived flow: source says 18000 mA, we accept 18 A."""
+        source = NumericValue(raw="18000 mA", number=18000.0, unit="mA")
+        attr = make_attribute(
+            value=NumericValue(
+                raw="18000 mA",
+                number=18.0,
+                unit="A",
+                derivation=Derivation(
+                    kind=DerivationKind.UNIT_CONVERSION,
+                    transform_id="unit_conversion@v1",
+                    detail="18000 mA -> 18 A (x1e-3)",
+                ),
+            ),
+            evidence_groups=(group_for(source),),
+        )
+        assert attr.value.number == 18.0
+        assert attr.support_grade is SupportGrade.A
+
+    def test_a_derivation_anchored_to_no_real_span_is_rejected(self):
+        """A Derivation object is not a licence. It must point at text a span held."""
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
+            make_attribute(
+                value=NumericValue(
+                    raw="18000 mA",
+                    number=18.0,
+                    unit="A",
+                    derivation=Derivation(
+                        kind=DerivationKind.UNIT_CONVERSION,
+                        transform_id="unit_conversion@v1",
+                        detail="18000 mA -> 18 A (x1e-3)",
+                    ),
+                ),
+                evidence_groups=(
+                    group_for(NumericValue(raw="32 A", number=32.0, unit="A")),
+                ),
+            )
+
+    def test_a_verbatim_value_may_not_borrow_a_derivations_leniency(self):
+        """Only a declared derivation unlocks the raw-text route; VERBATIM must match."""
+        source = NumericValue(raw="18000 mA", number=18000.0, unit="mA")
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
+            make_attribute(
+                value=NumericValue(raw="18000 mA", number=18.0, unit="A"),
+                evidence_groups=(group_for(source),),
+            )
+
+    def test_unrelated_evidence_is_retained_but_does_not_grade(self):
+        """A reviewer still sees everything found; only supporting spans grade."""
+        attr = make_attribute(
+            evidence_groups=(
+                make_group("eg_18", number=18.0),
+                make_group("eg_32", number=32.0, conditions=AC1_400V),
+            ),
+        )
+        assert len(attr.evidence_groups) == 2
+        assert [g.group_id for g in attr.licensing_groups] == ["eg_18"]
+
+
 class TestBoundConditionsMustBeSupported:
     """An accepted value may only claim an operating point its evidence states."""
 
@@ -681,7 +800,7 @@ class TestBoundConditionsMustBeSupported:
             missing_kinds=(ConditionKind.VOLTAGE,),
         )
         group = make_group(conditions=bare, members=[make_evidence(conditions=bare)])
-        with pytest.raises(ValidationError, match="binds conditions no verified span states"):
+        with pytest.raises(ValidationError, match="no single verified span states all of it"):
             make_attribute(bound_conditions=AC3_400V, evidence_groups=(group,))
 
     def test_conditions_stated_by_the_evidence_are_accepted(self):
@@ -705,7 +824,7 @@ class TestBoundConditionsMustBeSupported:
                 ),
             ],
         )
-        with pytest.raises(ValidationError, match="binds conditions no verified span states"):
+        with pytest.raises(ValidationError, match="no single verified span states all of it"):
             make_attribute(bound_conditions=AC3_400V, evidence_groups=(group,))
 
     def test_withheld_attributes_may_hold_unresolved_conditions(self):
@@ -720,6 +839,55 @@ class TestBoundConditionsMustBeSupported:
         )
         assert attr.bound_conditions.get(ConditionKind.UTILIZATION_CATEGORY).value == "AC-1"
 
+    def test_disjoint_partial_spans_cannot_manufacture_a_complete_operating_point(self):
+        """Codex counterexample 2: AC-3 from one span, 400 V from another, claimed as both."""
+        only_ac3 = ConditionSet(
+            conditions=(Condition(kind=ConditionKind.UTILIZATION_CATEGORY, value="AC-3"),),
+            completeness=ConditionCompleteness.PARTIAL,
+            missing_kinds=(ConditionKind.VOLTAGE,),
+        )
+        only_400v = ConditionSet(
+            conditions=(Condition(kind=ConditionKind.VOLTAGE, value="400 V"),),
+            completeness=ConditionCompleteness.PARTIAL,
+            missing_kinds=(ConditionKind.UTILIZATION_CATEGORY,),
+        )
+        with pytest.raises(ValidationError, match="no single verified span states all of it"):
+            make_attribute(
+                bound_conditions=AC3_400V,
+                evidence_groups=(
+                    make_group("eg_ac3", conditions=only_ac3,
+                               members=[make_evidence(evidence_id="ev_ac3",
+                                                      conditions=only_ac3)]),
+                    make_group("eg_400v", conditions=only_400v,
+                               members=[make_evidence(evidence_id="ev_400v",
+                                                      conditions=only_400v)]),
+                ),
+            )
+
+    def test_one_complete_span_plus_partial_corroboration_remains_valid(self):
+        """Evidence A states the whole operating point; B corroborates part of it."""
+        only_ac3 = ConditionSet(
+            conditions=(Condition(kind=ConditionKind.UTILIZATION_CATEGORY, value="AC-3"),),
+            completeness=ConditionCompleteness.PARTIAL,
+            missing_kinds=(ConditionKind.VOLTAGE,),
+        )
+        attr = make_attribute(
+            bound_conditions=AC3_400V,
+            evidence_groups=(
+                make_group("eg_full", conditions=AC3_400V,
+                           members=[make_evidence(evidence_id="ev_full", conditions=AC3_400V)]),
+                make_group("eg_partial", conditions=only_ac3,
+                           members=[make_evidence(evidence_id="ev_partial",
+                                                  conditions=only_ac3)]),
+            ),
+        )
+        assert attr.support_grade is SupportGrade.A
+
+    def test_an_attribute_binding_no_conditions_needs_no_complete_span(self):
+        bare = ConditionSet(completeness=ConditionCompleteness.UNKNOWN)
+        attr = make_attribute(bound_conditions=bare, support_grade=SupportGrade.B)
+        assert not attr.bound_conditions
+
     def test_withheld_attributes_may_hold_no_conditions_at_all(self):
         attr = make_attribute(
             status=AttributeStatus.WITHHELD,
@@ -730,6 +898,103 @@ class TestBoundConditionsMustBeSupported:
             evidence_groups=(),
         )
         assert not attr.bound_conditions
+
+
+class TestExactEvidenceIsAnchoredToTheResolvedMpn:
+    """Codex counterexample 3: an exact-SKU datasheet for a *different* part graded A."""
+
+    def _group_covering(self, mpn: str | None, group_id: str = "eg_1"):
+        return make_group(
+            group_id,
+            members=[
+                make_evidence(artifact=make_artifact(covers_mpn=mpn, artifact_id=f"art_{mpn}"))
+            ],
+        )
+
+    def test_exact_evidence_for_another_reference_cannot_license_acceptance(self):
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
+            make_attribute(
+                identity_anchor_mpn="LC1D18P7",
+                evidence_groups=(self._group_covering("NOT-THE-RECORD"),),
+            )
+
+    def test_exact_evidence_naming_no_reference_cannot_license_acceptance(self):
+        """An artifact that never says what it covers cannot be shown to cover this."""
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
+            make_attribute(
+                identity_anchor_mpn="LC1D18P7",
+                evidence_groups=(self._group_covering(None),),
+            )
+
+    def test_matching_exact_evidence_licenses_acceptance(self):
+        attr = make_attribute(
+            identity_anchor_mpn="LC1D18P7",
+            evidence_groups=(self._group_covering("LC1D18P7"),),
+        )
+        assert attr.support_grade is SupportGrade.A
+
+    def test_comparison_folds_case_and_whitespace_only(self):
+        attr = make_attribute(
+            identity_anchor_mpn="LC1D18P7",
+            evidence_groups=(self._group_covering(" lc1d18p7 "),),
+        )
+        assert attr.support_grade is SupportGrade.A
+        assert canonical_mpn(" lc1d18p7 ") == "LC1D18P7"
+        # Hyphenation is left alone: it can distinguish genuinely different parts,
+        # and richer matching belongs in the identity stage, behind evaluation.
+        assert not mpn_matches("LC1-D18P7", "LC1D18P7")
+
+    def test_family_scoped_evidence_is_not_filtered_by_the_anchor(self):
+        """A family datasheet legitimately describes a set containing this reference."""
+        attr = make_attribute(
+            identity_anchor_mpn="LC1D18P7",
+            evidence_groups=(make_family_proof_group(),),
+            support_grade=SupportGrade.A,
+        )
+        assert attr.support_grade is SupportGrade.A
+
+    def test_a_record_with_exact_identity_anchors_every_attribute(self):
+        with pytest.raises(ValidationError, match="must set identity_anchor_mpn"):
+            _record(EXACT_IDENTITY, (make_attribute(identity_anchor_mpn=None),))
+
+    def test_a_record_with_exact_identity_rejects_a_mismatched_anchor(self):
+        with pytest.raises(ValidationError, match="must set identity_anchor_mpn"):
+            _record(
+                EXACT_IDENTITY,
+                (
+                    make_attribute(
+                        identity_anchor_mpn="LC1D18BD",
+                        evidence_groups=(self._group_covering("LC1D18BD"),),
+                    ),
+                ),
+            )
+
+    def test_a_family_record_must_not_anchor_its_attributes(self):
+        """A family stem is not an exact reference, and child artifacts must stay eligible."""
+        attr = make_attribute(
+            family_invariance=FamilyInvariance.PROVEN,
+            evidence_groups=(make_family_proof_group(),),
+            identity_anchor_mpn="LC1D18",
+        )
+        with pytest.raises(ValidationError, match="must not set identity_anchor_mpn"):
+            _record(FAMILY_IDENTITY, (attr,))
+
+    def test_anchoring_a_family_stem_would_disqualify_the_child_evidence(self):
+        """Why the rule above exists: exact children never match the stem."""
+        with pytest.raises(ValidationError, match="no verified span supporting that value"):
+            make_attribute(
+                family_invariance=FamilyInvariance.PROVEN,
+                evidence_groups=make_two_child_groups(),
+                identity_anchor_mpn="LC1D18",
+            )
+
+    def test_family_proof_across_children_survives_the_anchor_rule(self):
+        attr = make_attribute(
+            family_invariance=FamilyInvariance.PROVEN,
+            evidence_groups=make_two_child_groups(),
+            identity_anchor_mpn=None,
+        )
+        assert _record(FAMILY_IDENTITY, (attr,)).accepted[0].is_accepted
 
 
 class TestConflictReferences:

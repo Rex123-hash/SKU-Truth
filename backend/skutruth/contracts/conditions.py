@@ -10,7 +10,7 @@ condition keys is a category error, and the type system makes that visible.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .enums import ConditionCompleteness, ConditionKind
 
@@ -48,6 +48,27 @@ class ConditionSet(BaseModel):
         default=(),
         description="Qualifiers the feature requires that no source bound. Drives PARTIAL.",
     )
+
+    @model_validator(mode="after")
+    def _each_kind_is_bound_at_most_once(self) -> ConditionSet:
+        """A ConditionSet is a normalized operating point, not a multimap.
+
+        Two bindings of one kind is either a contradiction (AC-3 and AC-1) or a
+        redundancy, and every consumer here — `key`, `get`, `conflicting_kinds`,
+        `supports` — reduces to a dict, so a duplicate would be silently dropped and
+        the surviving value would depend on iteration order. Rejecting duplicates
+        outright is the only reading that keeps those operations honest, so an equal
+        duplicate is rejected too.
+        """
+        seen: set[ConditionKind] = set()
+        for condition in self.conditions:
+            if condition.kind in seen:
+                raise ValueError(
+                    f"condition kind {condition.kind.value} is bound more than once; "
+                    "a ConditionSet describes one operating point"
+                )
+            seen.add(condition.kind)
+        return self
 
     def get(self, kind: ConditionKind) -> Condition | None:
         for c in self.conditions:

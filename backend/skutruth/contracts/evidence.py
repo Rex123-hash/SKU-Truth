@@ -29,6 +29,15 @@ from .enums import (
 from .value import AttributeValue
 
 
+def _same_raw_text(a: str, b: str) -> bool:
+    """Whitespace-insensitive comparison of two source fragments.
+
+    Case is significant: `mA` and `MA` are different units, and a comparison that
+    folded them would defeat the point of anchoring a derivation to source text.
+    """
+    return "".join(a.split()) == "".join(b.split())
+
+
 class SourceArtifact(BaseModel):
     """A document we ingested, hashed, and can re-open at a given page.
 
@@ -247,6 +256,30 @@ class EvidenceGroup(BaseModel):
                         "corroborate one another"
                     )
         return self
+
+    def supports_value(self, value: AttributeValue) -> bool:
+        """Whether this group speaks for `value`, directly or through a derivation.
+
+        Two routes, and only two:
+
+        * **Verbatim.** The group observed the same claim, compared semantically, so
+          `18 A` and `18.0 A` match while `18 mA` does not.
+        * **Deterministic derivation.** The accepted value was produced from this
+          group's observation by a versioned transform. The link is that the accepted
+          value carries the *source's own raw text* — `18 A` derived from a span that
+          read `18000 mA` keeps `raw="18000 mA"`. A `Derivation` object on its own
+          proves nothing; it has to be anchored to text a span actually contained.
+
+        What this does not do is check the arithmetic of a conversion. Verifying that
+        18000 mA really is 18 A needs a unit engine, which lives in the ETIM
+        validators, not in the contract. What the contract can guarantee is that a
+        derived value is traceable to a real observation rather than floating free.
+        """
+        if self.representative_value.agrees_with(value):
+            return True
+        if value.derivation.is_verbatim:
+            return False
+        return _same_raw_text(self.representative_value.raw, value.raw)
 
     @property
     def size(self) -> int:

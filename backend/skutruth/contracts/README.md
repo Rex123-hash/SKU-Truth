@@ -31,9 +31,15 @@ an artifact we ingested and hashed, and we can re-open it at that page.
 
 Enforced by Pydantic validators, so a stage physically cannot emit a record that breaks them.
 
-1. **No acceptance without a verified span.** `AttributeStatus.ACCEPTED` requires at least one
-   `Evidence` whose `verification` is `EXACT_SPAN` or `FUZZY_OCR_SPAN`. `UNVERIFIED` evidence
-   may be stored and displayed as a discovery candidate, but it can never license acceptance.
+1. **No acceptance without a verified span *for that value*.** `AttributeStatus.ACCEPTED`
+   requires at least one `Evidence` that is verified (`EXACT_SPAN` / `FUZZY_OCR_SPAN`),
+   **supports the accepted value**, and **is about this product**. `UNVERIFIED` evidence may
+   be stored and displayed as a discovery candidate, but it can never license acceptance.
+
+   `ProductAttribute.licensing_evidence` is the single gate every downstream check reads —
+   acceptance, bound conditions, family proof, and grading all see the same filtered set.
+   Evidence that fails the filter stays on the attribute, because a reviewer should see
+   everything that was found; it simply cannot speak for the value.
 
 2. **A verified span must be re-openable.** Any non-`UNVERIFIED` evidence must record a page.
    A span we cannot open is not verified. `FUZZY_OCR_SPAN` must also record the
@@ -74,12 +80,19 @@ Enforced by Pydantic validators, so a stage physically cannot emit a record that
    transitive — an unconditioned member would otherwise bridge an AC-3 and an AC-1
    observation into a single group.
 
-10. **An accepted value may only claim conditions its evidence states.** Every verified span
-    must be clash-free with `bound_conditions`, *and* every condition in `bound_conditions`
-    must be stated by at least one verified span. Not-contradicted is not the same as
-    supported. Withheld attributes are deliberately unconstrained here: representing a
-    conflict, a partial qualifier set, or a variant-dependent value requires holding
-    conditions that no single span supports.
+10. **An accepted value may only claim an operating point one span actually states.** Every
+    licensing span must be clash-free with `bound_conditions`, *and* **one single licensing
+    span must support the whole of it**. A complete operating point may not be assembled by
+    unioning partial spans — one span saying `AC-3` and another saying `400 V` do not between
+    them establish `AC-3 / 400 V`, because nothing observed the combination. Partial spans may
+    still corroborate alongside a complete one. Withheld attributes are deliberately
+    unconstrained here: representing a conflict, a partial qualifier set, or a
+    variant-dependent value requires holding conditions no single span supports.
+
+    A `ConditionSet` also binds each `ConditionKind` at most once — it is a normalized
+    operating point, not a multimap. Every consumer reduces it to a dict, so a duplicate would
+    be silently dropped and the survivor would depend on iteration order. Equal duplicates are
+    rejected too.
 
 11. **Evidence group ids are unique within an attribute, and conflicts reference real
     groups.** A `Conflict` pointing at a group the attribute does not hold — including one
@@ -131,6 +144,38 @@ establishes nothing about the reference in hand, and caps at B.
 
 `proves_family_scope` is set by the extraction/verification stage from what the span shows.
 It is not an inference about the document as a whole.
+
+**Exact-SKU evidence is anchored to the resolved reference.** When a record resolves to an
+`EXACT` identity, every attribute carries `identity_anchor_mpn`, and an exact-SKU artifact is
+eligible only if its `covers_mpn` canonically matches. An exact-SKU datasheet for a different
+part is not weak evidence about this product — it is evidence about a different product, and
+it is excluded from licensing, scope, grading, and family proof alike. An artifact that never
+says which reference it covers cannot be shown to cover this one, so it is excluded too.
+
+Family- and range-scoped artifacts are not filtered by the anchor; they legitimately describe
+a set containing this reference. And when identity is *not* exact the anchor must be absent —
+a family stem is not an exact reference, and anchoring to one would disqualify precisely the
+child artifacts that prove invariance.
+
+`canonical_mpn` folds case and whitespace only. Hyphenation, packaging suffixes, and regional
+variants can all distinguish genuinely different parts, so the contract recognises only
+differences it can be certain are cosmetic; richer matching belongs in the identity stage,
+behind evaluation.
+
+### How a value is tied to its evidence
+
+Two routes, and only two:
+
+- **Verbatim** — a group observed the same claim, compared on `semantic_key()`, so `18 A` and
+  `18.0 A` match while `18 mA` does not.
+- **Deterministic derivation** — the accepted value carries the *source's own raw text*.
+  `18 A` derived from a span reading `18000 mA` keeps `raw="18000 mA"`, and that shared text
+  is the link. A `Derivation` object on its own proves nothing; it must be anchored to text a
+  span actually contained, so a derivation cannot be used to launder an unrelated number.
+
+The contract does not check a conversion's arithmetic — that needs a unit engine, which lives
+in the ETIM validators. What it guarantees is that a derived value is traceable to a real
+observation rather than floating free.
 
 `independent_root_count` is logged from day one so P1 evidence-root deduplication has history
 to work with, but it does not influence the P0 grade. Until that clustering exists, **extra
@@ -271,3 +316,23 @@ Two decisions were applied at the same time: grade A no longer requires an exact
 *document* (see *The support rule*), and `family_invariance=PROVEN` is now backed by evidence
 rather than asserted, which required `Evidence.proves_family_scope` and
 `SourceArtifact.covers_mpn`.
+
+### Acceptance-path patch (second red-team pass)
+
+Four concrete counterexamples, each of which constructed successfully before this patch.
+
+| Counterexample | Closed by |
+|---|---|
+| Accepted `18 A` licensed and graded A by a group whose only value was `32 A` | `EvidenceGroup.supports_value` + `ProductAttribute.licensing_evidence`, which every downstream check now reads |
+| `AC-3` from one span and `400 V` from another, combined into a `COMPLETE` `AC-3 / 400 V` claim | one licensing span must `supports()` the whole `bound_conditions`; partial spans may only corroborate |
+| A record resolved to `LC1D18P7` graded A on an exact-SKU artifact covering a different part | `identity_anchor_mpn` on the attribute, enforced against `identity.mpn_normalized` by `GoldenRecord`; `is_eligible_evidence` filters exact-SKU artifacts by `canonical_mpn` |
+| `ConditionSet` holding `UTILIZATION_CATEGORY` twice, silently collapsed on dict conversion | `_each_kind_is_bound_at_most_once`, rejecting equal duplicates too |
+
+`SUPPORT_RULE_VERSION` moved to `support@v3`. This was a judgement call rather than a reflex:
+the *rule* is unchanged, but the *evidence the rule sees* is not. The same serialized
+attribute can now grade differently — an exact-SKU artifact for another part used to set
+`scope_established` and no longer does — so a stored v2 grade is not reproducible under v3,
+which is precisely what the version exists to record.
+
+Validator order also changed so that a missing supporting span is reported before a downstream
+condition complaint. Same acceptance decisions, better diagnostics.

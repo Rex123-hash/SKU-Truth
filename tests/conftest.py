@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from skutruth.contracts import (
     Applicability,
     AttributeStatus,
+    AttributeValue,
     Condition,
     ConditionCompleteness,
     ConditionKind,
@@ -95,6 +96,7 @@ def make_evidence(
     conditions: ConditionSet | None = None,
     number: float = 18.0,
     unit: str = "A",
+    observed: AttributeValue | None = None,
     page: int | None = 2,
     match_score: float | None = None,
     proves_family_scope: bool = False,
@@ -115,7 +117,11 @@ def make_evidence(
         modality=modality,
         verification=verification,
         match_score=match_score,
-        observed_value=NumericValue(raw=f"{number:g} {unit}", number=number, unit=unit),
+        observed_value=(
+            observed
+            if observed is not None
+            else NumericValue(raw=f"{number:g} {unit}", number=number, unit=unit)
+        ),
         conditions=conditions if conditions is not None else AC3_400V,
         proves_family_scope=proves_family_scope,
         extraction_model="gemini-3.1-flash-lite",
@@ -134,11 +140,35 @@ def make_group(
     members: list[Evidence] | None = None,
     conditions: ConditionSet | None = None,
 ) -> EvidenceGroup:
+    conds = conditions if conditions is not None else AC3_400V
     return EvidenceGroup(
         group_id=group_id,
         representative_value=NumericValue(raw=f"{number:g} {unit}", number=number, unit=unit),
-        conditions=conditions if conditions is not None else AC3_400V,
-        members=members or [make_evidence(number=number, unit=unit)],
+        conditions=conds,
+        # The default member inherits the group's operating point; otherwise a caller
+        # overriding `conditions` alone would build a group that contradicts itself.
+        members=members or [make_evidence(number=number, unit=unit, conditions=conds)],
+    )
+
+
+def group_for(
+    value: AttributeValue,
+    *,
+    group_id: str = "eg_1",
+    conditions: ConditionSet | None = None,
+) -> EvidenceGroup:
+    """A group whose single span observed exactly `value` under `conditions`.
+
+    Fixtures use this so an accepted value is always backed by evidence that actually
+    states it. Building an attribute whose evidence says something else is the bug the
+    contract now rejects, and it should take deliberate effort to express in a test.
+    """
+    conds = conditions if conditions is not None else AC3_400V
+    return EvidenceGroup(
+        group_id=group_id,
+        representative_value=value,
+        conditions=conds,
+        members=[make_evidence(observed=value, conditions=conds)],
     )
 
 
@@ -182,8 +212,18 @@ def make_two_child_groups() -> tuple[EvidenceGroup, EvidenceGroup]:
     )
 
 
+#: The exact reference the default fixtures resolve to. Matches `EXACT_IDENTITY` and
+#: `make_artifact`'s `covers_mpn`, so exact-SKU evidence is eligible by default.
+ANCHOR_MPN = "LC1D18P7"
+
+
 def make_attribute(**overrides) -> ProductAttribute:
-    """An accepted, grade-A rated-current attribute unless overridden."""
+    """An accepted, grade-A rated-current attribute unless overridden.
+
+    When a caller overrides `value` or `bound_conditions` without supplying
+    `evidence_groups`, the default group is rebuilt to match — otherwise the fixture
+    would assert a value its evidence never stated, which the contract now rejects.
+    """
     kwargs = {
         "etim_feature_id": "EF001392",
         "name": "Rated operation current Ie at AC-3, 400 V",
@@ -195,8 +235,13 @@ def make_attribute(**overrides) -> ProductAttribute:
         "value": NumericValue(raw="18 A", number=18.0, unit="A"),
         "bound_conditions": AC3_400V,
         "family_invariance": FamilyInvariance.NOT_REQUIRED,
+        "identity_anchor_mpn": ANCHOR_MPN,
         "support_grade": SupportGrade.A,
-        "evidence_groups": (make_group(),),
     }
     kwargs.update(overrides)
+    if "evidence_groups" not in overrides:
+        value = kwargs["value"]
+        kwargs["evidence_groups"] = (
+            () if value is None else (group_for(value, conditions=kwargs["bound_conditions"]),)
+        )
     return ProductAttribute(**kwargs)

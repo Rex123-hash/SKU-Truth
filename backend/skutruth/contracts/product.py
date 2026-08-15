@@ -23,7 +23,13 @@ from .enums import (
     WithheldReason,
 )
 from .evidence import Conflict, Evidence, EvidenceGroup
-from .support import SupportFactors, compute_support_factors, derive_support_grade
+from .mpn import canonical_mpn, mpn_matches
+from .support import (
+    SupportFactors,
+    compute_support_factors,
+    derive_support_grade,
+    is_eligible_evidence,
+)
 from .value import VALUE_KIND_FOR_FEATURE_TYPE, AttributeValue
 
 
@@ -147,12 +153,55 @@ class ProductAttribute(BaseModel):
     bound_conditions: ConditionSet = Field(default_factory=ConditionSet)
     family_invariance: FamilyInvariance = FamilyInvariance.NOT_REQUIRED
 
+    identity_anchor_mpn: str | None = Field(
+        default=None,
+        description="The exact reference this attribute's evidence must be about. Set to "
+        "GoldenRecord.identity.mpn_normalized when the record resolved to an EXACT "
+        "identity, and None otherwise — enforced by GoldenRecord. Exact-SKU evidence "
+        "covering a different reference is evidence about a different product.",
+    )
+
     support_grade: SupportGrade | None = None
     support_factors: SupportFactors | None = None
     withheld_reason: WithheldReason | None = None
 
     evidence_groups: tuple[EvidenceGroup, ...] = ()
     conflicts: tuple[Conflict, ...] = ()
+
+    # ---- what may speak for the accepted value -------------------------------
+
+    @property
+    def licensing_groups(self) -> tuple[EvidenceGroup, ...]:
+        """Groups that support the accepted value and are about the right product.
+
+        The single gate every downstream check reads. A group holding some *other*
+        value, or an exact-SKU artifact for some *other* reference, is retained on the
+        attribute — a reviewer should see everything that was found — but it cannot
+        license acceptance, cannot establish scope, cannot complete an operating
+        point, and cannot back a family proof.
+        """
+        if self.value is None:
+            return ()
+        out = []
+        for group in self.evidence_groups:
+            if not group.supports_value(self.value):
+                continue
+            if any(
+                is_eligible_evidence(e, self.identity_anchor_mpn)
+                for e in group.verified_members
+            ):
+                out.append(group)
+        return tuple(out)
+
+    @property
+    def licensing_evidence(self) -> list[Evidence]:
+        """Verified, eligible spans from the groups that support the accepted value."""
+        return [
+            e
+            for g in self.licensing_groups
+            for e in g.verified_members
+            if is_eligible_evidence(e, self.identity_anchor_mpn)
+        ]
 
     # ---- invariants ----------------------------------------------------------
 
@@ -233,6 +282,24 @@ class ProductAttribute(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _accepted_values_have_a_verified_span(self) -> ProductAttribute:
+        """The central promise: no acceptance without a span we located ourselves.
+
+        A normalized value does not need its own quote — lineage through
+        `value.derivation` back to a verified raw fragment is what supports it.
+        """
+        if self.status is not AttributeStatus.ACCEPTED:
+            return self
+        if not self.licensing_evidence:
+            raise ValueError(
+                f"attribute {self.etim_feature_id} accepts {self.value.display()!r} with no "
+                "verified span supporting that value: evidence must observe the value "
+                "itself, or the raw text a deterministic derivation produced it from, and "
+                "must be about this product"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _bound_conditions_are_supported_by_licensing_evidence(self) -> ProductAttribute:
         """An accepted value may only claim an operating point its evidence states.
 
@@ -250,7 +317,7 @@ class ProductAttribute(BaseModel):
         """
         if self.status is not AttributeStatus.ACCEPTED:
             return self
-        licensing = [e for g in self.evidence_groups for e in g.verified_members]
+        licensing = self.licensing_evidence
         for ev in licensing:
             clash = ev.conditions.conflicting_kinds(self.bound_conditions)
             if clash:
@@ -259,18 +326,14 @@ class ProductAttribute(BaseModel):
                     f"contradict evidence {ev.evidence_id} on "
                     f"{', '.join(k.value for k in clash)}"
                 )
-        unsupported = [
-            condition.display()
-            for condition in self.bound_conditions.conditions
-            if not any(
-                ev.conditions.supports(ConditionSet(conditions=(condition,)))
-                for ev in licensing
-            )
-        ]
-        if unsupported:
+        if self.bound_conditions and not any(
+            ev.conditions.supports(self.bound_conditions) for ev in licensing
+        ):
             raise ValueError(
-                f"attribute {self.etim_feature_id} binds conditions no verified span "
-                f"states: {', '.join(unsupported)}"
+                f"attribute {self.etim_feature_id} claims the operating point "
+                f"'{self.bound_conditions.display()}', but no single verified span "
+                "states all of it; a complete operating point may not be assembled by "
+                "unioning partial spans"
             )
         return self
 
@@ -284,11 +347,11 @@ class ProductAttribute(BaseModel):
         """
         if self.family_invariance is not FamilyInvariance.PROVEN:
             return self
-        verified = [e for g in self.evidence_groups for e in g.verified_members]
+        verified = self.licensing_evidence
         if any(e.proves_family_scope for e in verified):
             return self
         children = {
-            e.artifact.covers_mpn
+            canonical_mpn(e.artifact.covers_mpn)
             for e in verified
             if e.identity_scope is IdentityScope.EXACT_SKU and e.artifact.covers_mpn
         }
@@ -301,23 +364,6 @@ class ProductAttribute(BaseModel):
         )
 
     @model_validator(mode="after")
-    def _accepted_values_have_a_verified_span(self) -> ProductAttribute:
-        """The central promise: no acceptance without a span we located ourselves.
-
-        A normalized value does not need its own quote — lineage through
-        `value.derivation` back to a verified raw fragment is what supports it.
-        """
-        if self.status is not AttributeStatus.ACCEPTED:
-            return self
-        verified = [e for g in self.evidence_groups for e in g.verified_members]
-        if not verified:
-            raise ValueError(
-                f"attribute {self.etim_feature_id} accepts a value with no verified span; "
-                "unverified evidence may not support an accepted value"
-            )
-        return self
-
-    @model_validator(mode="after")
     def _support_grade_is_derived_not_asserted(self) -> ProductAttribute:
         """The grade must equal what the documented rule produces from this evidence."""
         if self.status is not AttributeStatus.ACCEPTED:
@@ -326,7 +372,7 @@ class ProductAttribute(BaseModel):
             return self
 
         factors = compute_support_factors(
-            [e for g in self.evidence_groups for e in g.members],
+            self.licensing_evidence,
             family_invariance=self.family_invariance,
             condition_completeness=self.bound_conditions.completeness,
         )
@@ -372,12 +418,16 @@ class ProductAttribute(BaseModel):
 
 
 def accepted_attribute_factors(attr: ProductAttribute) -> SupportFactors:
-    """Recompute the factor bag for display. Kept public so the UI and eval agree."""
+    """Recompute the factor bag for display. Kept public so the UI and eval agree.
+
+    Reads the same licensing evidence the grade was derived from, so what the drawer
+    explains is what the rule actually saw.
+    """
     return compute_support_factors(
-        attr.all_evidence,
+        attr.licensing_evidence,
         family_invariance=attr.family_invariance,
         condition_completeness=attr.bound_conditions.completeness,
-        independent_root_count=len(attr.evidence_groups),
+        independent_root_count=len(attr.licensing_groups),
     )
 
 
@@ -478,6 +528,41 @@ class GoldenRecord(BaseModel):
     attributes: tuple[ProductAttribute, ...] = ()
     coverage: CoverageReport | None = None
     cost: RunCost = Field(default_factory=RunCost)
+
+    @model_validator(mode="after")
+    def _attributes_are_anchored_to_the_resolved_identity(self) -> GoldenRecord:
+        """Exact-SKU evidence must be about the reference this record resolved to.
+
+        The anchor is carried on each attribute so that grading stays a local,
+        recomputable function of the attribute. This validator is what keeps that
+        copy honest: under an EXACT identity every attribute anchors to the resolved
+        MPN, and under any other disposition no attribute may claim an anchor — a
+        family stem is not an exact reference, and forcing one would exclude exactly
+        the child artifacts that prove invariance.
+        """
+        if self.identity.is_exact:
+            offenders = [
+                a.etim_feature_id
+                for a in self.attributes
+                if not mpn_matches(a.identity_anchor_mpn, self.identity.mpn_normalized)
+            ]
+            if offenders:
+                raise ValueError(
+                    f"identity resolved to {self.identity.mpn_normalized!r}, so every "
+                    "attribute must set identity_anchor_mpn to it; offending features: "
+                    f"{', '.join(offenders)}"
+                )
+            return self
+
+        offenders = [
+            a.etim_feature_id for a in self.attributes if a.identity_anchor_mpn is not None
+        ]
+        if offenders:
+            raise ValueError(
+                f"identity is {self.identity.disposition}, which names no exact reference, "
+                f"so attributes must not set identity_anchor_mpn: {', '.join(offenders)}"
+            )
+        return self
 
     @model_validator(mode="after")
     def _non_exact_identity_gates_attribute_acceptance(self) -> GoldenRecord:
