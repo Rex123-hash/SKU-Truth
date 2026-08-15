@@ -66,6 +66,53 @@ class ConditionSet(BaseModel):
     def describes_same_operating_point_as(self, other: ConditionSet) -> bool:
         return self.key() == other.key()
 
+    # -- compatibility for corroboration ---------------------------------------
+    #
+    # Equality of `key()` is the right test for "is this the same operating point".
+    # It is the wrong test for "may these two observations corroborate each other",
+    # because real sources omit qualifiers they consider obvious: a datasheet row
+    # headed `AC-3 400 V` and a distributor table that says only `AC-3` are describing
+    # the same rating, and refusing to group them would be pedantry, not rigour.
+    #
+    # The smallest defensible rule is therefore *clash detection*, not equality:
+    #
+    #     compatible(a, b)  <=>  for every ConditionKind present in BOTH,
+    #                            a and b agree on its value
+    #
+    # A qualifier present in one and absent from the other is tolerated. A qualifier
+    # present in both with different values is a hard incompatibility. That rejects
+    # the case this rule exists for -- AC-3 and AC-1 cannot corroborate each other --
+    # while tolerating the far more common case of an under-specified source.
+    #
+    # Tolerating an omission is safe here because it cannot manufacture support: an
+    # under-specified evidence set leaves `completeness` short of COMPLETE, which
+    # caps the support grade below A on its own.
+
+    def conflicting_kinds(self, other: ConditionSet) -> tuple[ConditionKind, ...]:
+        """Kinds bound by both sets to different values. Empty means compatible."""
+        mine = {c.kind: c.value.casefold() for c in self.conditions}
+        theirs = {c.kind: c.value.casefold() for c in other.conditions}
+        return tuple(
+            sorted(
+                (kind for kind in mine.keys() & theirs.keys() if mine[kind] != theirs[kind]),
+                key=lambda k: k.value,
+            )
+        )
+
+    def is_compatible_with(self, other: ConditionSet) -> bool:
+        """True when no qualifier bound by both sets disagrees."""
+        return not self.conflicting_kinds(other)
+
+    def supports(self, claimed: ConditionSet) -> bool:
+        """True when every qualifier `claimed` asserts is bound identically here.
+
+        Stricter than `is_compatible_with`, and used where an attribute claims an
+        operating point: the claim must be *stated* by evidence, not merely
+        un-contradicted by it.
+        """
+        mine = {c.kind: c.value.casefold() for c in self.conditions}
+        return all(mine.get(c.kind) == c.value.casefold() for c in claimed.conditions)
+
     @property
     def is_complete(self) -> bool:
         return self.completeness is ConditionCompleteness.COMPLETE

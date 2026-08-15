@@ -55,6 +55,11 @@ class SourceArtifact(BaseModel):
     identity_scope: IdentityScope = Field(
         description="Whether this artifact covers one exact reference, a family, or a range"
     )
+    covers_mpn: str | None = Field(
+        default=None,
+        description="The commercial reference this artifact is about, when it names one. "
+        "Distinct exact-SKU artifacts are how invariance across a family is proven.",
+    )
 
 
 class SpanLocator(BaseModel):
@@ -136,6 +141,13 @@ class Evidence(BaseModel):
     observed_value: AttributeValue
     conditions: ConditionSet = Field(default_factory=ConditionSet)
 
+    proves_family_scope: bool = Field(
+        default=False,
+        description="The span itself shows the value holds across the family — a variant "
+        "table row spanning every child, or an explicit 'all variants' statement. False "
+        "for a family document that merely happens to list one child's value.",
+    )
+
     # Reproducibility trail: enough to re-run this exact extraction.
     extraction_model: str
     prompt_version: str
@@ -172,24 +184,69 @@ class Evidence(BaseModel):
 
 
 class EvidenceGroup(BaseModel):
-    """Observations that agree on a value under one operating point.
+    """Observations that corroborate one another: same value, compatible conditions.
 
-    P0 semantics are deliberately shallow: this groups agreeing observations so the
-    drawer can show them together. It does **not** claim the members are independent.
-    `origin_note` says only what we can defend, e.g. "3 URLs, likely the same
-    manufacturer origin". Conservative evidence-root deduplication is P1, and until
-    it exists, extra members never raise the support grade.
+    Both halves of that sentence are enforced. A group whose members disagree on the
+    value is not corroboration, and a group that straddles two operating points is
+    worse than useless — it would let an AC-3 rating and an AC-1 rating sit behind a
+    single representative value, which is precisely the confusion that first-class
+    conditions exist to prevent.
+
+    P0 semantics remain deliberately shallow on *independence*: this groups agreeing
+    observations so the drawer can show them together, and does **not** claim the
+    members are independent sources. `origin_note` says only what we can defend, e.g.
+    "3 URLs, likely the same manufacturer origin". Conservative evidence-root
+    deduplication is P1, and until it exists, extra members never raise the grade.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    group_id: str
+    group_id: str = Field(min_length=1)
     representative_value: AttributeValue
     conditions: ConditionSet = Field(default_factory=ConditionSet)
     members: list[Evidence] = Field(min_length=1)
     origin_note: str | None = Field(
         default=None, description="e.g. 'likely same origin as the manufacturer datasheet'"
     )
+
+    @model_validator(mode="after")
+    def _members_agree_on_the_value(self) -> EvidenceGroup:
+        key = self.representative_value.semantic_key()
+        for member in self.members:
+            if member.observed_value.semantic_key() != key:
+                raise ValueError(
+                    f"evidence {member.evidence_id} observed "
+                    f"{member.observed_value.display()!r}, which does not corroborate the "
+                    f"group's {self.representative_value.display()!r}; put disagreeing "
+                    "observations in separate groups"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _members_share_a_compatible_operating_point(self) -> EvidenceGroup:
+        """No qualifier may be bound to different values within one group.
+
+        Checked pairwise as well as against the group's own conditions: clash-freedom
+        is not transitive, so a member with no conditions could otherwise bridge an
+        AC-3 member and an AC-1 member into a single group.
+        """
+        for member in self.members:
+            clash = member.conditions.conflicting_kinds(self.conditions)
+            if clash:
+                raise ValueError(
+                    f"evidence {member.evidence_id} disagrees with the group's operating "
+                    f"point on {', '.join(k.value for k in clash)}"
+                )
+        for i, a in enumerate(self.members):
+            for b in self.members[i + 1 :]:
+                clash = a.conditions.conflicting_kinds(b.conditions)
+                if clash:
+                    raise ValueError(
+                        f"evidence {a.evidence_id} and {b.evidence_id} describe different "
+                        f"operating points ({', '.join(k.value for k in clash)}) and cannot "
+                        "corroborate one another"
+                    )
+        return self
 
     @property
     def size(self) -> int:

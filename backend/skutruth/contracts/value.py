@@ -50,6 +50,11 @@ class Derivation(BaseModel):
 VERBATIM = Derivation()
 
 
+#: Decimal places used when reducing a float to a comparison key. Product data is
+#: quoted to a handful of significant figures, so this only absorbs float-repr noise.
+_NUMERIC_PRECISION = 9
+
+
 class _ValueBase(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -58,6 +63,20 @@ class _ValueBase(BaseModel):
 
     def display(self) -> str:  # pragma: no cover - overridden
         raise NotImplementedError
+
+    def semantic_key(self) -> tuple:  # pragma: no cover - overridden
+        """The value stripped of presentation, for agreement checks.
+
+        Two observations agree when their semantic keys match. `raw` and `derivation`
+        are excluded, so `18 A` and `18.0 A` are one claim however each source wrote
+        it. The **unit is part of the key**: `18 A` and `18 mA` do not agree here.
+        Reconciling those is normalisation's job, and it happens before grouping —
+        an evidence group compares values that are already in ETIM's unit.
+        """
+        raise NotImplementedError
+
+    def agrees_with(self, other: AttributeValue) -> bool:
+        return self.semantic_key() == other.semantic_key()
 
 
 class NumericValue(_ValueBase):
@@ -68,6 +87,9 @@ class NumericValue(_ValueBase):
     def display(self) -> str:
         n = f"{self.number:g}"
         return f"{n} {self.unit}" if self.unit else n
+
+    def semantic_key(self) -> tuple:
+        return ("numeric", round(self.number, _NUMERIC_PRECISION), self.unit)
 
 
 class RangeValue(_ValueBase):
@@ -89,6 +111,14 @@ class RangeValue(_ValueBase):
         span = f"{self.minimum:g}–{self.maximum:g}"
         return f"{span} {self.unit}" if self.unit else span
 
+    def semantic_key(self) -> tuple:
+        return (
+            "range",
+            round(self.minimum, _NUMERIC_PRECISION),
+            round(self.maximum, _NUMERIC_PRECISION),
+            self.unit,
+        )
+
 
 class AlphanumericValue(_ValueBase):
     """A picklist selection. `value_id` is the ETIM EVxxxxxxx code when known."""
@@ -100,6 +130,10 @@ class AlphanumericValue(_ValueBase):
     def display(self) -> str:
         return self.text
 
+    def semantic_key(self) -> tuple:
+        # The ETIM value id is authoritative when present; the text is a label for it.
+        return ("alphanumeric", self.value_id or self.text.casefold())
+
 
 class LogicalValue(_ValueBase):
     kind: Literal["logical"] = "logical"
@@ -107,6 +141,9 @@ class LogicalValue(_ValueBase):
 
     def display(self) -> str:
         return "Yes" if self.boolean else "No"
+
+    def semantic_key(self) -> tuple:
+        return ("logical", self.boolean)
 
 
 AttributeValue = Annotated[

@@ -17,6 +17,7 @@ from .enums import (
     EtimFeatureType,
     FamilyInvariance,
     IdentityDisposition,
+    IdentityScope,
     RunMode,
     SupportGrade,
     WithheldReason,
@@ -81,6 +82,22 @@ class ProductIdentity(BaseModel):
         default=None, description="Prior MPN this run resolved from, after a variant selection"
     )
     evidence_ids: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _exact_identity_has_a_canonical_reference(self) -> ProductIdentity:
+        """EXACT means we know which orderable reference this is. Say which.
+
+        Non-exact dispositions are not forced to invent one: an unresolved family
+        stem or an unknown reference legitimately has no canonical exact MPN.
+        """
+        if self.disposition is IdentityDisposition.EXACT and not (
+            self.mpn_normalized and self.mpn_normalized.strip()
+        ):
+            raise ValueError(
+                "EXACT identity requires a normalized MPN; an exact disposition without "
+                "a canonical product reference asserts more than it can name"
+            )
+        return self
 
     @model_validator(mode="after")
     def _incomplete_reference_names_its_discriminator(self) -> ProductIdentity:
@@ -189,6 +206,101 @@ class ProductAttribute(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _evidence_group_ids_are_unique(self) -> ProductAttribute:
+        seen: set[str] = set()
+        for group in self.evidence_groups:
+            if group.group_id in seen:
+                raise ValueError(
+                    f"duplicate evidence group id {group.group_id!r} on attribute "
+                    f"{self.etim_feature_id}; group ids must identify a group uniquely "
+                    "so conflicts and the UI can reference them"
+                )
+            seen.add(group.group_id)
+        return self
+
+    @model_validator(mode="after")
+    def _conflicts_reference_groups_that_exist(self) -> ProductAttribute:
+        """A conflict pointing at a group we do not hold is unresolvable by a reviewer."""
+        known = {g.group_id for g in self.evidence_groups}
+        for conflict in self.conflicts:
+            dangling = [gid for gid in conflict.group_ids if gid not in known]
+            if dangling:
+                raise ValueError(
+                    f"conflict on {self.etim_feature_id} references unknown evidence "
+                    f"group(s) {', '.join(sorted(dangling))}; known groups are "
+                    f"{', '.join(sorted(known)) or '(none)'}"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _bound_conditions_are_supported_by_licensing_evidence(self) -> ProductAttribute:
+        """An accepted value may only claim an operating point its evidence states.
+
+        Two failures are possible and both are caught:
+
+        * the attribute claims a qualifier that contradicts a verified span
+          (18 A at AC-1, evidence says AC-3); and
+        * the attribute claims a qualifier no verified span mentions at all, which
+          would be an operating point we invented rather than read.
+
+        Withheld attributes are left free. Representing a conflict, an incomplete
+        qualifier set, or a variant-dependent value *requires* holding conditions
+        that no single piece of evidence supports, and constraining that would make
+        the abstention states unusable.
+        """
+        if self.status is not AttributeStatus.ACCEPTED:
+            return self
+        licensing = [e for g in self.evidence_groups for e in g.verified_members]
+        for ev in licensing:
+            clash = ev.conditions.conflicting_kinds(self.bound_conditions)
+            if clash:
+                raise ValueError(
+                    f"attribute {self.etim_feature_id} claims operating conditions that "
+                    f"contradict evidence {ev.evidence_id} on "
+                    f"{', '.join(k.value for k in clash)}"
+                )
+        unsupported = [
+            condition.display()
+            for condition in self.bound_conditions.conditions
+            if not any(
+                ev.conditions.supports(ConditionSet(conditions=(condition,)))
+                for ev in licensing
+            )
+        ]
+        if unsupported:
+            raise ValueError(
+                f"attribute {self.etim_feature_id} binds conditions no verified span "
+                f"states: {', '.join(unsupported)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _proven_family_invariance_is_backed_by_evidence(self) -> ProductAttribute:
+        """PROVEN is a claim about evidence, not a trust-me flag.
+
+        It requires either a span that itself proves the value spans the family, or
+        agreement across two or more distinct exact child references. Observing one
+        child proves nothing about its siblings.
+        """
+        if self.family_invariance is not FamilyInvariance.PROVEN:
+            return self
+        verified = [e for g in self.evidence_groups for e in g.verified_members]
+        if any(e.proves_family_scope for e in verified):
+            return self
+        children = {
+            e.artifact.covers_mpn
+            for e in verified
+            if e.identity_scope is IdentityScope.EXACT_SKU and e.artifact.covers_mpn
+        }
+        if len(children) >= 2:
+            return self
+        raise ValueError(
+            f"family_invariance=PROVEN on {self.etim_feature_id} is not backed: needs a "
+            "span that proves family scope, or verified spans from at least two distinct "
+            f"exact child references (found {len(children)})"
+        )
+
+    @model_validator(mode="after")
     def _accepted_values_have_a_verified_span(self) -> ProductAttribute:
         """The central promise: no acceptance without a span we located ourselves.
 
@@ -275,6 +387,12 @@ class RunProvenance(BaseModel):
     A REPLAY run replays interactions that were really captured earlier. It is not
     synthetic, and it is not fresh. `captured_at` is mandatory for REPLAY and MIXED so
     the UI can always state the age of what it is showing.
+
+    **MIXED is a defensive truth state, not an operating mode.** Nothing in the normal
+    flow requests it. It exists so that a run which did end up partly recorded and
+    partly live can say so, instead of being mislabelled as one or the other. It is
+    rejected by published evaluation and by the public demo, and it must never be
+    offered as a user-selectable option.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -299,7 +417,21 @@ class RunProvenance(BaseModel):
 
     @property
     def is_publishable_evaluation(self) -> bool:
-        """MIXED runs are barred from published evaluation and the public demo."""
+        """Published evaluation must be wholly recorded or wholly live, never both."""
+        return self.mode is not RunMode.MIXED
+
+    @property
+    def is_public_demo_safe(self) -> bool:
+        """The public, ungated demo serves recorded runs only.
+
+        LIVE is gated behind an admin secret and a spend budget; MIXED is never
+        served to anyone, including judges.
+        """
+        return self.mode is RunMode.REPLAY
+
+    @property
+    def is_requestable(self) -> bool:
+        """Whether a caller may ask for this mode. MIXED can only be *observed*."""
         return self.mode is not RunMode.MIXED
 
     def banner(self) -> str:

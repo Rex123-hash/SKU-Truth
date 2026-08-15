@@ -59,6 +59,7 @@ def make_artifact(
     scope: IdentityScope = IdentityScope.EXACT_SKU,
     sha: str | None = None,
     discovery: DiscoveryMethod = DiscoveryMethod.CURATED_CORPUS,
+    covers_mpn: str | None = "LC1D18P7",
 ) -> SourceArtifact:
     return SourceArtifact(
         artifact_id=artifact_id,
@@ -70,6 +71,18 @@ def make_artifact(
         page_count=5,
         retrieved_at=datetime(2026, 8, 9, tzinfo=UTC),
         identity_scope=scope,
+        covers_mpn=covers_mpn,
+    )
+
+
+def make_family_table_artifact(artifact_id: str = "art_family") -> SourceArtifact:
+    """The Schneider TeSys D family/variant table: family-scoped, names no single child."""
+    return make_artifact(
+        artifact_id=artifact_id,
+        url="https://example.invalid/tesys-d-family-selection-table.pdf",
+        scope=IdentityScope.FAMILY,
+        covers_mpn=None,
+        sha="f" * 64,
     )
 
 
@@ -81,8 +94,10 @@ def make_evidence(
     modality: EvidenceModality = EvidenceModality.SPEC_TABLE,
     conditions: ConditionSet | None = None,
     number: float = 18.0,
+    unit: str = "A",
     page: int | None = 2,
     match_score: float | None = None,
+    proves_family_scope: bool = False,
 ) -> Evidence:
     return Evidence(
         evidence_id=evidence_id,
@@ -100,8 +115,9 @@ def make_evidence(
         modality=modality,
         verification=verification,
         match_score=match_score,
-        observed_value=NumericValue(raw=f"{number:g} A", number=number, unit="A"),
+        observed_value=NumericValue(raw=f"{number:g} {unit}", number=number, unit=unit),
         conditions=conditions if conditions is not None else AC3_400V,
+        proves_family_scope=proves_family_scope,
         extraction_model="gemini-3.1-flash-lite",
         prompt_version="extract@v1",
         schema_version="etim-class@v1",
@@ -114,14 +130,55 @@ def make_group(
     group_id: str = "eg_1",
     *,
     number: float = 18.0,
+    unit: str = "A",
     members: list[Evidence] | None = None,
     conditions: ConditionSet | None = None,
 ) -> EvidenceGroup:
     return EvidenceGroup(
         group_id=group_id,
-        representative_value=NumericValue(raw=f"{number:g} A", number=number, unit="A"),
+        representative_value=NumericValue(raw=f"{number:g} {unit}", number=number, unit=unit),
         conditions=conditions if conditions is not None else AC3_400V,
-        members=members or [make_evidence(number=number)],
+        members=members or [make_evidence(number=number, unit=unit)],
+    )
+
+
+def make_family_proof_group(group_id: str = "eg_family") -> EvidenceGroup:
+    """A family variant table whose span proves the value holds across every child."""
+    return make_group(
+        group_id,
+        members=[
+            make_evidence(
+                evidence_id="ev_family_table",
+                artifact=make_family_table_artifact(),
+                proves_family_scope=True,
+            )
+        ],
+    )
+
+
+def make_two_child_groups() -> tuple[EvidenceGroup, EvidenceGroup]:
+    """Agreement across two distinct exact child references — the other route to PROVEN."""
+    return (
+        make_group(
+            "eg_p7",
+            members=[
+                make_evidence(
+                    evidence_id="ev_p7",
+                    artifact=make_artifact(artifact_id="art_p7", covers_mpn="LC1D18P7"),
+                )
+            ],
+        ),
+        make_group(
+            "eg_bd",
+            members=[
+                make_evidence(
+                    evidence_id="ev_bd",
+                    artifact=make_artifact(
+                        artifact_id="art_bd", covers_mpn="LC1D18BD", sha="b" * 64
+                    ),
+                )
+            ],
+        ),
     )
 
 

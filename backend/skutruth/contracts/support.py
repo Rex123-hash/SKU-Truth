@@ -34,7 +34,9 @@ from .evidence import Evidence
 #: record which version graded them. The factor bag is intentionally open: new
 #: factors can be logged without a contract break, and only the documented keys
 #: participate in the rule.
-SUPPORT_RULE_VERSION = "support@v1"
+#: v2 replaced the `exact_identity_scope` factor with `scope_established`, which a
+#: family-scoped span can satisfy when it proves the value holds across the family.
+SUPPORT_RULE_VERSION = "support@v2"
 
 #: Factors we log today. Logging is not the same as using: `independent_root_count`
 #: is recorded from day one so P1 clustering has history to work with, but it does
@@ -42,7 +44,7 @@ SUPPORT_RULE_VERSION = "support@v1"
 KNOWN_FACTOR_KEYS = (
     "verified_span",
     "manufacturer_origin",
-    "exact_identity_scope",
+    "scope_established",
     "conditions_complete",
     "structured_modality",
     "family_invariance_ok",
@@ -78,6 +80,24 @@ def _is_structured(modality: EvidenceModality) -> bool:
     }
 
 
+def _establishes_scope(ev: Evidence) -> bool:
+    """Whether this span pins the value to the product we are describing.
+
+    Two ways to satisfy it, and the distinction is the whole point:
+
+    * the artifact is about one exact commercial reference; or
+    * the artifact is family-scoped **and the span itself proves the value holds
+      across the family** — a variant table row spanning every child, say.
+
+    A family document that merely happens to list one child's value satisfies
+    neither, and cannot establish scope. Grade is a statement about how well the
+    *attribute* is supported, not about how the document happens to be scoped.
+    """
+    if ev.identity_scope is IdentityScope.EXACT_SKU:
+        return True
+    return ev.identity_scope is IdentityScope.FAMILY and ev.proves_family_scope
+
+
 def compute_support_factors(
     evidence: list[Evidence],
     *,
@@ -91,7 +111,7 @@ def compute_support_factors(
 
     has_verified = bool(verified)
     manufacturer = any(e.source_type.is_manufacturer for e in verified)
-    exact_scope = any(e.identity_scope is IdentityScope.EXACT_SKU for e in verified)
+    scope_established = any(_establishes_scope(e) for e in verified)
     structured = any(_is_structured(e.modality) for e in verified)
     conditions_ok = condition_completeness is ConditionCompleteness.COMPLETE
     invariance_ok = family_invariance in {FamilyInvariance.NOT_REQUIRED, FamilyInvariance.PROVEN}
@@ -106,8 +126,13 @@ def compute_support_factors(
         )
     if has_verified and not manufacturer:
         notes.append("No manufacturer artifact among the verified spans.")
-    if has_verified and not exact_scope:
-        notes.append("No verified span comes from an exact-SKU artifact.")
+    if has_verified and not scope_established:
+        notes.append(
+            "No verified span pins the value to this reference: none is exact-SKU scoped, "
+            "and no family-scoped span proves the value holds across the family."
+        )
+    elif any(e.proves_family_scope for e in verified):
+        notes.append("A family-scoped span explicitly proves the value across variants.")
     if not conditions_ok:
         notes.append(f"Operating conditions are {condition_completeness.value.lower()}.")
     if family_invariance is FamilyInvariance.PROVEN:
@@ -118,7 +143,7 @@ def compute_support_factors(
     factors = {
         "verified_span": float(has_verified),
         "manufacturer_origin": float(manufacturer),
-        "exact_identity_scope": float(exact_scope),
+        "scope_established": float(scope_established),
         "conditions_complete": float(conditions_ok),
         "structured_modality": float(structured),
         "family_invariance_ok": float(invariance_ok),
@@ -136,15 +161,21 @@ def derive_support_grade(factors: SupportFactors) -> SupportGrade | None:
     ``None`` means "do not commit": either no span verified, or the value is not in
     scope for the resolved identity. Both are refusals, not weak acceptances.
 
-        A  verified span, manufacturer origin, exact-SKU scope, conditions complete,
+        A  verified span, manufacturer origin, scope established, conditions complete,
            and in scope for the resolved identity.
         B  verified span and in scope, but exactly one of {manufacturer origin,
-           exact-SKU scope, complete conditions} is missing.
+           scope established, complete conditions} is missing.
         C  verified span and in scope, but two or more of those are missing.
 
-    Grade A therefore does **not** require a second source. One exact-SKU manufacturer
-    datasheet whose span we located ourselves is the strongest evidence available for
-    an industrial part, and the rule now says so.
+    Two deliberate properties of this rule:
+
+    * Grade A does **not** require a second source. One manufacturer datasheet whose
+      span we located ourselves is the strongest evidence available for an industrial
+      part, and cluster count is not an input at all.
+    * Grade A does **not** require an exact-SKU-scoped *document*. What it requires is
+      that some verified span establishes the value applies to this reference — which
+      an exact-SKU artifact does by construction, and which a family variant table can
+      do explicitly. A family document that merely lists one child's value does not.
     """
     if not factors.get("verified_span"):
         return None
@@ -153,7 +184,7 @@ def derive_support_grade(factors: SupportFactors) -> SupportGrade | None:
 
     strengths = (
         factors.get("manufacturer_origin"),
-        factors.get("exact_identity_scope"),
+        factors.get("scope_established"),
         factors.get("conditions_complete"),
     )
     missing = sum(1 for s in strengths if not s)
