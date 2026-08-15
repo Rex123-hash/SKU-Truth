@@ -25,7 +25,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .errors import InvalidCassetteError, ReplayMissError
-from .keys import is_valid_key
+from .keys import KEY_VERSION, is_valid_key
 from .models import CASSETTE_VERSION, Cassette, InteractionRequest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -111,6 +111,14 @@ class CassetteStore:
             raise InvalidCassetteError(
                 str(path),
                 f"format version {version!r} is not the supported {CASSETTE_VERSION!r}",
+            )
+
+        key_version = raw.get("key_version")
+        if key_version != KEY_VERSION:
+            raise InvalidCassetteError(
+                str(path),
+                f"key version {key_version!r} is not the supported {KEY_VERSION!r}; the "
+                "key cannot be validated under the rule it claims to have used",
             )
 
         try:

@@ -142,8 +142,20 @@ class Cassette(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     cassette_version: str = CASSETTE_VERSION
+
+    #: Identifies the rule used to derive `key`. Validated against the current
+    #: KEY_VERSION on construction and on load — see `_versions_describe_this_rule`.
     key_version: str = KEY_VERSION
+
+    #: Historical metadata, deliberately *not* validated against the current rules.
+    #: Redaction is applied at capture time and only ever gets stricter, so a
+    #: recording made under older rules is still a truthful account of what happened
+    #: and still contains no secret. It records which rules scrubbed this file, which
+    #: is exactly what you want when auditing an old recording. `key_version` and
+    #: `cassette_version` are different in kind: they say how to *interpret the file
+    #: now*, so a mismatch there means the file cannot be trusted.
     redaction_version: str = REDACTION_VERSION
+
     key: str = Field(pattern=r"^[0-9a-f]{64}$")
 
     request: InteractionRequest
@@ -187,6 +199,54 @@ class Cassette(BaseModel):
     def _response_is_serializable(self) -> Cassette:
         _assert_json_serializable(self.response, "response")
         _assert_json_serializable(self.response_metadata, "response_metadata")
+        return self
+
+    @model_validator(mode="after")
+    def _top_level_metadata_matches_the_request(self) -> Cassette:
+        """`provider` and `model` are duplicated for convenience, not as a second truth.
+
+        The request descriptor is what the key is derived from, so it is authoritative.
+        The top-level copies exist so a listing or an error message can name the
+        provider without unpacking the request — but a copy that disagrees with its
+        source is worse than no copy, because callers reading `cassette.provider`
+        would be told something the key does not reflect.
+
+        The disagreement is reported rather than repaired. Silently rewriting one
+        field to match the other would decide, without evidence, which of the two the
+        recording actually came from.
+        """
+        mismatches = []
+        if self.provider != self.request.provider:
+            mismatches.append(
+                f"provider {self.provider!r} != request.provider {self.request.provider!r}"
+            )
+        if self.model != self.request.model:
+            mismatches.append(f"model {self.model!r} != request.model {self.request.model!r}")
+        if mismatches:
+            raise ValueError(
+                "cassette metadata disagrees with its request descriptor, which is "
+                f"authoritative: {'; '.join(mismatches)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _versions_describe_this_rule(self) -> Cassette:
+        """`key_version` must name the rule that `key` was actually derived under.
+
+        `_key_matches_the_request` recomputes the key using the *current* KEY_VERSION,
+        so a cassette claiming a different one is asserting something the recomputation
+        never checked. Since KEY_VERSION participates in the digest, the two can only
+        be reconciled by rejecting the file.
+
+        This is not version migration. A future migration would rewrite cassettes
+        under the new rule; it would not teach the loader to trust a version string it
+        cannot verify.
+        """
+        if self.key_version != KEY_VERSION:
+            raise ValueError(
+                f"key_version {self.key_version!r} does not name the rule this key was "
+                f"validated under ({KEY_VERSION!r}); the metadata cannot be trusted"
+            )
         return self
 
     @model_validator(mode="after")

@@ -13,6 +13,7 @@ import pytest
 from skutruth.contracts import RunMode
 from skutruth.replay import (
     CASSETTE_VERSION,
+    KEY_VERSION,
     Cassette,
     CassetteStore,
     InteractionRequest,
@@ -263,6 +264,128 @@ class TestFailClosed:
     def test_a_malformed_key_never_becomes_a_path(self, store):
         with pytest.raises(InvalidCassetteError, match="not a valid cassette key"):
             store.path_for("../../etc/passwd")
+
+
+class TestMetadataAgreesWithTheRequest:
+    """The request descriptor is authoritative; the top-level copies must not diverge."""
+
+    def _record_then_tamper(self, store, **changes):
+        run_interaction(
+            mode=RunMode.LIVE, request=request(), store=store, live_callable=lambda: {}
+        )
+        path = store.path_for(request().cassette_key())
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        blob.update(changes)
+        path.write_text(json.dumps(blob), encoding="utf-8")
+        return path
+
+    def test_a_provider_that_disagrees_with_the_request_is_rejected(self, store):
+        self._record_then_tamper(store, provider="other-provider")
+        with pytest.raises(InvalidCassetteError, match="disagrees with its request descriptor"):
+            run_interaction(
+                mode=RunMode.REPLAY,
+                request=request(),
+                store=store,
+                live_callable=should_never_run,
+            )
+
+    def test_a_model_that_disagrees_with_the_request_is_rejected(self, store):
+        self._record_then_tamper(store, model="fake-model-v2")
+        with pytest.raises(InvalidCassetteError, match="disagrees with its request descriptor"):
+            run_interaction(
+                mode=RunMode.REPLAY,
+                request=request(),
+                store=store,
+                live_callable=should_never_run,
+            )
+
+    def test_matching_provider_and_model_load_normally(self, store):
+        run_interaction(
+            mode=RunMode.LIVE, request=request(), store=store, live_callable=lambda: {"ok": 1}
+        )
+        cassette = store.load_for(request())
+        assert cassette.provider == cassette.request.provider == "test"
+        assert cassette.model == cassette.request.model == "fake-model-v1"
+
+    def test_the_mismatch_is_reported_not_repaired(self, store):
+        """Rewriting one field to match the other would invent a fact."""
+        req = request()
+        with pytest.raises(ValueError, match="disagrees with its request descriptor"):
+            Cassette(
+                key=req.cassette_key(),
+                request=req,
+                provider="other-provider",
+                model=req.model,
+                outcome="success",
+                response={},
+                captured_at=datetime.now(UTC),
+                latency_seconds=0.0,
+            )
+
+    def test_a_recorded_cassette_always_agrees_with_its_request(self, store):
+        result = run_interaction(
+            mode=RunMode.LIVE, request=request(), store=store, live_callable=lambda: {}
+        )
+        assert result.cassette.provider == result.cassette.request.provider
+        assert result.cassette.model == result.cassette.request.model
+
+
+class TestKeyVersionIntegrity:
+    """`key_version` names the rule the key was derived under, so it must be true."""
+
+    def test_an_unsupported_key_version_is_rejected_on_load(self, store):
+        run_interaction(
+            mode=RunMode.LIVE, request=request(), store=store, live_callable=lambda: {}
+        )
+        path = store.path_for(request().cassette_key())
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        blob["key_version"] = "record-replay-key@v99"
+        path.write_text(json.dumps(blob), encoding="utf-8")
+        with pytest.raises(InvalidCassetteError, match="key version"):
+            run_interaction(
+                mode=RunMode.REPLAY,
+                request=request(),
+                store=store,
+                live_callable=should_never_run,
+            )
+
+    def test_an_unsupported_key_version_cannot_be_constructed(self):
+        req = request()
+        with pytest.raises(ValueError, match="does not name the rule"):
+            Cassette(
+                key=req.cassette_key(),
+                key_version="record-replay-key@v99",
+                request=req,
+                provider=req.provider,
+                model=req.model,
+                outcome="success",
+                response={},
+                captured_at=datetime.now(UTC),
+                latency_seconds=0.0,
+            )
+
+    def test_recorded_cassettes_carry_the_current_key_version(self, store):
+        result = run_interaction(
+            mode=RunMode.LIVE, request=request(), store=store, live_callable=lambda: {}
+        )
+        assert result.cassette.key_version == KEY_VERSION
+
+    def test_redaction_version_is_historical_and_not_re_validated(self, store):
+        """Deliberate asymmetry: it records which rules scrubbed the file, not how to read it.
+
+        Redaction runs at capture time and only ever gets stricter, so a recording made
+        under older rules is still a truthful account containing no secret. Rejecting it
+        would discard good history for no safety gain.
+        """
+        run_interaction(
+            mode=RunMode.LIVE, request=request(), store=store, live_callable=lambda: {}
+        )
+        path = store.path_for(request().cassette_key())
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        blob["redaction_version"] = "redaction@v0"
+        path.write_text(json.dumps(blob), encoding="utf-8")
+        cassette = store.load_for(request())
+        assert cassette.redaction_version == "redaction@v0"
 
 
 class TestFailureRecording:
