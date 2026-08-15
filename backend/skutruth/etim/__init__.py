@@ -5,6 +5,12 @@ completeness metric), canonical units, and allowed picklist values. Loaded from 
 vendored ODC-BY licensed release; see data/etim/ATTRIBUTION.md.
 """
 
+from .demo_classes import (
+    DemoClassConfig,
+    QualifierRule,
+    available_demo_classes,
+    load_demo_class,
+)
 from .loader import (
     DEFAULT_ARCHIVE,
     DEFAULT_LANGUAGE,
@@ -21,8 +27,44 @@ from .model import (
     EtimStats,
     IntegrityIssue,
 )
+from .schema_gen import (
+    EXTRACTION_SCHEMA_VERSION,
+    ClassExtractionSchema,
+    FeatureSchema,
+    build_extraction_schema,
+)
+from .validators import (
+    RawCondition,
+    RawFeatureValue,
+    Severity,
+    ValidationCode,
+    ValidationIssue,
+    ValidationResult,
+    build_value,
+    resolve_conditions,
+    validate_conditions,
+    validate_feature_value,
+)
 
 __all__ = [
+    "EXTRACTION_SCHEMA_VERSION",
+    "ClassExtractionSchema",
+    "DemoClassConfig",
+    "FeatureSchema",
+    "QualifierRule",
+    "RawCondition",
+    "RawFeatureValue",
+    "Severity",
+    "ValidationCode",
+    "ValidationIssue",
+    "ValidationResult",
+    "available_demo_classes",
+    "build_extraction_schema",
+    "build_value",
+    "load_demo_class",
+    "resolve_conditions",
+    "validate_conditions",
+    "validate_feature_value",
     "DEFAULT_ARCHIVE",
     "DEFAULT_LANGUAGE",
     "DEFAULT_RELEASE",

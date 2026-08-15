@@ -1,0 +1,160 @@
+# Hand-reviewed demo-class configuration
+# =============================================================================
+# ETIM class EC000066 — "Power contactor, AC switching" (ETIM 10.0, EN)
+#
+# WHY THIS FILE EXISTS
+# ETIM tells us which features characterise a class, their types, their units, and
+# their allowed values. It does not tell us two things this system needs:
+#
+#   1. which features a *buyer* actually needs before a record is useful; and
+#   2. which operating qualifiers a feature's value is meaningless without.
+#
+# Both are judgement calls, so both are written down here, by hand, with reasons —
+# rather than being inferred from feature names at runtime. Parsing "Rated operation
+# current Ie at AC-3, 400 V" to discover that it needs a utilization category and a
+# voltage happens to work for this class and would silently misfire on others.
+#
+# HOW TO READ IT
+# `buyer_critical` is the subset that feeds the buyer-facing coverage metric. It is
+# not a claim that other ETIM features are unimportant, and it is emphatically not a
+# claim that they are mandatory.
+#
+# `[qualifiers.<FEATURE_ID>]` states the qualifier rule for one feature:
+#   required_kinds  — ConditionKinds that must be bound for the value to mean anything.
+#                     An empty list is a positive statement: reviewed, none needed.
+#                     A feature *absent from this table entirely* yields UNKNOWN
+#                     completeness — we have no reviewed rule, and we say so.
+#   expected        — where the ETIM feature name fixes the operating point, the values
+#                     it fixes. Used to catch a value bound to the wrong condition.
+#   rationale       — why. Every rule is auditable.
+#
+# Changing this file changes measured coverage, so it is reviewed like code.
+# -----------------------------------------------------------------------------
+
+etim_class_id = "EC000066"
+etim_class_name = "Power contactor, AC switching"
+etim_release = "10.0"
+etim_language = "EN"
+reviewed_on = "2026-08-09"
+notes = """
+First demo class. Seven of twenty-one features are marked buyer-critical: the ratings
+and contact configuration a specifier selects on, plus the coil supply and terminal
+type an installer cannot order without. Dimensions are useful but rarely decisive, so
+they are deliberately excluded from the buyer-critical subset.
+"""
+
+# --- buyer-critical subset ---------------------------------------------------
+[buyer_critical]
+feature_ids = [
+  "EF001392",  # Rated operation current Ie at AC-3, 400 V
+  "EF001364",  # Rated operation power at AC-3, 400 V
+  "EF001374",  # Number of normally open contacts as main contact
+  "EF001375",  # Number of normally closed contacts as main contact
+  "EF008242",  # Voltage type for actuating
+  "EF003978",  # Rated control supply voltage AC 50 Hz
+  "EF006819",  # Type of electrical connection of main circuit
+]
+
+# --- qualifier rules ---------------------------------------------------------
+# Ratings whose ETIM feature name fixes both the utilization category and the voltage.
+# A current figure without them is not a specification, it is a number.
+
+[qualifiers.EF001392]
+required_kinds = ["UTILIZATION_CATEGORY", "VOLTAGE"]
+expected = { UTILIZATION_CATEGORY = "AC-3", VOLTAGE = "400 V" }
+rationale = "ETIM name fixes the operating point: 'Rated operation current Ie at AC-3, 400 V'. The AC-1 rating of the same device is a different, larger number."
+
+[qualifiers.EF001393]
+required_kinds = ["UTILIZATION_CATEGORY", "VOLTAGE"]
+expected = { UTILIZATION_CATEGORY = "AC-1", VOLTAGE = "400 V" }
+rationale = "'Rated operation current Ie at AC-1, 400 V'. Distinct from EF001392; conflating the two is the classic false conflict."
+
+[qualifiers.EF008495]
+required_kinds = ["UTILIZATION_CATEGORY", "VOLTAGE"]
+expected = { UTILIZATION_CATEGORY = "AC-4", VOLTAGE = "400 V" }
+rationale = "'Rated operation current Ie at AC-4, 400 V'."
+
+[qualifiers.EF001364]
+required_kinds = ["UTILIZATION_CATEGORY", "VOLTAGE"]
+expected = { UTILIZATION_CATEGORY = "AC-3", VOLTAGE = "400 V" }
+rationale = "'Rated operation power at AC-3, 400 V'."
+
+[qualifiers.EF008496]
+required_kinds = ["UTILIZATION_CATEGORY", "VOLTAGE"]
+expected = { UTILIZATION_CATEGORY = "AC-4", VOLTAGE = "400 V" }
+rationale = "'Rated operation power at AC-4, 400 V'."
+
+[qualifiers.EF011960]
+required_kinds = ["STANDARD"]
+expected = { STANDARD = "NEMA" }
+rationale = "'Rated operation power NEMA' is a rating under the NEMA scheme; the IEC figures are not interchangeable with it."
+
+# Coil and operating voltages: the frequency is the discriminator, the voltage is the
+# value being reported rather than a qualifier of it.
+
+[qualifiers.EF003978]
+required_kinds = ["FREQUENCY"]
+expected = { FREQUENCY = "50 Hz" }
+rationale = "'Rated control supply voltage AC 50 Hz'. The 60 Hz figure is a separate feature."
+
+[qualifiers.EF003979]
+required_kinds = ["FREQUENCY"]
+expected = { FREQUENCY = "60 Hz" }
+rationale = "'Rated control supply voltage AC 60 Hz'."
+
+[qualifiers.EF008206]
+required_kinds = ["FREQUENCY"]
+expected = { FREQUENCY = "50 Hz" }
+rationale = "'Operating voltage AC 50 Hz'."
+
+[qualifiers.EF008207]
+required_kinds = ["FREQUENCY"]
+expected = { FREQUENCY = "60 Hz" }
+rationale = "'Operating voltage AC 60 Hz'."
+
+# Reviewed and found to need no qualifier. Stated positively so completeness resolves
+# to COMPLETE rather than UNKNOWN — "no qualifier needed" is a finding, not a gap.
+
+[qualifiers.EF003980]
+required_kinds = []
+rationale = "'Rated control supply voltage DC' — DC has no frequency, and no other qualifier applies."
+
+[qualifiers.EF008242]
+required_kinds = []
+rationale = "Voltage type for actuating is a property of the device, not of an operating point."
+
+[qualifiers.EF006819]
+required_kinds = []
+rationale = "Terminal type is a construction property."
+
+[qualifiers.EF001374]
+required_kinds = []
+rationale = "Main-contact NO count is a construction property."
+
+[qualifiers.EF001375]
+required_kinds = []
+rationale = "Main-contact NC count is a construction property."
+
+[qualifiers.EF001376]
+required_kinds = []
+rationale = "Auxiliary NO count is a construction property."
+
+[qualifiers.EF001377]
+required_kinds = []
+rationale = "Auxiliary NC count is a construction property."
+
+[qualifiers.EF001126]
+required_kinds = []
+rationale = "Distribution-board suitability is a construction property."
+
+[qualifiers.EF000008]
+required_kinds = []
+rationale = "Width is a physical dimension."
+
+[qualifiers.EF000040]
+required_kinds = []
+rationale = "Height is a physical dimension."
+
+[qualifiers.EF000049]
+required_kinds = []
+rationale = "Depth is a physical dimension."
