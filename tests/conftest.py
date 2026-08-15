@@ -23,10 +23,15 @@ from skutruth.contracts import (
     EvidenceModality,
     EvidenceVerification,
     FamilyInvariance,
+    GoldenRecord,
+    IdentityDisposition,
     IdentityScope,
     NumericValue,
     ProductAttribute,
+    ProductIdentity,
+    ProductInput,
     RunMode,
+    RunProvenance,
     SourceArtifact,
     SourceType,
     SpanLocator,
@@ -245,3 +250,29 @@ def make_attribute(**overrides) -> ProductAttribute:
             () if value is None else (group_for(value, conditions=kwargs["bound_conditions"]),)
         )
     return ProductAttribute(**kwargs)
+
+
+# --- a complete, contract-valid record --------------------------------------
+# Used by the evaluation adapter test. Built here rather than in the test so the
+# contract's own invariants vouch for it: if it constructs, it is valid output.
+
+EXACT_IDENTITY = ProductIdentity(
+    disposition=IdentityDisposition.EXACT,
+    brand_normalized="Schneider Electric",
+    mpn_normalized=ANCHOR_MPN,
+    reasoning="Exact reference located in a manufacturer datasheet.",
+)
+
+EXACT_IDENTITY_RECORD = GoldenRecord(
+    record_id="rec_fixture",
+    run_id="run_fixture",
+    created_at=datetime(2026, 8, 15, tzinfo=UTC),
+    provenance=RunProvenance(
+        mode=RunMode.REPLAY, captured_at=datetime(2026, 8, 15, tzinfo=UTC)
+    ),
+    input=ProductInput(brand="Schneider Electric", mpn=ANCHOR_MPN, description="Contactor"),
+    identity=EXACT_IDENTITY,
+    etim_class_id="EC000066",
+    etim_class_name="Power contactor, AC switching",
+    attributes=(make_attribute(),),
+)

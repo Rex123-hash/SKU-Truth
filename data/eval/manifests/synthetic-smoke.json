@@ -1,0 +1,253 @@
+{
+  "cases": [
+    {
+      "case_id": "TEST-100-EXACT",
+      "etim_class_id": "EC000066",
+      "expected_attributes": [
+        {
+          "acceptable_withheld_reasons": [],
+          "applicability": "APPLICABLE",
+          "buyer_critical": true,
+          "conditions": {
+            "completeness": "COMPLETE",
+            "conditions": [
+              {
+                "kind": "UTILIZATION_CATEGORY",
+                "raw": null,
+                "value": "AC-3"
+              },
+              {
+                "kind": "VOLTAGE",
+                "raw": null,
+                "value": "400 V"
+              }
+            ],
+            "missing_kinds": []
+          },
+          "etim_feature_id": "EF001392",
+          "evidence": {
+            "artifact_id": "art-synthetic-1",
+            "artifact_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "identity_scope": "EXACT_SKU",
+            "page": 2,
+            "quote": "18 A"
+          },
+          "expected_status": "ACCEPTED",
+          "notes": null,
+          "value": {
+            "derivation": {
+              "detail": null,
+              "kind": "VERBATIM",
+              "transform_id": "verbatim@v1"
+            },
+            "kind": "numeric",
+            "number": 18.0,
+            "raw": "18 A",
+            "unit": "A"
+          }
+        },
+        {
+          "acceptable_withheld_reasons": [],
+          "applicability": "APPLICABLE",
+          "buyer_critical": true,
+          "conditions": {
+            "completeness": "COMPLETE",
+            "conditions": [
+              {
+                "kind": "UTILIZATION_CATEGORY",
+                "raw": null,
+                "value": "AC-3"
+              },
+              {
+                "kind": "VOLTAGE",
+                "raw": null,
+                "value": "400 V"
+              }
+            ],
+            "missing_kinds": []
+          },
+          "etim_feature_id": "EF001364",
+          "evidence": {
+            "artifact_id": "art-synthetic-1",
+            "artifact_sha256": null,
+            "identity_scope": null,
+            "page": null,
+            "quote": null
+          },
+          "expected_status": null,
+          "notes": null,
+          "value": {
+            "derivation": {
+              "detail": null,
+              "kind": "VERBATIM",
+              "transform_id": "verbatim@v1"
+            },
+            "kind": "numeric",
+            "number": 7.5,
+            "raw": "7.5 kW",
+            "unit": "kW"
+          }
+        },
+        {
+          "acceptable_withheld_reasons": [],
+          "applicability": "NOT_APPLICABLE",
+          "buyer_critical": false,
+          "conditions": {
+            "completeness": "UNKNOWN",
+            "conditions": [],
+            "missing_kinds": []
+          },
+          "etim_feature_id": "EF011960",
+          "evidence": null,
+          "expected_status": null,
+          "notes": null,
+          "value": null
+        },
+        {
+          "acceptable_withheld_reasons": [
+            "NOT_FOUND"
+          ],
+          "applicability": "APPLICABLE",
+          "buyer_critical": false,
+          "conditions": {
+            "completeness": "UNKNOWN",
+            "conditions": [],
+            "missing_kinds": []
+          },
+          "etim_feature_id": "EF000008",
+          "evidence": null,
+          "expected_status": "WITHHELD",
+          "notes": null,
+          "value": {
+            "derivation": {
+              "detail": null,
+              "kind": "VERBATIM",
+              "transform_id": "verbatim@v1"
+            },
+            "kind": "numeric",
+            "number": 45.0,
+            "raw": "45 mm",
+            "unit": "mm"
+          }
+        }
+      ],
+      "expected_identity": {
+        "disposition": "EXACT",
+        "exact_mpn": "TEST-100-A",
+        "missing_discriminators": [],
+        "notes": null
+      },
+      "input": {
+        "brand": "TestCo",
+        "description": "Synthetic widget",
+        "mpn": "TEST-100-A",
+        "supplier_sku": null
+      },
+      "license_status": null,
+      "manufacturer": "TestCo",
+      "notes": "SYNTHETIC / TEST ONLY - structural fixture, never a benchmark claim.",
+      "product_family_id": "TEST-FAMILY-100",
+      "review_status": "SYNTHETIC",
+      "reviewed_by": "synthetic-fixture",
+      "split": "DEV"
+    },
+    {
+      "case_id": "TEST-200-FAMILY",
+      "etim_class_id": "EC000066",
+      "expected_attributes": [
+        {
+          "acceptable_withheld_reasons": [
+            "VARIANT_DEPENDENT"
+          ],
+          "applicability": "APPLICABLE",
+          "buyer_critical": false,
+          "conditions": {
+            "completeness": "UNKNOWN",
+            "conditions": [],
+            "missing_kinds": []
+          },
+          "etim_feature_id": "EF003978",
+          "evidence": null,
+          "expected_status": "WITHHELD",
+          "notes": null,
+          "value": null
+        }
+      ],
+      "expected_identity": {
+        "disposition": "FAMILY_OR_INCOMPLETE_REFERENCE",
+        "exact_mpn": null,
+        "missing_discriminators": [
+          "Synthetic coil code"
+        ],
+        "notes": null
+      },
+      "input": {
+        "brand": "TestCo",
+        "description": "Synthetic widget family",
+        "mpn": "TEST-200",
+        "supplier_sku": null
+      },
+      "license_status": null,
+      "manufacturer": "TestCo",
+      "notes": "SYNTHETIC / TEST ONLY - exercises false-exact detection.",
+      "product_family_id": "TEST-FAMILY-200",
+      "review_status": "SYNTHETIC",
+      "reviewed_by": "synthetic-fixture",
+      "split": "DEV"
+    },
+    {
+      "case_id": "TEST-300-LOCKED",
+      "etim_class_id": "EC000066",
+      "expected_attributes": [
+        {
+          "acceptable_withheld_reasons": [],
+          "applicability": "APPLICABLE",
+          "buyer_critical": true,
+          "conditions": {
+            "completeness": "UNKNOWN",
+            "conditions": [],
+            "missing_kinds": []
+          },
+          "etim_feature_id": "EF008242",
+          "evidence": null,
+          "expected_status": "ACCEPTED",
+          "notes": null,
+          "value": {
+            "derivation": {
+              "detail": null,
+              "kind": "VERBATIM",
+              "transform_id": "verbatim@v1"
+            },
+            "kind": "alphanumeric",
+            "raw": "AC",
+            "text": "AC",
+            "value_id": "EV000123"
+          }
+        }
+      ],
+      "expected_identity": {
+        "disposition": "EXACT",
+        "exact_mpn": "TEST-300-B",
+        "missing_discriminators": [],
+        "notes": null
+      },
+      "input": {
+        "brand": "OtherCo",
+        "description": "Synthetic widget",
+        "mpn": "TEST-300-B",
+        "supplier_sku": null
+      },
+      "license_status": null,
+      "manufacturer": "OtherCo",
+      "notes": "SYNTHETIC / TEST ONLY - locked-split structural fixture.",
+      "product_family_id": "TEST-FAMILY-300",
+      "review_status": "SYNTHETIC",
+      "reviewed_by": "synthetic-fixture",
+      "split": "LOCKED_TEST"
+    }
+  ],
+  "description": "SYNTHETIC / TEST ONLY. Structural fixtures that prove the scorer works. These are not real products and their numbers are not SKUTruth performance. Real human-reviewed cases arrive once manufacturer artifacts are ingested.",
+  "manifest_id": "synthetic-smoke",
+  "manifest_version": "1",
+  "schema_version": "eval-manifest@v1"
+}
