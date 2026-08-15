@@ -13,3 +13,8 @@ build/
 # The ETIM 10.0 archive itself IS committed (ODC-BY 1.0 permits redistribution with
 # attribution — see data/etim/ATTRIBUTION.md). Only derived caches are ignored.
 data/etim/build/
+
+# Replay cassettes recorded at runtime. They may hold provider material or licensed
+# third-party content that nobody has reviewed yet; curated recordings are promoted
+# to data/replay/fixtures/ by hand. See backend/skutruth/replay/README.md.
+data/replay/runtime/
