@@ -18,3 +18,8 @@ data/etim/build/
 # third-party content that nobody has reviewed yet; curated recordings are promoted
 # to data/replay/fixtures/ by hand. See backend/skutruth/replay/README.md.
 data/replay/runtime/
+
+# Ingested source artifacts. These are third-party manufacturer documents that we may
+# read locally but generally may not redistribute; curated, licence-checked artifacts
+# are promoted to data/artifacts/fixtures/ by hand. See backend/skutruth/ingest/README.md.
+data/artifacts/runtime/

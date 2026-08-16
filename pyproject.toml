@@ -12,6 +12,7 @@ dependencies = [
     "google-genai>=1.0",
     "python-dotenv>=1.0",
     "orjson>=3.10",
+    "pypdf>=6.0",
 ]
 
 [project.optional-dependencies]
