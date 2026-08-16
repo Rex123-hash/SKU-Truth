@@ -60,8 +60,17 @@ def store(tmp_path) -> ArtifactStore:
 
 
 def ingest(store: ArtifactStore, pages=None, **source_kw):
+    """Ingest a synthetic document, by default an exact-SKU datasheet for `MPN`.
+
+    Text evidence has no per-unit binding to a product, so the verifier requires the
+    artifact's own scope to supply one. Most tests here are about matching, conditions,
+    or integrity rather than scope, and an unscoped fixture would make every one of them
+    fail for a reason they are not testing. Scope tests pass their own values.
+    """
     pdf = build_pdf(pages if pages is not None else PAGES)
-    source = SourceMetadata(publisher=BRAND, **source_kw) if source_kw else SourceMetadata()
+    source_kw.setdefault("identity_scope", IdentityScope.EXACT_SKU)
+    source_kw.setdefault("covers_mpn", MPN)
+    source = SourceMetadata(publisher=BRAND, **source_kw)
     artifact = ingest_pdf_bytes(pdf, source=source)
     store.save(artifact, pdf)
     return artifact
@@ -785,3 +794,276 @@ class TestEvaluationIntegration:
         artifact = ingest(store)
         outcome = verify_claim(claim(artifact), store=store)
         assert citation_from_outcome(outcome).identity_scope is None
+
+
+class TestExactArtifactScope:
+    """Text evidence must be bound to the product by the document's own provenance.
+
+    A line stating `18 A` on a page shared by a whole product family says nothing about
+    which family member it belongs to. Before this gate existed, such a line verified for
+    any reference the caller happened to name.
+    """
+
+    def range_artifact(self, store, pages=None):
+        return ingest(
+            store,
+            pages,
+            identity_scope=IdentityScope.RANGE,
+            covers_mpn=None,
+            final_artifact_url="https://example.invalid/catalogue.pdf",
+        )
+
+    def test_range_artifact_cannot_verify_an_exact_text_claim(self, store):
+        """A. The audit's failure shape: mechanically supported, but not this product's."""
+        artifact = self.range_artifact(store)
+        result = verify_claim(claim(artifact), store=store)
+        assert result.status is EvidenceVerification.UNVERIFIED
+        assert result.failure is VerificationFailure.PRODUCT_SCOPE_NOT_SUPPORTED
+
+    def test_matching_exact_identity_cannot_override_range_scope(self, store):
+        """B. Identity says what we resolved; scope says whose evidence this is."""
+        artifact = self.range_artifact(store)
+        result = verify_claim(claim(artifact), store=store, identity=exact_identity())
+        assert result.failure is VerificationFailure.PRODUCT_SCOPE_NOT_SUPPORTED
+
+    def test_exact_sku_artifact_covering_the_reference_verifies(self, store):
+        """C."""
+        artifact = ingest(store, identity_scope=IdentityScope.EXACT_SKU, covers_mpn=MPN)
+        assert verify_claim(claim(artifact), store=store).status is EvidenceVerification.EXACT_SPAN
+
+    def test_exact_sku_artifact_for_a_sibling_is_a_reference_mismatch(self, store):
+        """D. The document positively asserts it is about a different product."""
+        artifact = ingest(store, identity_scope=IdentityScope.EXACT_SKU, covers_mpn="BASE100Y2")
+        result = verify_claim(claim(artifact), store=store)
+        assert result.failure is VerificationFailure.PRODUCT_REFERENCE_MISMATCH
+
+    def test_unstated_scope_does_not_establish_exact_applicability(self, store):
+        """Unknown provenance is not permissive provenance."""
+        artifact = ingest(store, identity_scope=None, covers_mpn=None)
+        result = verify_claim(claim(artifact), store=store)
+        assert result.failure is VerificationFailure.PRODUCT_SCOPE_NOT_SUPPORTED
+
+    def test_reference_in_page_text_does_not_establish_scope(self, store):
+        """Scope is provenance, never a string that happens to appear on the page."""
+        pages = ["x", f"{MPN} 18 A (at <60 °C) at <= 440 V AC AC-3 for power circuit"]
+        artifact = self.range_artifact(store, pages)
+        result = verify_claim(claim(artifact), store=store)
+        assert result.failure is VerificationFailure.PRODUCT_SCOPE_NOT_SUPPORTED
+
+    def test_a_table_row_binds_the_product_inside_a_range_catalogue(self, store):
+        """Range evidence stays usable: the row itself carries the binding.
+
+        This is the deliberate second proof of exact applicability. Removing it would
+        make the table path — and every catalogue — worthless, which is a different
+        error from the one this milestone fixes.
+        """
+        from conftest_pdf import build_ruled_table_pdf
+        from skutruth.ingest.tables import extract_page_tables
+
+        rules = [(x, 700.0, 740.0) for x in (60, 160, 260, 360)]
+        texts = [
+            (65, 728, "Reference"),
+            (165, 728, "AC-3"),
+            (265, 728, "Current"),
+            (65, 685, MPN),
+            (165, 685, "AC-3"),
+            (265, 685, "18 A"),
+        ]
+        pdf = build_ruled_table_pdf(rules, texts)
+        artifact = ingest_pdf_bytes(
+            pdf,
+            source=SourceMetadata(
+                publisher=BRAND,
+                identity_scope=IdentityScope.RANGE,
+                covers_mpn=None,
+                final_artifact_url="https://example.invalid/catalogue.pdf",
+            ),
+        )
+        store.save(artifact, pdf)
+        result = verify_claim(
+            claim(artifact, page=1, conds=conditions((ConditionKind.UTILIZATION_CATEGORY, "AC-3"))),
+            store=store,
+            tables=extract_page_tables(pdf, 1),
+        )
+        assert result.status is EvidenceVerification.EXACT_SPAN
+        assert result.evidence_mode is EvidenceMode.TABLE_UNIT
+
+    def test_scope_binding_classifies_the_three_cases(self, store):
+        from skutruth.verification import ScopeBinding, artifact_scope_binding
+
+        exact = ingest(store, identity_scope=IdentityScope.EXACT_SKU, covers_mpn=MPN)
+        sibling = ingest(store, identity_scope=IdentityScope.EXACT_SKU, covers_mpn="BASE100Y2")
+        catalogue = self.range_artifact(store, ["only page"])
+
+        assert artifact_scope_binding(exact, MPN) is ScopeBinding.EXACT
+        assert artifact_scope_binding(sibling, MPN) is ScopeBinding.CONTRADICTED
+        assert artifact_scope_binding(catalogue, MPN) is ScopeBinding.NOT_ESTABLISHED
+
+
+class TestPhraseBoundaryMatching:
+    """Short controlled values must not be found inside longer words."""
+
+    def alpha(self, store, text, *, page=3, fragment="Housing Stainless Steel", pages=None):
+        artifact = ingest(store, pages)
+        return verify_claim(
+            claim(
+                artifact,
+                value=AlphanumericValue(text=text, raw=text),
+                page=page,
+                fragment=fragment,
+                key="EF000123",
+            ),
+            store=store,
+        )
+
+    def test_standalone_short_token_verifies(self, store):
+        """E."""
+        pages = ["x", "y", "Voltage type AC"]
+        result = self.alpha(store, "AC", fragment="Voltage type AC", pages=pages)
+        assert result.status is EvidenceVerification.EXACT_SPAN
+
+    @pytest.mark.parametrize("line", ["Housing VACUUM formed", "Mounted on a STACK rail"])
+    def test_short_token_inside_a_word_does_not_verify(self, store, line):
+        """F. The regression the old substring matcher would have passed."""
+        result = self.alpha(store, "AC", fragment=line, pages=["x", "y", line])
+        assert result.failure is VerificationFailure.VALUE_NOT_SUPPORTED
+
+    def test_contact_token_verifies(self, store):
+        """G."""
+        result = self.alpha(store, "NO", fragment="3 NO main contacts")
+        assert result.status is EvidenceVerification.EXACT_SPAN
+
+    def test_no_does_not_match_normal(self, store):
+        """H."""
+        line = "Operation NORMAL under load"
+        result = self.alpha(store, "NO", fragment=line, pages=["x", "y", line])
+        assert result.failure is VerificationFailure.VALUE_NOT_SUPPORTED
+
+    def test_exact_category_token_verifies(self, store):
+        """I."""
+        artifact = ingest(store)
+        result = verify_claim(
+            claim(artifact, conds=conditions((ConditionKind.UTILIZATION_CATEGORY, "AC-3"))),
+            store=store,
+        )
+        assert result.status is EvidenceVerification.EXACT_SPAN
+
+    def test_category_token_is_not_matched_by_a_longer_code(self, store):
+        """J. `AC-3` must not be read out of `AC-30`."""
+        line = "18 A (at <60 °C) at <= 440 V AC AC-30 for power circuit"
+        artifact = ingest(store, ["x", line])
+        result = verify_claim(
+            claim(artifact, conds=conditions((ConditionKind.UTILIZATION_CATEGORY, "AC-3"))),
+            store=store,
+        )
+        assert result.failure is VerificationFailure.CONDITION_NOT_SUPPORTED
+
+    def test_multiword_phrase_verifies(self, store):
+        """K."""
+        result = self.alpha(store, "Stainless Steel")
+        assert result.status is EvidenceVerification.EXACT_SPAN
+
+    def test_phrase_is_not_matched_as_an_interior_substring(self, store):
+        """L."""
+        line = "Housing ULTRASTAINLESS STEELWORKS alloy"
+        result = self.alpha(store, "Stainless Steel", fragment=line, pages=["x", "y", line])
+        assert result.failure is VerificationFailure.VALUE_NOT_SUPPORTED
+
+    def test_controlled_vocabulary_synonym_is_still_unverified(self, store):
+        """M. A correct mapping is not a located span. It stays adjudication's job."""
+        line = "Connection by screw clamp terminals"
+        result = self.alpha(store, "Screw connection", fragment=line, pages=["x", "y", line])
+        assert result.failure is VerificationFailure.VALUE_NOT_SUPPORTED
+
+    @pytest.mark.parametrize(
+        ("haystack", "phrase", "expected"),
+        [
+            ("Voltage type AC", "AC", True),
+            ("AC-3 rated", "AC-3", True),
+            ("AC-3 rated", "AC", False),
+            ("AC-30 rated", "AC-3", False),
+            ("VACUUM", "AC", False),
+            ("BRASS body", "Brass", True),
+            ("Brass-plated body", "Brass", False),
+            ("Housing: Stainless Steel.", "Stainless Steel", True),
+            ("Stainless  Steel", "Stainless Steel", True),
+            ("screw clamp terminals", "Screw connection", False),
+        ],
+    )
+    def test_boundary_rule(self, haystack, phrase, expected):
+        from skutruth.verification import contains_phrase
+
+        assert contains_phrase(haystack, phrase) is expected
+
+
+class TestTypedConditionFailures:
+    """Failure classification comes from the comparison, never from its own prose."""
+
+    def test_operator_mismatch_reason_is_typed(self, store):
+        """N."""
+        artifact = ingest(store)
+        result = verify_claim(
+            claim(artifact, conds=conditions((ConditionKind.TEMPERATURE, "60 °C"))), store=store
+        )
+        assert result.failure is VerificationFailure.OPERATOR_MISMATCH
+        unmet = [o for o in result.condition_outcomes if not o.supported]
+        assert [o.failure for o in unmet] == [VerificationFailure.OPERATOR_MISMATCH]
+
+    def test_unsupported_condition_reason_is_typed(self, store):
+        """O."""
+        artifact = ingest(store)
+        result = verify_claim(
+            claim(artifact, conds=conditions((ConditionKind.UTILIZATION_CATEGORY, "AC-4"))),
+            store=store,
+        )
+        assert result.failure is VerificationFailure.CONDITION_NOT_SUPPORTED
+        unmet = [o for o in result.condition_outcomes if not o.supported]
+        assert all(o.failure is VerificationFailure.CONDITION_NOT_SUPPORTED for o in unmet)
+
+    def test_every_unsupported_outcome_carries_a_typed_reason(self, store):
+        """The invariant that replaces sniffing `detail`."""
+        artifact = ingest(store)
+        for condition_value in ("60 °C", "AC-4", "999 V", "50 Hz"):
+            result = verify_claim(
+                claim(artifact, conds=conditions((ConditionKind.OTHER, condition_value))),
+                store=store,
+            )
+            for outcome in result.condition_outcomes:
+                assert outcome.supported or outcome.failure is not None
+
+    def test_multi_quantity_condition_fails_closed(self, store):
+        """P. `400 V` is on the line; `50 Hz` is not, and must not be discarded."""
+        artifact = ingest(store, ["x", "18 A at 400 V AC-3 for power circuit"])
+        result = verify_claim(
+            claim(artifact, conds=conditions((ConditionKind.OTHER, "400 V 50 Hz"))), store=store
+        )
+        assert result.status is EvidenceVerification.UNVERIFIED
+        assert result.failure is VerificationFailure.CONDITION_NOT_SUPPORTED
+        assert "independent quantities" in result.condition_outcomes[0].detail
+
+    def test_enumerated_claim_needs_every_alternative(self, store):
+        """`50/60 Hz` claimed is two assertions, not one."""
+        supported = verify_claim(
+            claim(
+                ingest(store),
+                page=3,
+                fragment="Control supply 230 V AC 50/60 Hz",
+                value=NumericValue(number=230.0, unit="V", raw="230 V"),
+                conds=conditions((ConditionKind.FREQUENCY, "50/60 Hz")),
+            ),
+            store=store,
+        )
+        assert supported.status is EvidenceVerification.EXACT_SPAN
+
+        line = "Control supply 230 V AC 50 Hz"
+        partial = verify_claim(
+            claim(
+                ingest(store, ["x", "y", line]),
+                page=3,
+                fragment=line,
+                value=NumericValue(number=230.0, unit="V", raw="230 V"),
+                conds=conditions((ConditionKind.FREQUENCY, "50/60 Hz")),
+            ),
+            store=store,
+        )
+        assert partial.failure is VerificationFailure.CONDITION_NOT_SUPPORTED

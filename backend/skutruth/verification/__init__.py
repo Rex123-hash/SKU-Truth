@@ -6,6 +6,7 @@ Locating a quote is not verifying a claim. See ./README.md.
 from .adapters import claim_from_candidate, claims_from_run
 from .errors import ArtifactBindingError, VerificationError
 from .eval_adapter import citation_from_outcome
+from .matching import contains_phrase
 from .models import (
     ConditionOutcome,
     EvidenceMode,
@@ -20,6 +21,9 @@ from .table import TableEvidence, find_row_evidence
 from .text import LocatedUnit, locate_units
 from .verifier import (
     VERIFIER_VERSION,
+    ConditionCheck,
+    ScopeBinding,
+    artifact_scope_binding,
     artifact_scope_supports_exact,
     verify_claim,
     verify_table_claim,
@@ -28,6 +32,7 @@ from .verifier import (
 __all__ = [
     "VERIFIER_VERSION",
     "ArtifactBindingError",
+    "ConditionCheck",
     "ConditionOutcome",
     "EvidenceMode",
     "EvidenceUnit",
@@ -35,12 +40,15 @@ __all__ = [
     "ProductClaim",
     "Quantity",
     "Relation",
+    "ScopeBinding",
     "TableEvidence",
     "TextMatchMode",
     "VerificationError",
     "VerificationFailure",
     "VerificationOutcome",
+    "artifact_scope_binding",
     "artifact_scope_supports_exact",
+    "contains_phrase",
     "citation_from_outcome",
     "claim_from_candidate",
     "claims_from_run",

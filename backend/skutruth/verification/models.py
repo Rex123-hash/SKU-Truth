@@ -110,13 +110,20 @@ class EvidenceUnit(BaseModel):
 
 
 class ConditionOutcome(BaseModel):
-    """Whether one bound qualifier was supported, and how."""
+    """Whether one bound qualifier was supported, and how.
+
+    `failure` is decided by the comparison itself and carried here as a typed value.
+    `detail` explains it for a human and is never parsed to recover the reason — a
+    classification that depends on the wording of its own prose breaks the moment the
+    wording is improved.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     kind: str
     value: str
     supported: bool
+    failure: VerificationFailure | None = None
     detail: str = ""
 
 
