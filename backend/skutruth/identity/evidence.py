@@ -162,8 +162,18 @@ class DiscriminatorMappingFact(_BrandedFact):
 class ExactReferenceFact(_BrandedFact):
     """Records that a reference exists as an exact manufacturer product.
 
-    The only thing that can confirm a candidate. Anchored to one reference: evidence for
-    a sibling is evidence about the sibling.
+    The only thing that can confirm a candidate, and therefore the only fact whose
+    anchor must be `IdentityScope.EXACT_SKU`. A catalogue page is `RANGE`: it can prove
+    that a reference is a family stem, but it lists codes rather than which combinations
+    are actually built, so it can never establish that one particular child exists.
+    `FAMILY` scope has the same problem one level down.
+
+    The invariant lives on the model rather than in the resolver, so evidence that could
+    license a wrong `EXACT` cannot be constructed at all. A resolver check alone would
+    leave the malformed fact sitting in an `IdentityEvidence` bundle, one refactor away
+    from being trusted.
+
+    Anchored to one reference: evidence for a sibling is evidence about the sibling.
     """
 
     exact_mpn: str = Field(min_length=1)
@@ -171,7 +181,21 @@ class ExactReferenceFact(_BrandedFact):
         default=None, description="Recorded only when the source states it, e.g. Commercialised"
     )
 
+    @model_validator(mode="after")
+    def _anchor_is_exact_sku_scoped(self) -> ExactReferenceFact:
+        """Refuse anything but exact-SKU evidence. Never rewrite the scope to fit."""
+        scope = self.anchor.identity_scope
+        if scope is not IdentityScope.EXACT_SKU:
+            raise ValueError(
+                f"an ExactReferenceFact for {self.exact_mpn} needs an anchor scoped to "
+                f"{IdentityScope.EXACT_SKU.value}; got "
+                f"{scope.value if scope else 'no identity_scope'}. Evidence that does not "
+                f"bind to one commercial reference cannot establish that it exists."
+            )
+        return self
+
     def confirms(self, brand: str | None, mpn: str | None) -> bool:
+        """Brand and reference must match; scope is guaranteed by construction."""
         return self.applies_to_brand(brand) and mpn_matches(self.exact_mpn, mpn)
 
 

@@ -51,8 +51,9 @@ than applied partially.
 ## Dispositions
 
 **`EXACT`** — either the input MPN itself has an `ExactReferenceFact`, or a constructed
-candidate does. `exact_mpn` is set; `candidate_exactness_confirmed` is true only in the
-second case.
+candidate does, matching on brand and on `canonical_mpn`. That fact's anchor must be
+`EXACT_SKU`-scoped. `exact_mpn` is set; `candidate_exactness_confirmed` is true only in
+the second case.
 
 **`FAMILY_OR_INCOMPLETE_REFERENCE`** — completion evidence applies and at least one of:
 a required discriminator was not supplied; the supplied selection has no mapping rule; a
@@ -71,11 +72,26 @@ fact was listed first.
 ## Range evidence establishes incompleteness; only exact-SKU evidence confirms
 
 A catalogue is `IdentityScope.RANGE` — good enough to prove a reference is a family stem,
-never good enough to confirm a specific child. Evidence for a *sibling* confirms the
-sibling: matching uses the frozen contract's conservative `canonical_mpn`, which folds
-only case and whitespace. Hyphens, packaging suffixes, and regional suffixes are left
-alone, because every one of those can distinguish genuinely different parts. This stage
-is not a fuzzy MPN matcher.
+never good enough to confirm a specific child, because it lists *codes* rather than which
+combinations a manufacturer actually builds. `FAMILY` has the same problem one level down.
+
+So `ExactReferenceFact` — the only fact that can license `EXACT` — **requires its anchor
+to be `IdentityScope.EXACT_SKU`**, and refuses to be constructed otherwise. A missing
+scope is rejected too: unrecorded provenance is not exact provenance. The scope is never
+silently upgraded to fit, since rewriting it would forge the very thing being checked.
+
+That invariant is on the model, not in the resolver. Inadmissible evidence therefore
+cannot sit in an `IdentityEvidence` bundle waiting for a future refactor to trust it.
+
+The restriction is deliberately narrow. `ReferenceCompletionFact`,
+`DiscriminatorMappingFact`, and `VariationAxisFact` all still accept `RANGE`-scoped
+catalogue evidence — proving a reference is incomplete is exactly what a catalogue is
+good for.
+
+Evidence for a *sibling* confirms the sibling: matching uses the frozen contract's
+conservative `canonical_mpn`, which folds only case and whitespace. Hyphens, packaging
+suffixes, and regional suffixes are left alone, because every one of those can
+distinguish genuinely different parts. This stage is not a fuzzy MPN matcher.
 
 ## Brand binding
 

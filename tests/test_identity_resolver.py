@@ -195,6 +195,106 @@ class TestExactConfirmation:
         )
 
 
+class TestExactEvidenceMustBeExactSkuScoped:
+    """Only evidence bound to one commercial reference may license EXACT.
+
+    A catalogue is RANGE: it can prove a reference is a family stem, but it lists codes
+    rather than which combinations are built, so it can never establish that one
+    particular child exists. The invariant sits on the model, so such a fact cannot be
+    constructed at all.
+    """
+
+    def test_exact_sku_scoped_anchor_is_valid(self):
+        fact = ExactReferenceFact(
+            brand=BRAND,
+            exact_mpn=CANDIDATE_X,
+            anchor=anchor(DATASHEET_SHA, IdentityScope.EXACT_SKU, page=1, statement="exists"),
+        )
+        assert fact.anchor.identity_scope is IdentityScope.EXACT_SKU
+
+    @pytest.mark.parametrize("scope", [IdentityScope.RANGE, IdentityScope.FAMILY])
+    def test_broader_scope_is_rejected(self, scope):
+        with pytest.raises(ValidationError, match="EXACT_SKU"):
+            ExactReferenceFact(
+                brand=BRAND,
+                exact_mpn=CANDIDATE_X,
+                anchor=anchor(DATASHEET_SHA, scope, page=1, statement="catalogue row"),
+            )
+
+    def test_missing_identity_scope_is_rejected(self):
+        unscoped = EvidenceAnchor(
+            artifact_sha256=DATASHEET_SHA,
+            page_number=1,
+            publisher=BRAND,
+            observed_statement="scope not recorded",
+        )
+        assert unscoped.identity_scope is None
+        with pytest.raises(ValidationError, match="no identity_scope"):
+            ExactReferenceFact(brand=BRAND, exact_mpn=CANDIDATE_X, anchor=unscoped)
+
+    def test_scope_is_never_silently_upgraded(self):
+        """Rejection, not correction. A rewritten scope would forge provenance."""
+        with pytest.raises(ValidationError):
+            ExactReferenceFact(
+                brand=BRAND,
+                exact_mpn=CANDIDATE_X,
+                anchor=anchor(CATALOGUE_SHA, IdentityScope.RANGE, statement="catalogue row"),
+            )
+
+    def test_range_scoped_exact_evidence_cannot_reach_the_resolver(self):
+        """The candidate path stays non-EXACT because the fact is inadmissible."""
+        with pytest.raises(ValidationError):
+            IdentityEvidence(
+                completion_facts=(completion(),),
+                mapping_facts=(mapping(),),
+                exact_facts=(
+                    ExactReferenceFact(
+                        brand=BRAND,
+                        exact_mpn=CANDIDATE_X,
+                        anchor=anchor(CATALOGUE_SHA, IdentityScope.RANGE),
+                    ),
+                ),
+            )
+
+        # With that fact absent, the candidate is constructed but never confirmed.
+        result = resolve_identity(
+            product(),
+            IdentityEvidence(completion_facts=(completion(),), mapping_facts=(mapping(),)),
+            (SELECTION,),
+        )
+        assert result.disposition is IdentityDisposition.FAMILY_OR_INCOMPLETE_REFERENCE
+        assert result.candidate_references == (CANDIDATE_X,)
+        assert result.exact_mpn is None
+
+    def test_direct_exact_input_still_resolves_with_a_properly_scoped_fact(self):
+        evidence = IdentityEvidence(exact_facts=(exact(CANDIDATE_X),))
+        result = resolve_identity(product(CANDIDATE_X), evidence)
+        assert result.disposition is IdentityDisposition.EXACT
+        assert result.exact_mpn == CANDIDATE_X
+
+    def test_other_fact_types_still_accept_range_scoped_catalogue_evidence(self):
+        """Only the fact that licenses EXACT is restricted; catalogue evidence stays usable."""
+        range_anchor = anchor(CATALOGUE_SHA, IdentityScope.RANGE)
+        assert ReferenceCompletionFact(
+            brand=BRAND, base_mpn=BASE, discriminator_key=KEY, anchor=range_anchor
+        )
+        assert DiscriminatorMappingFact(
+            brand=BRAND,
+            base_mpn=BASE,
+            discriminator_key=KEY,
+            canonical_value=VALUE,
+            completion_code=CODE_X,
+            anchor=range_anchor,
+        )
+        assert VariationAxisFact(
+            brand=BRAND,
+            base_mpn=BASE,
+            axis_key="connection_type",
+            description="variants exist",
+            anchor=range_anchor,
+        )
+
+
 class TestUnknown:
     def test_no_evidence_is_unknown_not_exact(self):
         result = resolve_identity(product("NEVERSEEN9"), IdentityEvidence())
