@@ -13,6 +13,9 @@ dependencies = [
     "python-dotenv>=1.0",
     "orjson>=3.10",
     "pypdf>=6.0",
+    # Structured table extraction fallback (skutruth.ingest.tables). MIT, as is its
+    # pdfminer.six backend; deliberately not PyMuPDF, which is AGPL-or-commercial.
+    "pdfplumber>=0.11,<0.12",
 ]
 
 [project.optional-dependencies]

@@ -49,6 +49,14 @@ from .storage import (
     ingest_and_store,
     runtime_store,
 )
+from .tables import (
+    TABLE_EXTRACTION_VERSION,
+    ExtractedCell,
+    ExtractedTable,
+    PageTableExtraction,
+    TableExtractionStatus,
+    extract_page_tables,
+)
 from .text import TEXT_NORMALIZATION_FORM, build_search_text, normalize_quote
 
 __all__ = [
@@ -62,6 +70,7 @@ __all__ = [
     "MAX_PAGE_TEXT_CHARS",
     "PARSER_NAME",
     "STORAGE_VERSION",
+    "TABLE_EXTRACTION_VERSION",
     "TEXT_NORMALIZATION_FORM",
     "ArtifactCheckOutcome",
     "ArtifactNotFoundError",
@@ -73,18 +82,23 @@ __all__ = [
     "DocumentTooLargeError",
     "EmptyDocumentError",
     "EncryptedDocumentError",
+    "ExtractedCell",
+    "ExtractedTable",
     "ExtractionStatus",
     "IngestedArtifact",
     "IngestedPage",
     "IngestionError",
     "IngestionLimits",
     "MalformedDocumentError",
+    "PageTableExtraction",
     "SourceMetadata",
+    "TableExtractionStatus",
     "TextMatch",
     "UnsupportedDocumentError",
     "artifact_id",
     "build_search_text",
     "check_citation_artifact",
+    "extract_page_tables",
     "find_text",
     "fixture_store",
     "ingest_and_store",
