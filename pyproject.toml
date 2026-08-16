@@ -9,7 +9,9 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "httpx>=0.27",
-    "google-genai>=1.0",
+    # Vertex AI structured extraction (skutruth.extraction.vertex). Verified against
+    # 2.18.1: Client(vertexai=True), Part.from_bytes, response_schema, usage_metadata.
+    "google-genai>=2.18,<3",
     "python-dotenv>=1.0",
     "orjson>=3.10",
     "pypdf>=6.0",
