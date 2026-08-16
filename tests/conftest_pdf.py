@@ -16,6 +16,16 @@ def _escape(text: str) -> str:
     return text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
 
 
+def _encode_stream(text: str) -> bytes:
+    """Encode a content stream as cp1252 to match the declared WinAnsiEncoding.
+
+    Writing UTF-8 bytes into a PDF literal string would store `°` as two mojibake
+    characters, so a fixture exercising units like `°C` would test a corruption
+    rather than the real thing. Unmappable characters become `?` loudly.
+    """
+    return text.encode("cp1252", errors="replace")
+
+
 def build_pdf(pages: list[str], *, font: str = "Helvetica") -> bytes:
     """A valid PDF with one text line per page, byte-identical for identical input."""
     if not pages:
@@ -25,7 +35,9 @@ def build_pdf(pages: list[str], *, font: str = "Helvetica") -> bytes:
     kids = " ".join(f"{4 + 2 * i} 0 R" for i in range(len(pages)))
     body[1] = b"<< /Type /Catalog /Pages 2 0 R >>"
     body[2] = f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>".encode()
-    body[3] = f"<< /Type /Font /Subtype /Type1 /BaseFont /{font} >>".encode()
+    body[3] = (
+        f"<< /Type /Font /Subtype /Type1 /BaseFont /{font} /Encoding /WinAnsiEncoding >>"
+    ).encode()
 
     for i, text in enumerate(pages):
         page_obj, content_obj = 4 + 2 * i, 5 + 2 * i
@@ -33,7 +45,7 @@ def build_pdf(pages: list[str], *, font: str = "Helvetica") -> bytes:
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
             f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_obj} 0 R >>"
         ).encode()
-        stream = f"BT /F1 12 Tf 72 720 Td ({_escape(text)}) Tj ET".encode()
+        stream = _encode_stream(f"BT /F1 12 Tf 72 720 Td ({_escape(text)}) Tj ET")
         body[content_obj] = b"<< /Length %d >>\nstream\n%s\nendstream" % (len(stream), stream)
 
     out = bytearray(b"%PDF-1.4\n")
@@ -99,7 +111,7 @@ def build_ruled_table_pdf(
     body: dict[int, bytes] = {
         1: b"<< /Type /Catalog /Pages 2 0 R >>",
         2: b"<< /Type /Pages /Kids [4 0 R] /Count 1 >>",
-        3: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        3: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
         4: (
             f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} {height}] "
             f"/Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>"
