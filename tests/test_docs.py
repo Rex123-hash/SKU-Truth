@@ -18,7 +18,13 @@ README = Path(__file__).resolve().parents[1] / "README.md"
 
 @pytest.fixture(scope="module")
 def readme() -> str:
-    return README.read_text(encoding="utf-8")
+    """The README with runs of whitespace collapsed.
+
+    Assertions here are about what the document *says*, and the document is hard-wrapped
+    at 90 characters. Matching raw text would make these tests fail whenever a sentence
+    is rewrapped, which is noise rather than signal.
+    """
+    return " ".join(README.read_text(encoding="utf-8").split())
 
 
 class TestStatusIsCurrent:
@@ -45,6 +51,7 @@ class TestStatusIsCurrent:
             "Gemini structured extraction",
             "Record and replay",
             "Mechanical verification",
+            "Adjudication and mapping",
             "Evaluation framework",
             "Unilog input/output",
         ],
@@ -53,9 +60,15 @@ class TestStatusIsCurrent:
         implemented = readme.split("**Next**")[0]
         assert subsystem in implemented
 
-    def test_the_two_halves_are_not_claimed_to_be_wired(self, readme):
-        """The pipeline diagram would otherwise read as a working end-to-end product."""
-        assert "not yet wired to each other" in readme
+    def test_compliance_is_not_claimed(self, readme):
+        """The attribute path works. That is not the same as conforming to Unilog's rules.
+
+        The mapping rules deciding where a fact goes are hand-written, because the
+        official LOV, UOM master, and category rules are not in the supplied pack. The
+        README has to keep saying so for as long as that is true.
+        """
+        assert "cannot yet claim those attributes are Unilog-compliant" in readme
+        assert "non-authoritative" in readme
 
     def test_unilog_is_the_competition_facing_vocabulary(self, readme):
         assert "Unilog-ready" in readme

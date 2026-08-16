@@ -38,13 +38,22 @@ deterministic validation         units, picklists, ranges, condition completenes
       ↓
 mechanical evidence verification EXACT_SPAN, or UNVERIFIED with a specific reason
       ↓
-[next] adjudication → 252-column Unilog delivery record
+adjudication + explicit mapping  commit / withhold / review / unmapped
+      ↓
+252-column Unilog delivery record
 ```
 
-The two ends of that diagram exist and work. **They are not yet wired to each other**: the
-Unilog adapter reads and writes the organizer's format, the evidence pipeline verifies
-facts about a product, and the mapping stage that joins them is the next milestone. Nothing
-here does end-to-end enrichment today, and the demo path is currently two halves.
+That path now runs end to end for attributes: a verified fact reaches an
+`ATTRIBUTE_LABEL` / `ATTRIBUTE_VALUE` / `ATTRIBUTE_UOM` triplet in the organizer's real
+252-column schema, and a refused one reaches no cell.
+
+**What that does not mean.** The mapping rules that decide where a fact goes are
+hand-written and marked non-authoritative, because the official Unilog LOV, UOM master,
+and category attribute rules are not in the supplied pack. The other field groups —
+manufacturer and brand normalisation, classpath, the five description forms, digital
+assets — are not built. So SKUTruth can write verified attributes into the official
+delivery schema through explicit mappings; it cannot yet claim those attributes are
+Unilog-compliant, and the code refuses to pretend otherwise.
 
 ## What the verification actually checks
 
@@ -86,10 +95,12 @@ datasheet it reads cannot be committed.
 | Record and replay | LIVE / REPLAY, fail-closed replay, versioned cassette keys |
 | Deterministic validation | ETIM units, picklists, ranges, condition completeness; exact-decimal unit conversion |
 | Mechanical verification | the section above |
+| Adjudication and mapping | typed commit / withhold / review / unmapped decisions, explicit injected mapping rules with recorded authority, condition-preserving policies, conflict handling, attribute-slot assembly with provenance retained |
 | Evaluation framework | manifests, scoring, reporting |
 
-**Next** — verified facts → Unilog attribute mapping and adjudication: deciding which
-verified facts reach which delivery slot, and in whose format.
+**Next** — the remaining delivery field groups, each of which needs organizer rule data:
+manufacturer and brand canonicalisation, classpath classification, then the description
+forms.
 
 **Not yet implemented** — range and logical value verification; controlled-vocabulary
 synonym licensing; manufacturer and brand canonicalisation; classpath classification; UOM
@@ -136,7 +147,8 @@ uv pip install -e ".[dev]"
 python -m pytest                                   # test suite
 python -m ruff check backend tests scripts
 python scripts/etim_stats.py                       # ETIM statistics and integrity check
-python scripts/verify_extraction_run.py --cassette <path>   # re-derive a recorded run
+python scripts/verify_extraction_run.py --cassette <path>       # re-derive a recorded run
+python scripts/assemble_delivery_record.py --cassette <path>    # and map it into a record
 ```
 
 Python 3.12 and Pydantic on the backend. The data contracts in

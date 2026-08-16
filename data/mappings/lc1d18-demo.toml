@@ -1,0 +1,128 @@
+# NOT AUTHORITATIVE — see `authority` below.
+#
+# Hand-written attribute mapping for the LC1D18P7 engineering example. It exists to
+# demonstrate that a mechanically verified fact can reach a Unilog attribute slot, and
+# for nothing else.
+#
+# The official Unilog LOV, UOM master, and category attribute rules are not in the
+# supplied organizer pack. Every target label below was chosen by hand from the two
+# worked delivery examples and general product-data convention. None of them is
+# evidence that Unilog uses that label, that spelling, or that unit. When the real rule
+# files arrive, a registry marked OFFICIAL replaces this file and no adjudication code
+# changes.
+#
+# Source keys are ETIM feature ids only because this example came through the ETIM
+# extraction path. The engine treats them as opaque strings; `unilog:raw_width` would
+# work identically.
+
+name = "lc1d18-demo"
+authority = "DEMO"
+note = """
+Demonstration mapping for the Schneider LC1D18P7 contactor. Non-authoritative: no
+organizer LOV, UOM master, or category rule file was available when it was written.
+"""
+
+# -- unconditioned physical scalars ------------------------------------------------
+# Dimensions are stated without an operating point, so a plain scalar target loses
+# nothing and REJECT_IF_CONDITIONED is the honest policy: should a conditioned
+# dimension ever arrive, it goes to review rather than quietly dropping its qualifier.
+
+[[mapping]]
+source_key = "EF000008"
+target_label = "Width"
+priority = 10
+target_uom = "mm"
+expected_value_kind = "numeric"
+condition_policy = "REJECT_IF_CONDITIONED"
+note = "Physical width. Unconditioned in the source."
+
+[[mapping]]
+source_key = "EF000040"
+target_label = "Height"
+priority = 20
+target_uom = "mm"
+expected_value_kind = "numeric"
+condition_policy = "REJECT_IF_CONDITIONED"
+note = "Physical height. Unconditioned in the source."
+
+[[mapping]]
+source_key = "EF000049"
+target_label = "Depth"
+priority = 30
+target_uom = "mm"
+expected_value_kind = "numeric"
+condition_policy = "REJECT_IF_CONDITIONED"
+note = "Physical depth. Unconditioned in the source."
+
+[[mapping]]
+source_key = "EF001374"
+target_label = "Number of Main NO Contacts"
+priority = 40
+expected_value_kind = "numeric"
+condition_policy = "REJECT_IF_CONDITIONED"
+note = "A count, with no unit and no operating point."
+
+[[mapping]]
+source_key = "EF008242"
+target_label = "Control Circuit Voltage Type"
+priority = 50
+expected_value_kind = "alphanumeric"
+condition_policy = "REJECT_IF_CONDITIONED"
+note = """
+Text value 'AC'. Deliberately not mapped to any controlled vocabulary: we hold no LOV
+to map it into, and the verifier proved the document states this exact word.
+"""
+
+# -- power ratings, whose operating point the label carries -------------------------
+# A contactor's rated power is meaningless without its utilisation category, voltage
+# and frequency. These targets are mapped only because the label names all three, and
+# TARGET_ENCODES_CONDITIONS makes that claim checkable: the fact's conditions must match
+# the declared set exactly, or it goes to review. The two rules differ solely by
+# utilisation category, which is precisely why 7.5 kW and 4 kW are not a contradiction.
+
+[[mapping]]
+source_key = "EF001364"
+target_label = "Rated Operational Power at AC-3, 400 V, 50/60 Hz"
+priority = 60
+target_uom = "kW"
+expected_value_kind = "numeric"
+condition_policy = "TARGET_ENCODES_CONDITIONS"
+note = "Label names the full operating point, so nothing is discarded by committing it."
+
+[[mapping.required_conditions]]
+kind = "UTILIZATION_CATEGORY"
+value = "AC-3"
+
+[[mapping.required_conditions]]
+kind = "VOLTAGE"
+value = "400 V"
+
+[[mapping.required_conditions]]
+kind = "FREQUENCY"
+value = "50/60 Hz"
+
+[[mapping]]
+source_key = "EF008496"
+target_label = "Rated Operational Power at AC-4, 400 V, 50/60 Hz"
+priority = 70
+target_uom = "kW"
+expected_value_kind = "numeric"
+condition_policy = "TARGET_ENCODES_CONDITIONS"
+note = "Same reasoning as AC-3, under a different utilisation category."
+
+[[mapping.required_conditions]]
+kind = "UTILIZATION_CATEGORY"
+value = "AC-4"
+
+[[mapping.required_conditions]]
+kind = "VOLTAGE"
+value = "400 V"
+
+[[mapping.required_conditions]]
+kind = "FREQUENCY"
+value = "50/60 Hz"
+
+# Deliberately unmapped: EF001376 and EF001377, the auxiliary NO/NC contact counts.
+# Both verify cleanly. Whether a Unilog template carries them, under what label, and in
+# what sequence is a category question the missing LOV answers. They surface as UNMAPPED
+# rather than being invented a home, which is the honest report of what we know.
