@@ -17,12 +17,25 @@ would be the classic mistake. But a single scalar cell cannot hold both either, 
 go to review rather than to the record — and the reason says which of the two problems
 it is, so a person is not left guessing.
 
+Facts reach one target either because a single source key was verified more than once,
+or because several source keys legitimately map to the same output concept. The registry
+permits that convergence deliberately; this module is where it is settled, on evidence.
+
 ## Never first-wins
 
 Nothing here resolves a contest by input order, model order, or dictionary overwrite.
 Facts merge only when they are *identical* — same semantic value, same operating point —
 and every other multiplicity becomes a reviewed outcome. Silence would mean one verified
 fact quietly overwriting another, which is unauditable by construction.
+
+## Priority orders output; it never adjudicates
+
+Mapping `priority` decides where an attribute sits in the delivery row. It is **not** a
+precedence rule between disagreeing facts, and a lower number never wins an argument: two
+sources stating different values under the same operating point both go to review however
+they are prioritised. The only place priority is consulted here is choosing which of
+several *identical* facts carries the merge — where there is nothing to win, because the
+committed value is the same either way and only its position in the row is at stake.
 """
 
 from __future__ import annotations
@@ -97,9 +110,18 @@ def resolve_conflicts(facts: Sequence[AdjudicatedFact]) -> tuple[AdjudicatedFact
             continue
 
         # Identical value, identical operating point. Genuinely the same fact observed
-        # more than once, so one attribute is written and the rest are recorded as
-        # merged into it rather than discarded.
-        keeper, *duplicates = sorted(group, key=lambda f: f.source_key)
+        # more than once — corroboration, not contention — so one attribute is written
+        # and the rest are recorded as merged into it rather than discarded.
+        #
+        # The keeper is chosen by mapping priority, then source key. That is not priority
+        # resolving a disagreement: these facts agree on value and operating point, so
+        # the committed cell is identical whichever is kept, and the only thing being
+        # decided is where the attribute sits in the row — which is exactly what priority
+        # is for. The source key breaks ties so the result cannot depend on input order.
+        keeper, *duplicates = sorted(
+            group,
+            key=lambda f: (f.spec.priority, f.source_key),  # type: ignore[union-attr]
+        )
         replacements[id(keeper)] = AdjudicatedFact(
             outcome=keeper.outcome,
             decision=keeper.decision,

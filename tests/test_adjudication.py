@@ -514,16 +514,155 @@ class TestSlotAssembly:
         assert all(f.startswith("ATTRIBUTE_") for f in result.record.assigned_fields)
 
 
+class TestConvergentTargets:
+    """Several source keys may speak about one output concept.
+
+    The registry used to forbid this, which quietly contradicted the conflict engine:
+    every case that engine exists to settle — merge, conflict, distinct operating points
+    — only arises when facts converge on one target. Forbidding convergence at authoring
+    time also pushed the decision onto whoever wrote the rules, who cannot make it,
+    because which facts actually turn up is a property of the documents.
+
+    These go through the public assembly path on purpose, so they prove the registry and
+    the conflict engine agree rather than testing either in isolation.
+    """
+
+    def _registry(self, *, priorities=(10, 20)):
+        return registry(
+            spec("src:a", "Width", priority=priorities[0], target_uom="mm"),
+            spec("src:b", "Width", priority=priorities[1], target_uom="mm"),
+            name="convergent",
+        )
+
+    def _outcome(self, key: str, number: float, conds: ConditionSet | None = None):
+        return verified(
+            key=key,
+            value=NumericValue(number=number, unit="mm", raw=f"{number:g} mm"),
+            conds=conds,
+        )
+
+    def test_two_source_keys_may_target_one_label(self):
+        assert len(self._registry()) == 2
+
+    def test_agreeing_sources_deduplicate_into_one_attribute(self):
+        result = assemble_verified_attributes(
+            [self._outcome("src:a", 45.0), self._outcome("src:b", 45.0)],
+            self._registry(),
+            schema(),
+        )
+        assert result.summary.committed == 1
+        assert result.summary.attributes_written == 1
+        assert result.summary.conflicts == 0
+        assert [s.label for s in result.record.declared_attribute_slots()] == ["Width"]
+
+    def test_merged_facts_name_every_contributing_source(self):
+        result = assemble_verified_attributes(
+            [self._outcome("src:a", 45.0), self._outcome("src:b", 45.0)],
+            self._registry(),
+            schema(),
+        )
+        committed = result.committed[0]
+        assert committed.supporting_source_keys == ("src:a", "src:b")
+        assert result.attributes[0].supporting_source_keys == ("src:a", "src:b")
+        assert "src:b" in result.provenance()[0]["supporting_source_keys"]
+
+    def test_the_merged_duplicate_is_recorded_not_dropped(self):
+        result = assemble_verified_attributes(
+            [self._outcome("src:a", 45.0), self._outcome("src:b", 45.0)],
+            self._registry(),
+            schema(),
+        )
+        merged = [f for f in result.facts if f.reason is AdjudicationReason.DUPLICATE_MERGED]
+        assert len(merged) == 1
+        assert result.summary.input_facts == 2
+
+    def test_disagreeing_sources_conflict(self):
+        result = assemble_verified_attributes(
+            [self._outcome("src:a", 45.0), self._outcome("src:b", 46.0)],
+            self._registry(),
+            schema(),
+        )
+        assert result.summary.committed == 0
+        assert result.summary.review == 2
+        assert result.summary.conflicts == 1
+        assert all(f.reason is AdjudicationReason.CONFLICT for f in result.review)
+
+    @pytest.mark.parametrize("priorities", [(10, 20), (20, 10), (10, 10)])
+    def test_priority_never_resolves_a_conflict(self, priorities):
+        """Priority orders the row. It is not a precedence rule between facts."""
+        result = assemble_verified_attributes(
+            [self._outcome("src:a", 45.0), self._outcome("src:b", 46.0)],
+            self._registry(priorities=priorities),
+            schema(),
+        )
+        assert result.summary.committed == 0
+        assert result.record.declared_attribute_slots() == ()
+
+    def test_different_operating_points_are_not_a_conflict(self):
+        result = assemble_verified_attributes(
+            [
+                self._outcome(
+                    "src:a", 45.0, conditions((ConditionKind.TEMPERATURE, "20 °C"))
+                ),
+                self._outcome(
+                    "src:b", 45.0, conditions((ConditionKind.TEMPERATURE, "60 °C"))
+                ),
+            ],
+            registry(
+                spec(
+                    "src:a",
+                    "Width",
+                    priority=10,
+                    condition_policy=ConditionPolicy.PRESERVE_AS_METADATA,
+                ),
+                spec(
+                    "src:b",
+                    "Width",
+                    priority=20,
+                    condition_policy=ConditionPolicy.PRESERVE_AS_METADATA,
+                ),
+                name="convergent",
+            ),
+            schema(),
+        )
+        assert result.summary.committed == 0
+        assert all(
+            f.reason is AdjudicationReason.MULTIPLE_OPERATING_POINTS for f in result.review
+        )
+
+    @pytest.mark.parametrize("values", [(45.0, 45.0), (45.0, 46.0)])
+    def test_reversed_input_produces_identical_results(self, values):
+        """No first-wins, in either direction."""
+        outcomes = [self._outcome("src:a", values[0]), self._outcome("src:b", values[1])]
+
+        def digest(rows):
+            result = assemble_verified_attributes(rows, self._registry(), schema())
+            return (
+                result.record.to_row(),
+                sorted((f.source_key, f.decision.value, f.reason.value) for f in result.facts),
+                result.summary.model_dump(),
+            )
+
+        assert digest(outcomes) == digest(list(reversed(outcomes)))
+
+    def test_no_committed_candidate_is_ever_overwritten(self):
+        """The dictionary-overwrite failure, made structurally impossible."""
+        from skutruth.adjudication import AdjudicationError, adjudicate, build_attributes
+
+        unresolved = adjudicate(
+            [self._outcome("src:a", 45.0), self._outcome("src:b", 46.0)], self._registry()
+        )
+        assert all(f.decision is AdjudicationDecision.COMMIT for f in unresolved)
+        with pytest.raises(AdjudicationError, match="both committed to"):
+            build_attributes(unresolved)
+
+
 class TestMappingValidation:
     """T. A malformed rule is caught where its author can still fix it."""
 
     def test_two_rules_for_one_source_key_are_rejected(self):
         with pytest.raises(MalformedMappingError, match="mapped twice"):
             registry(spec("SRC001", "Alpha"), spec("SRC001", "Beta"))
-
-    def test_two_rules_for_one_target_are_rejected(self):
-        with pytest.raises(MalformedMappingError, match="claimed by both"):
-            registry(spec("SRC001", "Alpha"), spec("SRC002", "Alpha"))
 
     def test_encoded_conditions_must_be_named(self):
         with pytest.raises(ValueError, match="names no required_conditions"):

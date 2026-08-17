@@ -96,6 +96,27 @@ a reason that says which problem it actually is.
 **Nothing is ever resolved by first-wins**, model order, or dictionary overwrite. Facts
 merge only when identical; every other multiplicity becomes a reviewed outcome.
 
+### Convergent targets
+
+Several source keys mapping to one target is legitimate and supported. Different source
+vocabularies routinely speak about the same output concept, and every case the table
+above describes only arises when facts converge on one target — so a registry that
+forbade convergence would forbid the situation this engine was written for, and would
+push the decision onto whoever authored the rules, who cannot make it: which facts turn
+up is a property of the documents, not of the mapping.
+
+A merged fact records every contributing key in `supporting_source_keys`, so a reviewer
+asking what backs a cell gets the whole list. Duplicates are recorded as
+`DUPLICATE_MERGED` rather than dropped.
+
+**Priority orders output; it never adjudicates.** A lower number does not win an
+argument — two sources stating different values under the same operating point both go to
+review however they are prioritised. Priority is consulted in the conflict engine at
+exactly one point: choosing which of several *identical* facts carries the merge, where
+nothing is at stake but the attribute's position in the row, since the committed value is
+the same either way. `build_attributes` raises if two committed facts still share a
+target, so skipping conflict resolution fails loudly instead of silently overwriting.
+
 ## Authority
 
 `MappingAuthority` records where a rule came from: `OFFICIAL` (organizer-supplied),
@@ -159,7 +180,8 @@ test enforces it.
   code claiming a capability.
 * Unit conversion is whatever the reviewed ETIM registry supports. No Unilog UOM rule is
   invented, because the UOM master is not in the pack.
-* One rule per target label. A target legitimately fed by several sources needs a
-  precedence concept, which needs organizer rules to define.
+* A target fed by several sources is supported, but only agreement commits. Preferring
+  one source over another when they genuinely disagree would need a precedence concept,
+  and precedence is exactly the sort of rule organizer data has to define rather than us.
 * No value formatting for Unilog conventions — mixed-inch fractions, closed-up invoice
   units, `|` separators. Those are description-building rules and are not implemented.

@@ -36,7 +36,7 @@ from skutruth.unilog.schema import DeliverySchema
 from skutruth.verification import VerificationOutcome
 
 from .conflicts import conflicted_targets, resolve_conflicts
-from .errors import SlotCapacityError
+from .errors import AdjudicationError, SlotCapacityError
 from .mapping import MappingRegistry
 from .models import (
     AdjudicatedFact,
@@ -88,6 +88,7 @@ class AssemblyResult:
                 "value": a.value_text,
                 "uom": a.uom_text,
                 "source_key": a.source_key,
+                "supporting_source_keys": list(a.supporting_source_keys),
                 "exact_mpn": a.exact_mpn,
                 "artifact_sha256": a.artifact_sha256,
                 "page": a.page_number,
@@ -101,8 +102,29 @@ class AssemblyResult:
 
 
 def build_attributes(facts: Sequence[AdjudicatedFact]) -> tuple[MappedUnilogAttribute, ...]:
-    """Committed facts as slot-ready attributes, in explicit mapping order."""
+    """Committed facts as slot-ready attributes, in explicit mapping order.
+
+    Several source keys may map to one target, so two committed facts *could* in
+    principle arrive here wanting the same slot. They cannot if conflicts were resolved
+    first — identical facts merge, and anything else goes to review — so reaching this
+    function with a contested target means `resolve_conflicts` was skipped. Raising says
+    so; assigning both would let one silently overwrite the other, which is precisely the
+    dictionary-overwrite failure the conflict engine exists to prevent.
+    """
     committed = [f for f in facts if f.decision is AdjudicationDecision.COMMIT]
+
+    seen: dict[str, str] = {}
+    for fact in committed:
+        assert fact.spec is not None
+        first = seen.setdefault(fact.spec.target_label, fact.source_key)
+        if first != fact.source_key:
+            raise AdjudicationError(
+                f"{first!r} and {fact.source_key!r} are both committed to "
+                f"{fact.spec.target_label!r}. Convergent targets must go through "
+                f"resolve_conflicts, which merges identical facts and sends every other "
+                f"multiplicity to review; writing both would lose one."
+            )
+
     ordered = sorted(
         committed,
         key=lambda f: (f.spec.priority, f.spec.target_label),  # type: ignore[union-attr]
@@ -120,6 +142,7 @@ def build_attributes(facts: Sequence[AdjudicatedFact]) -> tuple[MappedUnilogAttr
                 uom_text=render_uom(value),
                 order=index,
                 source_key=fact.source_key,
+                supporting_source_keys=fact.supporting_source_keys,
                 value=value,
                 conditions=fact.conditions,
                 authority=spec.authority,

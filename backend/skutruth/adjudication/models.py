@@ -234,7 +234,8 @@ class AdjudicatedFact(BaseModel):
     #: The value as it would be committed — possibly unit-converted, with lineage. None
     #: whenever nothing is committable.
     value: AttributeValue | None = None
-    #: Source keys of identical facts merged into this one.
+    #: Source keys of identical facts merged into this one. Excludes this fact's own
+    #: key; see `supporting_source_keys` for the whole set.
     merged_source_keys: tuple[str, ...] = ()
 
     @model_validator(mode="after")
@@ -260,6 +261,16 @@ class AdjudicatedFact(BaseModel):
     @property
     def source_key(self) -> str:
         return self.outcome.key
+
+    @property
+    def supporting_source_keys(self) -> tuple[str, ...]:
+        """Every source key backing this fact, including its own. Sorted.
+
+        Several sources converging on one target and agreeing is corroboration, and a
+        reviewer asking "what backs this cell?" wants the whole list rather than one key
+        plus a separate merge record.
+        """
+        return tuple(sorted({self.source_key, *self.merged_source_keys}))
 
     @property
     def conditions(self) -> ConditionSet:
@@ -291,6 +302,11 @@ class MappedUnilogAttribute(BaseModel):
     order: int = Field(description="Assigned slot index, 1-based")
 
     source_key: str = Field(min_length=1)
+    supporting_source_keys: tuple[str, ...] = Field(
+        default=(),
+        description="Every source that backs this cell, including `source_key`. More "
+        "than one means separate sources converged and agreed.",
+    )
     value: AttributeValue
     conditions: ConditionSet = Field(default_factory=ConditionSet)
     authority: MappingAuthority

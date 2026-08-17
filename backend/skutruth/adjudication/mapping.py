@@ -26,11 +26,27 @@ DEFAULT_MAPPING_DIR = Path(__file__).resolve().parents[3] / "data" / "mappings"
 
 
 class MappingRegistry:
-    """Mapping rules for one output target, keyed by opaque source key.
+    """Mapping rules, keyed by opaque source key.
 
-    Two rules for one source key would make the outcome depend on iteration order, and
-    two rules for one target label would make two facts silently compete for one slot.
-    Both are rejected at construction, where the author can still fix them.
+    ## One rule per source key; several rules per target
+
+    A source key mapped twice is a genuine authoring error: which rule applied would
+    depend on iteration order, and nothing downstream could recover the intent. That is
+    rejected at construction.
+
+    Several source keys mapping to **one target is legitimate and supported**. Different
+    source vocabularies routinely speak about the same output concept — an ETIM width
+    feature and a Unilog raw-width field are both `Width` — and a registry that could not
+    represent that would be describing a world we do not live in.
+
+    It would also be incoherent. The conflict engine exists precisely to adjudicate facts
+    converging on one target: to merge identical ones, to flag genuine disagreement, and
+    to separate several true values at different operating points. Forbidding convergence
+    here would forbid the situation that machinery was written for, and would push the
+    decision back to whoever authored the rules — who cannot make it, because which facts
+    actually turn up is a property of the documents, not of the mapping.
+
+    So convergence is allowed, and it is settled once, downstream, on evidence.
     """
 
     def __init__(
@@ -42,7 +58,6 @@ class MappingRegistry:
     ) -> None:
         self.name = name
         self._specs: dict[str, AttributeMappingSpec] = {}
-        by_label: dict[str, str] = {}
 
         for spec in specs:
             if spec.source_key in self._specs:
@@ -50,15 +65,7 @@ class MappingRegistry:
                     f"{name}: source key {spec.source_key!r} is mapped twice; which rule "
                     f"applies would otherwise depend on iteration order"
                 )
-            existing = by_label.get(spec.target_label)
-            if existing is not None:
-                raise MalformedMappingError(
-                    f"{name}: target {spec.target_label!r} is claimed by both "
-                    f"{existing!r} and {spec.source_key!r}; two sources competing for "
-                    f"one attribute slot must be resolved in the rules, not at runtime"
-                )
             self._specs[spec.source_key] = spec
-            by_label[spec.target_label] = spec.source_key
 
         declared = {s.authority for s in self._specs.values()}
         if authority is not None and declared - {authority}:

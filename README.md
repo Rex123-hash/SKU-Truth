@@ -98,13 +98,20 @@ datasheet it reads cannot be committed.
 | Adjudication and mapping | typed commit / withhold / review / unmapped decisions, explicit injected mapping rules with recorded authority, condition-preserving policies, conflict handling, attribute-slot assembly with provenance retained |
 | Evaluation framework | manifests, scoring, reporting |
 
-**Next** — the remaining delivery field groups, each of which needs organizer rule data:
-manufacturer and brand canonicalisation, classpath classification, then the description
-forms.
+So: verification, adjudication, explicit non-authoritative mapping, and Unilog attribute-slot
+assembly are implemented and run end to end.
 
-**Not yet implemented** — range and logical value verification; controlled-vocabulary
-synonym licensing; manufacturer and brand canonicalisation; classpath classification; UOM
-and fraction normalisation; description construction; batch export; any user interface.
+**Not yet implemented** — official mappings; manufacturer and brand canonicalisation;
+classpath classification; the five description forms; document discovery for organizer
+rows; a batch product workflow; any user interface. Also outstanding inside the parts that
+do exist: range and logical value verification, controlled-vocabulary synonym licensing,
+and UOM and fraction normalisation.
+
+Two of those are worth separating from the rest. Every mapping rule in the repository is
+hand-written, so **no output is claimed to conform to Unilog's published rules**. And no
+row in the organizer's 1,000-row input currently has a manufacturer artifact — the worked
+example is an engineering one, not organizer data — so **document discovery is what stands
+between this architecture and a batch demonstration**, not the mapping layer.
 
 Several of those wait on organizer reference files that are not in the supplied pack — a
 brand master, the LOV, the UOM standard, the decimal/fraction table, the content
