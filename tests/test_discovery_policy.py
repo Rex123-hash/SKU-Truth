@@ -9,6 +9,8 @@ domain, and a sibling part number reliably fail to become manufacturer evidence.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from skutruth.discovery import (
     DiscoveryRequest,
@@ -41,6 +43,10 @@ REVIEW = {
     "reviewed_by": "test",
     "basis": "synthetic fixture; no real domain was checked",
 }
+
+SHIPPED_REGISTRY = (
+    Path(__file__).resolve().parents[1] / "data" / "discovery" / "manufacturer_domains.demo.toml"
+)
 
 
 def registry(authority: str = "REVIEWED"):
@@ -489,20 +495,59 @@ class TestReviewProvenance:
                 }
             )
 
-    def test_the_shipped_registry_licenses_only_what_it_evidences(self):
-        """One entry has a checkable basis in this repository. The rest do not."""
-        from pathlib import Path
+    def test_the_shipped_registry_licenses_nothing_it_has_not_reviewed(self):
+        """No entry carries a review record, so none of them licenses evidence.
 
-        path = (
-            Path(__file__).resolve().parents[1]
-            / "data"
-            / "discovery"
-            / "manufacturer_domains.demo.toml"
+        Zero licensing entries is the correct state for a registry nobody has audited. It
+        is more honest than one entry whose review was attributed to a person who never
+        performed it.
+        """
+        loaded = load_registry(SHIPPED_REGISTRY)
+        assert loaded.licensing_entries == ()
+        assert len(loaded.unreviewed_entries) == len(loaded.entries)
+        assert all(e.review is None for e in loaded.entries)
+
+    def test_supporting_artifacts_do_not_constitute_a_review(self):
+        """Schneider has the most evidence available and is still not reviewed.
+
+        The local artifact store holds documents fetched from those hosts, and the
+        research note preserves their URL and hash lineage. That is material a reviewer
+        could examine — it is not a reviewer having examined it.
+        """
+        loaded = load_registry(SHIPPED_REGISTRY)
+        entry = loaded.entry_for_hint("Schneider Electric")
+        assert entry is not None
+        assert entry.review is None
+        assert loaded.licenses(entry) is False
+        assert (
+            classify_authority("download.se.com", registry=loaded, manufacturer_hint=MAKER)
+            is SourceAuthority.UNVERIFIED_MANUFACTURER
         )
-        loaded = load_registry(path)
-        licensing = {e.key for e in loaded.licensing_entries}
-        assert licensing == {"schneider-electric"}
-        assert loaded.unreviewed_entries
-        review = loaded.entry_for_hint("Schneider Electric").review
-        assert review is not None
-        assert "research/lc1d18_artifact_note.md" in review.basis
+
+    def test_an_unreviewed_shipped_entry_is_still_searchable(self):
+        """Demotion costs licensing, not discoverability."""
+        loaded = load_registry(SHIPPED_REGISTRY)
+        assert loaded.domains_for_hint(MAKER) == ("se.com", "schneider-electric.com")
+        assert loaded.owner_of("download.se.com") is not None
+
+    def test_a_supplied_review_is_what_promotes_an_entry(self):
+        """The only route to licensing: a person records the audit. Nothing infers it."""
+        loaded = load_registry(SHIPPED_REGISTRY)
+        entry = loaded.entry_for_hint(MAKER)
+        assert loaded.licenses(entry) is False
+
+        promoted = parse_registry(
+            {
+                "name": "after-human-review",
+                "authority": "REVIEWED",
+                "manufacturer": [
+                    {
+                        "key": entry.key,
+                        "authority_hints": list(entry.authority_hints),
+                        "domains": list(entry.domains),
+                        "review": REVIEW,
+                    }
+                ],
+            }
+        )
+        assert len(promoted.licensing_entries) == 1

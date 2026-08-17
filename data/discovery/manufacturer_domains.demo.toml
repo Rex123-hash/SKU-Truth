@@ -15,17 +15,32 @@
 # who checked it, when, and on what basis. Without one it is locator-grade: it still
 # builds queries, and anything found through it is UNVERIFIED_MANUFACTURER.
 #
-# Most entries below have no review block, and that is the honest state. Their domains
-# were written from general knowledge while building the discovery engine — nobody in
-# this project verified them against the manufacturers' own publications, and an
-# unrecorded check cannot license a fact. They stay because they are useful for locating
+# **No entry below is reviewed, so this registry currently licenses nothing.** That is
+# the honest state, not a gap to be papered over. Most of these domains were written from
+# general knowledge while building the discovery engine; nobody verified them against the
+# manufacturers' own publications. They stay because they are useful for locating
 # candidates, and they are marked for exactly what they are.
 #
-# **Exactly one entry has a genuine, checkable basis**: Schneider Electric, where this
-# repository holds three ingested artifacts fetched from those hosts, with their URLs and
-# hashes recorded, plus `research/lc1d18_artifact_note.md` documenting the
-# `download.schneider-electric.com -> download.se.com` redirect. That is evidence a
-# reviewer can re-examine without leaving the repo.
+# ## Evidence available for review is not a review
+#
+# The Schneider entry is the case worth being careful about. The local artifact store does
+# hold documents fetched from those hosts with URLs and byte hashes recorded, and
+# `research/lc1d18_artifact_note.md` preserves that lineage in committed form. A reviewer
+# could use it. Nobody has.
+#
+# A `[manufacturer.review]` block is an affirmative audit event — a named person checked
+# and says so. It is never inferred from repository state, from artifacts existing, from
+# git authorship, or from an automated run having looked at files. Those establish
+# material that CAN be reviewed; they do not establish that anyone DID.
+#
+# ## Promoting an entry
+#
+# 1. open the manufacturer's own site and confirm it publishes from each listed domain;
+# 2. add `[manufacturer.review]` with `reviewed_at`, your own `reviewed_by`, and a
+#    `basis` naming what you checked;
+# 3. the entry then licenses evidence.
+#
+# Step 2 is a human signing their name to a claim. Nothing automated may do it for them.
 #
 # ## Two kinds of hint, and only one of them grants ownership
 #
@@ -55,22 +70,18 @@ domains = ["se.com", "schneider-electric.com"]
 note = """
 The LC1D18P7 engineering example. download.se.com serves datasheets and is covered as a
 subdomain of se.com. `squared.com` and `schneider-electric.co.uk` were dropped from an
-earlier draft of this file: plausible, and not evidenced by anything in this repository.
-"""
+earlier draft: plausible, and not evidenced by anything here.
 
-[manufacturer.review]
-reviewed_at = "2026-08-17"
-reviewed_by = "Amaan Khan"
-basis = """
-Three artifacts in this repository were fetched from these hosts and ingested with their
-URLs and byte hashes recorded: LC1D18P7_DATASHEET and LC1D18_DATASHEET from
-download.se.com, and the B8 Contactors catalogue requested from
-download.schneider-electric.com and served by download.se.com. See
-research/lc1d18_artifact_note.md, which records that redirect.
-"""
-note = """
-Verifies domain ownership only. It says nothing about which products these hosts cover —
-that stays with identity resolution — and nothing about Unilog's catalogue rules.
+NOT REVIEWED, deliberately. There IS material a reviewer could examine — the local
+artifact store holds documents fetched from these hosts with their URLs and byte hashes
+recorded, and research/lc1d18_artifact_note.md preserves that lineage in committed form
+(the manufacturer PDFs themselves are gitignored and stay that way). But evidence being
+available for review is not a review. No person has confirmed that Schneider Electric
+owns these hosts and signed their name to it, so this entry licenses nothing.
+
+An earlier revision of this file attributed a review to a named person who had not
+performed one, inferred from git authorship. That is precisely the assertion DomainReview
+exists to refuse, and removing it is the point of the mechanism working.
 """
 
 # -- unreviewed entries: locator-grade until someone checks them -------------------

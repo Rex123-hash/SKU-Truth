@@ -29,6 +29,11 @@ DiscoveryRequest  →  deterministic queries  →  provider (through record/repl
 
 ```
 SEARCH RESULT  ≠  NETWORK SAFETY  ≠  DOMAIN REVIEW  ≠  MANUFACTURER IDENTITY  ≠  PRODUCT SCOPE
+
+and, underneath the middle one:
+
+EVIDENCE AVAILABLE FOR REVIEW  ≠  REVIEW PERFORMED
+GIT AUTHOR                     ≠  DOMAIN REVIEWER
 ```
 
 | Gate | Question | Answered by |
@@ -165,18 +170,38 @@ answers none of the questions it exists to answer. An entry with **no** review b
 not an error: it is simply unreviewed, stays useful for locating candidates, and licenses
 nothing.
 
-**In the shipped registry exactly one entry is reviewed: Schneider Electric.** Its basis is
-three artifacts in this repository fetched from those hosts and ingested with their URLs
-and byte hashes recorded, plus `research/lc1d18_artifact_note.md` documenting the
-`download.schneider-electric.com → download.se.com` redirect — evidence a reviewer can
-re-examine without leaving the repo.
+### Evidence available for review ≠ review performed
 
-The other eight entries have domains written from general knowledge while building this
-engine. Nobody verified them, so they are locator-grade. The honest consequence, measured
-against the organizer input: 5 of 75 supplier spellings remain **searchable** (291 of 959
-rows) and **none of them licenses evidence** (0 of 959) — Schneider does not appear in the
-organizer data at all. Promoting an entry means doing the review and recording it, not
-editing a flag.
+This is the distinction the whole mechanism turns on, and it is easy to lose.
+
+The shipped registry's Schneider entry has more supporting material than any other: the
+local artifact store holds documents fetched from those hosts with their URLs and byte
+hashes recorded, and `research/lc1d18_artifact_note.md` preserves that lineage in
+committed form. (The manufacturer PDFs themselves are gitignored and stay that way, so a
+fresh clone has the note, not the documents.) A reviewer could use all of it.
+
+Nobody has. So the entry carries **no** review and licenses nothing.
+
+### Git author ≠ domain reviewer
+
+An earlier revision of this file recorded `reviewed_by = "Amaan Khan"`, taken from the
+repository's git identity during an automated session. Nobody had opened Schneider's site
+and confirmed anything. That is exactly the assertion `DomainReview` exists to refuse,
+manufactured by the mechanism built to refuse it.
+
+A review is an **affirmative audit event**: a named person checked, and says so. It is
+never inferred from git authorship, from commit history, from artifacts existing in a
+store, or from an automated run having read the files. Those produce material that *can*
+be reviewed. Only a person produces a review.
+
+**The shipped registry therefore has zero licensing entries.** Measured against the
+organizer input: 5 of 75 supplier spellings remain **searchable** (291 of 959 rows) and
+**none licenses evidence** (0 of 959). Zero is the correct number for a registry nobody
+has audited, and it is better than one entry with a signature its owner never gave.
+
+To promote an entry: open the manufacturer's site, confirm it publishes from each listed
+domain, then add `[manufacturer.review]` with your own `reviewed_by` and a `basis` naming
+what you checked. Nothing automated may perform that step.
 
 ## Exact-MPN relevance can only demote
 
@@ -308,10 +333,10 @@ and counting it twice would let a mirror manufacture agreement.
 * Manufacturer hints are matched against explicitly listed spellings, so coverage is
   bounded by how much of the registry has been written *and reviewed*. Against the
   organizer input: 5 of 75 supplier spellings are searchable (291 of 959 rows), and
-  **none licenses evidence** (0 of 959), because the only reviewed manufacturer does not
-  appear in that data. Discovery can currently find candidates for those rows and store
-  none of them as manufacturer evidence. Raising that number means performing and
-  recording real domain reviews.
+  **none licenses evidence** (0 of 959), because **no entry has been reviewed by anyone**.
+  Discovery can currently find candidates for those rows and store none of them as
+  manufacturer evidence. Raising that number requires a person to perform and sign real
+  domain reviews; it is not an engineering task.
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.
   Resolving that needs the manufacturer master, not more discovery.
