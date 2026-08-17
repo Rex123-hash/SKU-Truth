@@ -53,6 +53,7 @@ from skutruth.discovery import (  # noqa: E402
     discover_sources,
     included_patterns_for,
     load_registry,
+    reviewed_patterns_for_hint,
 )
 from skutruth.discovery.diagnostics import (  # noqa: E402
     SearchOutcome,
@@ -166,24 +167,30 @@ def run_live(
     place with `result=None`, so the report shows every selected row rather than only the
     ones that worked.
     """
-    # The corpus is exactly the human-reviewed domains. With none reviewed this is
-    # empty, and the site filter is empty with it — which is why the pilot refuses to
-    # run live below rather than silently searching the whole configured app.
-    provider = AgentSearchProvider.from_env(
-        limits=AgentSearchLimits(max_results_per_query=max_results),
-        site_patterns=included_patterns_for(registry),
+    base = AgentSearchProvider.from_env(
+        limits=AgentSearchLimits(max_results_per_query=max_results)
     )
     store = CassetteStore(cassettes)
     artifact_store = ArtifactStore(artifacts) if artifacts else None
 
     results: list[tuple[DiscoveryResult | None, DiscoveryRequest, str]] = []
     for request in requests:
+        # Each row searches only *its own* manufacturer's reviewed domains. Handing every
+        # query the whole reviewed corpus would spend calls searching other
+        # manufacturers' sites and invite a near-miss host to be considered at all.
+        patterns = reviewed_patterns_for_hint(registry, request.manufacturer_hint)
+        if not patterns:
+            # No reviewed binding for this manufacturer: no call is made. The authority
+            # gate would refuse whatever came back anyway, so searching would be spend
+            # without a possible outcome.
+            results.append((None, request, "DOMAIN_REVIEW_REQUIRED: no reviewed domain"))
+            continue
         try:
             results.append(
                 (
                     discover_sources(
                         request,
-                        provider=provider,
+                        provider=base.for_manufacturer(patterns),
                         registry=registry,
                         cassettes=store,
                         artifacts=artifact_store,
@@ -201,8 +208,12 @@ def run_live(
     return results
 
 
-def failed_row(request: DiscoveryRequest, error: str) -> dict:
-    """A row the provider could not answer for. Reported, never dropped."""
+def failed_row(
+    request: DiscoveryRequest,
+    error: str,
+    outcome: SearchOutcome = SearchOutcome.PROVIDER_FAILED,
+) -> dict:
+    """A row no search was completed for. Reported, never dropped."""
     return {
         "row": request.row_number,
         "mpn": request.mpn,
@@ -210,7 +221,7 @@ def failed_row(request: DiscoveryRequest, error: str) -> dict:
         "requested_queries": [],
         "provider_executed_queries": [],
         "search_results": 0,
-        "outcome": SearchOutcome.PROVIDER_FAILED.value,
+        "outcome": outcome.value,
         "provider_error": error,
         "candidates": [],
         "rejection_counts": {},
@@ -457,6 +468,21 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.live:
         mode = RunMode.REPLAY if args.replay else RunMode.LIVE
+
+        # An empty reviewed corpus is not a live run that found nothing; it is a live run
+        # that could not happen. Reported before any provider is constructed, and with a
+        # non-zero status so automation cannot read it as success.
+        if not included_patterns_for(registry):
+            print(
+                "LIVE PILOT NOT EXECUTED — no manufacturer domain has been reviewed, so "
+                "the Agent Search corpus is empty and there is nothing to search.\n"
+                "  Prepare a review packet:\n"
+                "    python scripts/review_manufacturer_domains.py packet --input <csv>\n"
+                "  Then record the domains you personally checked and re-run.",
+                file=sys.stderr,
+            )
+            return 2
+
         try:
             results = run_live(
                 requests,
@@ -467,9 +493,9 @@ def main(argv: list[str] | None = None) -> int:
                 mode=mode,
             )
         except (RuntimeError, AgentSearchConfigError) as exc:
-            # Never degrade to the plan and call it a live run. Grounding runs on the
-            # project's existing Vertex setup, so the missing piece is GCP auth or
-            # configuration — there is no separate search credential to obtain.
+            # Never degrade to the plan and call it a live run. A caller that asked for
+            # live and did not get it must see a non-zero status, or automation cannot
+            # tell an unrun pilot from one that ran and found nothing.
             print(
                 f"LIVE PILOT NOT EXECUTED — {exc}\n"
                 f"  Agent Search uses the project's existing GCP setup: "
@@ -478,13 +504,21 @@ def main(argv: list[str] | None = None) -> int:
                 f"(`gcloud auth application-default login`).",
                 file=sys.stderr,
             )
-            return 3
+            return 2
         except (SearchProviderError, OSError) as exc:
             print(f"live discovery failed: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 2
 
         rows = [
-            live_row(r) if r is not None else failed_row(req, err)
+            live_row(r)
+            if r is not None
+            else failed_row(
+                req,
+                err,
+                SearchOutcome.DOMAIN_REVIEW_REQUIRED
+                if err.startswith("DOMAIN_REVIEW_REQUIRED")
+                else SearchOutcome.PROVIDER_FAILED,
+            )
             for r, req, err in results
         ]
         if args.json:

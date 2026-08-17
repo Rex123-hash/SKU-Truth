@@ -50,7 +50,7 @@ from dataclasses import dataclass, replace
 
 from skutruth.contracts import DiscoveryMethod
 
-from .domains import DomainRegistry
+from .domains import DomainRegistry, normalize_host
 from .errors import (
     DiscoveryError,
     MalformedSearchResponseError,
@@ -79,7 +79,16 @@ DEFAULT_SERVING_CONFIG = "default_search"
 
 #: Documented ceiling for **basic** website search. Advanced indexing allows 500, and is
 #: not available to us: it requires verifying domains we do not own.
+#:
+#: This bounds the **data store corpus** — how many reviewed domains the app can search at
+#: all. It is unrelated to `MAX_RESULTS_PER_QUERY`, which bounds one response.
 MAX_INCLUDED_PATTERNS = 50
+
+#: Documented `pageSize` ceiling for basic website search (default 10). Advanced indexing
+#: allows 50; other data types 100. The API coerces larger values down silently, so this
+#: is validated here — a run that asked for 100 and quietly received 25 would misreport
+#: how much of the result set it actually considered.
+MAX_RESULTS_PER_QUERY = 25
 
 
 #: Distinguishes "attribute absent" from "attribute present but empty".
@@ -146,30 +155,59 @@ class AgentSearchConfig:
 class AgentSearchLimits:
     """Bounded work. There is no unlimited configuration."""
 
+    #: Basic website search documents a default of 10 and a maximum of 25.
     max_results_per_query: int = 10
     timeout_seconds: float = 20.0
-    #: Bounds the whole provider instance, not one product.
+    #: Bounds the whole provider instance, not one product. A manufacturer with several
+    #: reviewed domains costs one call per domain per query, so this is what stops a
+    #: fan-out from multiplying quietly.
     max_calls: int = 40
 
     def __post_init__(self) -> None:
-        if self.max_results_per_query < 1 or self.max_calls < 1 or self.timeout_seconds <= 0:
+        if self.max_calls < 1 or self.timeout_seconds <= 0:
             raise ValueError("Agent Search limits must be positive")
+        if not 1 <= self.max_results_per_query <= MAX_RESULTS_PER_QUERY:
+            # Refused rather than clamped. The API coerces an over-large page size down
+            # without saying so, and a run that believed it saw 100 results when it saw
+            # 25 would draw conclusions from a truncated set it did not know was truncated.
+            raise ValueError(
+                f"max_results_per_query must be 1..{MAX_RESULTS_PER_QUERY} for basic "
+                f"website search; got {self.max_results_per_query}"
+            )
+
+
+def site_pattern_for(domain: str) -> str:
+    """The documented `siteSearch` pattern form for one domain.
+
+    Google's examples are full URLs with a wildcard —
+    `siteSearch:"https://example.com/subdomains/*"` — not bare hostnames, so the scheme
+    is included. Built in one place so every caller agrees on the format.
+    """
+    host = normalize_host(domain)
+    if not host:
+        raise AgentSearchConfigError(f"cannot build a site pattern from {domain!r}")
+    return f"https://{host}/*"
 
 
 def included_patterns_for(registry: DomainRegistry) -> tuple[str, ...]:
-    """URL patterns for the reviewed manufacturer domains, and nothing else.
+    """Corpus patterns: every reviewed manufacturer domain, for the **data store**.
 
-    Reads `licensing_entries`, so a domain enters the search corpus only once a human has
-    recorded a `DomainReview` for its entry. An unreviewed domain stays out — it can still
-    be *located* by other means, but it is not part of the corpus SKUTruth searches for
-    evidence, and no provider output can add one.
+    This is what the Agent Search app is allowed to search at all. It is *not* the filter
+    for any single query — see `reviewed_patterns_for_hint`, which narrows a request to
+    the manufacturer it is actually about. Conflating the two would search every reviewed
+    manufacturer's site for every part number.
+
+    Reads `licensing_entries`, so a domain enters the corpus only once a human has
+    recorded a `DomainReview`. No provider output can add one.
 
     Raises rather than truncating past the documented ceiling. Silently dropping the
     fifty-first pattern would mean a reviewed manufacturer was quietly unsearchable, and
     the run would report "no results" for a domain the operator believed was configured.
     """
     patterns = tuple(
-        f"{domain}/*" for entry in registry.licensing_entries for domain in entry.domains
+        site_pattern_for(domain)
+        for entry in registry.licensing_entries
+        for domain in entry.domains
     )
     if len(patterns) > MAX_INCLUDED_PATTERNS:
         raise AgentSearchConfigError(
@@ -180,18 +218,44 @@ def included_patterns_for(registry: DomainRegistry) -> tuple[str, ...]:
     return patterns
 
 
-def build_filter(*, site_patterns: tuple[str, ...] = (), pdf_only: bool = False) -> str:
-    """A basic-website-search filter expression.
+def reviewed_patterns_for_hint(
+    registry: DomainRegistry, manufacturer_hint: str | None
+) -> tuple[str, ...]:
+    """Query-time site patterns for *this row's* manufacturer. Empty when unreviewed.
 
-    Basic search supports `siteSearch` and `fileType` (among others); advanced indexing
-    does not offer `fileType`, which is one more reason basic suits this use. Expressed
-    as a filter rather than smuggled into the query string, so the query stays exactly
-    the reference we are looking for.
+    Two conditions, both required. The hint must identify the manufacturer under a
+    reviewed **authority** hint — a locator-only spelling grants nothing — and that
+    entry's binding must carry a `DomainReview`.
+
+    Empty is the answer that matters: it means no Agent Search call should be made for
+    this row at all. Searching the whole app and relying on the authority gate to sort it
+    out afterwards would spend calls on other manufacturers' sites and invite a
+    near-miss host to be considered in the first place.
+    """
+    entry = registry.entry_for_hint(manufacturer_hint)
+    if entry is None or not registry.licenses(entry):
+        return ()
+    return tuple(site_pattern_for(domain) for domain in entry.domains)
+
+
+def build_filter(*, site_pattern: str | None = None, pdf_only: bool = False) -> str:
+    """A **basic** website-search filter expression.
+
+    Basic search's documented grammar is `filter = expression, { "AND", expression }`.
+    There is no `OR`: using one returns *"Unsupported expression type in filter. Supported
+    expression types are: (1) expression without logical joiner. (2) expressions joint by
+    AND"*, because `OR` belongs to the advanced-indexing grammar and advanced indexing is
+    deliberately off here.
+
+    So this takes **one** site pattern, not a list. A manufacturer with several reviewed
+    domains is searched with one bounded request per domain and the results merged — see
+    `AgentSearchProvider.search`. Accepting a list here would make an invalid filter
+    expressible, and the failure would surface as a backend parse error at run time
+    rather than as a type error while writing the call.
     """
     clauses: list[str] = []
-    if site_patterns:
-        sites = " OR ".join(f'siteSearch:"{p}"' for p in site_patterns)
-        clauses.append(f"({sites})" if len(site_patterns) > 1 else sites)
+    if site_pattern:
+        clauses.append(f'siteSearch:"{site_pattern}"')
     if pdf_only:
         clauses.append('fileType:".pdf"')
     return " AND ".join(clauses)
@@ -310,6 +374,24 @@ class AgentSearchProvider:
             client=client,
         )
 
+    def replace(self, **changes) -> AgentSearchProvider:
+        """A sibling provider with some settings changed and the rest carried over.
+
+        One place where copies are made, so a new search-semantic setting cannot be
+        forgotten by one helper and preserved by another — which is exactly the bug an
+        earlier `with_limits` had, silently dropping the PDF filter.
+        """
+        fields = {
+            "config": self.config,
+            "limits": self._limits,
+            "site_patterns": self._site_patterns,
+            "pdf_only": self._pdf_only,
+            "client": self._client,
+        }
+        fields.update(changes)
+        config = fields.pop("config")
+        return AgentSearchProvider(config, **fields)
+
     def for_pdfs(self, *, pdf_only: bool = True) -> AgentSearchProvider:
         """A sibling provider differing only in the file-type filter.
 
@@ -317,13 +399,11 @@ class AgentSearchProvider:
         replay key: flipping it mid-run would silently reuse a recording made under the
         other setting.
         """
-        return AgentSearchProvider(
-            self.config,
-            limits=self._limits,
-            site_patterns=self._site_patterns,
-            pdf_only=pdf_only,
-            client=self._client,
-        )
+        return self.replace(pdf_only=pdf_only)
+
+    def for_manufacturer(self, site_patterns: tuple[str, ...]) -> AgentSearchProvider:
+        """A sibling restricted to one manufacturer's reviewed domains."""
+        return self.replace(site_patterns=site_patterns)
 
     @property
     def calls_made(self) -> int:
@@ -340,19 +420,43 @@ class AgentSearchProvider:
     def request_options(self) -> dict:
         """Everything that changes what a query returns, folded into the replay key.
 
-        The engine and the filters belong here: the same query against a different corpus
-        or with the PDF filter flipped is a different interaction, and replaying one as
-        the other would misreport what the run saw.
+        The engine and every filter belong here: the same query against a different
+        corpus, a different manufacturer's domains, or with the PDF filter flipped is a
+        different interaction, and replaying one as the other would misreport the run.
         """
         return {
             "engine": self.config.engine_id,
             "location": self.config.location,
             "serving_config": self.config.serving_config,
-            "filter": self.filter_expression(),
+            "filters": list(self.filter_expressions()),
         }
 
+    def filter_expressions(self) -> tuple[str, ...]:
+        """One filter per reviewed domain — never one filter joining them with `OR`.
+
+        Basic website search cannot parse `OR`, so several domains mean several requests.
+        """
+        if not self._site_patterns:
+            return (build_filter(pdf_only=self._pdf_only),)
+        return tuple(
+            build_filter(site_pattern=pattern, pdf_only=self._pdf_only)
+            for pattern in self._site_patterns
+        )
+
     def filter_expression(self) -> str:
-        return build_filter(site_patterns=self._site_patterns, pdf_only=self._pdf_only)
+        """The single filter, for the ordinary one-domain case.
+
+        Raises for a multi-domain provider rather than joining with `OR`: there is no
+        single valid expression to return, and inventing one would produce a filter the
+        backend refuses.
+        """
+        expressions = self.filter_expressions()
+        if len(expressions) > 1:
+            raise AgentSearchConfigError(
+                f"{len(expressions)} reviewed domains cannot share one basic-search "
+                f"filter; use filter_expressions() and issue one request each"
+            )
+        return expressions[0]
 
     def _ensure_client(self):
         if self._client is None:
@@ -363,26 +467,50 @@ class AgentSearchProvider:
         return self._client
 
     def search(self, call: SearchCall) -> list[dict]:
-        """Run one query, exactly as given. Returns locator rows."""
-        if self._calls >= self._limits.max_calls:
-            raise SearchBudgetExceededError(
-                f"Agent Search budget of {self._limits.max_calls} provider calls is spent"
-            )
+        """Run this query against each reviewed domain, and merge the results.
+
+        One request per domain, because basic website search cannot express
+        `siteSearch:A OR siteSearch:B`. The fan-out is bounded by `max_calls`, and every
+        request counts — a manufacturer with two reviewed domains costs two calls.
+
+        Merging is deterministic: domains in configured order, results in the provider's
+        order within each, first sighting of a URL wins. Rank stays the position *within
+        its own query*, which is what the provider actually reported; there is no
+        synthetic global score, and `ranking.py` orders candidates by its own tiers
+        afterwards regardless.
+        """
         query = call.query.strip()
         if not query:
             raise MalformedSearchResponseError("refusing to search for an empty query")
 
+        limit = min(call.max_results, self._limits.max_results_per_query)
+        merged: list[dict] = []
+        seen: set[str] = set()
+
+        for expression in self.filter_expressions():
+            for row in self._search_once(query, expression, limit):
+                if row["url"] in seen:
+                    continue
+                seen.add(row["url"])
+                merged.append(row)
+        return merged
+
+    def _search_once(self, query: str, filter_expression: str, limit: int) -> list[dict]:
+        """One request, against one site restriction."""
+        if self._calls >= self._limits.max_calls:
+            raise SearchBudgetExceededError(
+                f"Agent Search budget of {self._limits.max_calls} provider calls is spent"
+            )
+
         from google.cloud import discoveryengine_v1 as discoveryengine
 
         client = self._ensure_client()
-        limit = min(call.max_results, self._limits.max_results_per_query)
-
         request = discoveryengine.SearchRequest(
             serving_config=self.config.serving_config_path,
             # Verbatim. Nothing rewrites, expands, or normalises the reference.
             query=query,
             page_size=limit,
-            filter=self.filter_expression(),
+            filter=filter_expression,
         )
 
         self._calls += 1
@@ -414,15 +542,15 @@ def _as_provider_error(exc: Exception) -> SearchProviderError:
     return SearchProviderTransportError(f"could not reach Agent Search ({name})")
 
 
-def with_limits(
-    provider: AgentSearchProvider, **changes: object
-) -> AgentSearchProvider:  # pragma: no cover - convenience for scripts
-    """A copy with adjusted limits and a fresh call budget."""
-    return AgentSearchProvider(
-        provider.config,
-        limits=replace(provider.limits, **changes),  # type: ignore[arg-type]
-        site_patterns=provider.site_patterns,
-    )
+def with_limits(provider: AgentSearchProvider, **changes: object) -> AgentSearchProvider:
+    """A copy with adjusted limits and a fresh call budget.
+
+    Goes through `replace`, so every other search-semantic setting is carried over. An
+    earlier version rebuilt the provider field by field and dropped `pdf_only`, which
+    meant `provider.for_pdfs()` followed by `with_limits(...)` silently searched without
+    the PDF filter — a regression test now covers exactly that sequence.
+    """
+    return provider.replace(limits=replace(provider.limits, **changes))  # type: ignore[arg-type]
 
 
 __all__ = [
@@ -432,6 +560,7 @@ __all__ = [
     "ENV_LOCATION",
     "ENV_SERVING_CONFIG",
     "MAX_INCLUDED_PATTERNS",
+    "MAX_RESULTS_PER_QUERY",
     "PROVIDER_NAME",
     "PROVIDER_VERSION",
     "AgentSearchConfig",
@@ -441,4 +570,7 @@ __all__ = [
     "build_filter",
     "included_patterns_for",
     "normalize_results",
+    "reviewed_patterns_for_hint",
+    "site_pattern_for",
+    "with_limits",
 ]

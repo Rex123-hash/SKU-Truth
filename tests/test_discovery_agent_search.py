@@ -30,11 +30,15 @@ from skutruth.discovery import (
     build_filter,
     discover_sources,
     included_patterns_for,
+    reviewed_patterns_for_hint,
+    site_pattern_for,
 )
 from skutruth.discovery.agent_search import (
     ENV_ENGINE_ID,
     MAX_INCLUDED_PATTERNS,
+    MAX_RESULTS_PER_QUERY,
     normalize_results,
+    with_limits,
 )
 from skutruth.discovery.domains import parse_registry
 from skutruth.discovery.errors import MalformedSearchResponseError, SearchBudgetExceededError
@@ -66,6 +70,18 @@ domains = ["se.com"]
 
 [hosts]
 distributors = ["grainger.com"]
+"""
+
+TWO_MANUFACTURERS = REVIEWED_TOML + """
+[[manufacturer]]
+key = "freud"
+authority_hints = ["Freud Inc"]
+domains = ["freudtools.com"]
+
+[manufacturer.review]
+reviewed_at = "2026-08-17"
+reviewed_by = "A Real Person"
+basis = "Confirmed freudtools.com is operated by Freud."
 """
 
 
@@ -221,42 +237,254 @@ class TestQueryIsExecutedVerbatim:
 
 
 class TestFilters:
+    """Basic website search grammar is `expression, { "AND", expression }`. No OR."""
+
     def test_the_pdf_filter_uses_the_documented_syntax(self):
         """N."""
         assert build_filter(pdf_only=True) == 'fileType:".pdf"'
 
-    def test_site_search_uses_the_documented_syntax(self):
-        """O."""
-        assert build_filter(site_patterns=("kichler.com/*",)) == 'siteSearch:"kichler.com/*"'
+    def test_site_search_uses_the_documented_url_pattern(self):
+        """O. Google's examples are full URLs with a wildcard, not bare hostnames."""
+        assert (
+            build_filter(site_pattern="https://kichler.com/*")
+            == 'siteSearch:"https://kichler.com/*"'
+        )
 
-    def test_several_sites_are_combined_with_or(self):
-        expression = build_filter(site_patterns=("a.com/*", "b.com/*"))
-        assert expression == '(siteSearch:"a.com/*" OR siteSearch:"b.com/*")'
+    def test_site_pattern_for_builds_the_documented_form(self):
+        assert site_pattern_for("kichler.com") == "https://kichler.com/*"
+        assert site_pattern_for("WWW.Kichler.com") == "https://kichler.com/*"
 
     def test_site_and_file_type_combine_with_and(self):
-        expression = build_filter(site_patterns=("kichler.com/*",), pdf_only=True)
-        assert expression == 'siteSearch:"kichler.com/*" AND fileType:".pdf"'
+        """B."""
+        assert build_filter(site_pattern="https://kichler.com/*", pdf_only=True) == (
+            'siteSearch:"https://kichler.com/*" AND fileType:".pdf"'
+        )
 
     def test_no_filter_is_an_empty_expression(self):
         assert build_filter() == ""
 
+    def test_build_filter_cannot_emit_or(self):
+        """C. The signature takes one pattern, so an OR filter is unrepresentable.
+
+        `OR` belongs to the advanced-indexing grammar. With advanced indexing off the
+        backend answers "Unsupported expression type in filter", so an OR we could
+        construct would be a runtime parse failure rather than a type error.
+        """
+        import inspect
+
+        assert "site_patterns" not in inspect.signature(build_filter).parameters
+        for expression in (
+            build_filter(site_pattern="https://a.com/*"),
+            build_filter(site_pattern="https://a.com/*", pdf_only=True),
+            build_filter(pdf_only=True),
+            build_filter(),
+        ):
+            assert " OR " not in expression
+
+    def test_several_domains_produce_several_filters_never_one_or(self):
+        """D, I. One expression per domain."""
+        provider = provider_for(
+            [], sites=("https://makitatools.com/*", "https://makita.com/*")
+        )
+        expressions = provider.filter_expressions()
+        assert expressions == (
+            'siteSearch:"https://makitatools.com/*"',
+            'siteSearch:"https://makita.com/*"',
+        )
+        assert all(" OR " not in e for e in expressions)
+
+    def test_a_multi_domain_provider_refuses_to_give_one_filter(self):
+        """There is no single valid expression, so none is invented."""
+        provider = provider_for([], sites=("https://a.com/*", "https://b.com/*"))
+        with pytest.raises(AgentSearchConfigError):
+            provider.filter_expression()
+
     def test_the_filter_reaches_the_request(self):
-        provider = provider_for([], sites=("kichler.com/*",), pdf_only=True)
+        provider = provider_for([], sites=("https://kichler.com/*",), pdf_only=True)
         provider.search(SearchCall(query="45297BK", max_results=5))
         request, _ = provider._client.requests[0]
-        assert request.filter == 'siteSearch:"kichler.com/*" AND fileType:".pdf"'
+        assert request.filter == 'siteSearch:"https://kichler.com/*" AND fileType:".pdf"'
 
     def test_for_pdfs_returns_a_sibling_rather_than_mutating(self):
-        base = provider_for([], sites=("kichler.com/*",))
+        base = provider_for([], sites=("https://kichler.com/*",))
         pdfs = base.for_pdfs()
         assert base.filter_expression() != pdfs.filter_expression()
         assert 'fileType:".pdf"' in pdfs.filter_expression()
 
 
+class TestMultiDomainFanOut:
+    """D, E, F. Several reviewed domains mean several bounded requests."""
+
+    def _fan_out(self):
+        provider = provider_for(
+            [result_for("https://www.makitatools.com/XLC10ZW.pdf", "XLC10ZW")],
+            sites=("https://makitatools.com/*", "https://makita.com/*"),
+        )
+        rows = provider.search(SearchCall(query="XLC10ZW", max_results=5))
+        return provider, rows
+
+    def test_one_request_is_issued_per_domain(self):
+        provider, _ = self._fan_out()
+        assert len(provider._client.requests) == 2
+        assert [r.filter for r, _ in provider._client.requests] == [
+            'siteSearch:"https://makitatools.com/*"',
+            'siteSearch:"https://makita.com/*"',
+        ]
+
+    def test_every_request_carries_the_same_verbatim_query(self):
+        provider, _ = self._fan_out()
+        assert {r.query for r, _ in provider._client.requests} == {"XLC10ZW"}
+
+    def test_duplicate_urls_dedupe_across_domains(self):
+        """F. The fake returns the same document for both domains."""
+        _, rows = self._fan_out()
+        assert len(rows) == 1
+
+    def test_distinct_urls_merge_in_domain_order(self):
+        """E. Deterministic: domains in configured order, results in provider order."""
+
+        class TwoDomainClient:
+            def __init__(self):
+                self.requests = []
+
+            def search(self, request=None, timeout=None):
+                self.requests.append((request, timeout))
+                host = (
+                    "makitatools.com" if "makitatools" in request.filter else "makita.com"
+                )
+                return FakeResponse(
+                    [
+                        result_for(f"https://{host}/a-XLC10ZW.pdf"),
+                        result_for(f"https://{host}/b-XLC10ZW.pdf"),
+                    ]
+                )
+
+        provider = AgentSearchProvider(
+            CONFIG,
+            site_patterns=("https://makitatools.com/*", "https://makita.com/*"),
+            client=TwoDomainClient(),
+        )
+        rows = provider.search(SearchCall(query="XLC10ZW", max_results=5))
+        assert [r["url"] for r in rows] == [
+            "https://makitatools.com/a-XLC10ZW.pdf",
+            "https://makitatools.com/b-XLC10ZW.pdf",
+            "https://makita.com/a-XLC10ZW.pdf",
+            "https://makita.com/b-XLC10ZW.pdf",
+        ]
+
+    def test_the_fan_out_is_bounded_by_the_call_budget(self):
+        provider = provider_for(
+            [],
+            sites=("https://a.com/*", "https://b.com/*", "https://c.com/*"),
+            limits=AgentSearchLimits(max_calls=2),
+        )
+        with pytest.raises(SearchBudgetExceededError):
+            provider.search(SearchCall(query="q", max_results=5))
+        assert provider.calls_made == 2
+
+    def test_each_domain_costs_one_call(self):
+        provider, _ = self._fan_out()
+        assert provider.calls_made == 2
+
+
+class TestPerManufacturerFilter:
+    """G, H. A row searches its own manufacturer's domains, and no one else's."""
+
+    def test_a_reviewed_manufacturer_yields_only_its_own_domains(self):
+        assert reviewed_patterns_for_hint(registry(), "Kichler Lighting") == (
+            "https://kichler.com/*",
+        )
+
+    def test_an_unreviewed_manufacturer_yields_nothing(self):
+        """H. Empty means: make no Agent Search call for this row."""
+        assert reviewed_patterns_for_hint(registry(), "Schneider Electric") == ()
+
+    def test_an_unknown_hint_yields_nothing(self):
+        assert reviewed_patterns_for_hint(registry(), "Nobody At All") == ()
+
+    def test_a_locator_only_spelling_yields_nothing(self):
+        """A locator hint may find a page; it may never target an evidence search."""
+        text = REVIEWED_TOML.replace(
+            'authority_hints = ["Kichler Lighting"]',
+            'authority_hints = ["Kichler Lighting"]\nlocator_hints = ["Kichlar"]',
+            1,
+        )
+        assert reviewed_patterns_for_hint(registry(text), "Kichlar") == ()
+
+    def test_a_kichler_query_does_not_search_freuds_domain(self):
+        """G, I. The corpus holds both; one row searches one."""
+        reg = registry(TWO_MANUFACTURERS)
+        assert set(included_patterns_for(reg)) == {
+            "https://kichler.com/*",
+            "https://freudtools.com/*",
+        }
+        patterns = reviewed_patterns_for_hint(reg, "Kichler Lighting")
+        assert patterns == ("https://kichler.com/*",)
+
+        provider = provider_for([], sites=patterns)
+        provider.search(SearchCall(query="45297BK", max_results=5))
+        filters = [r.filter for r, _ in provider._client.requests]
+        assert filters == ['siteSearch:"https://kichler.com/*"']
+        assert not any("freudtools" in f for f in filters)
+
+
+class TestCopyPreservesSearchSemantics:
+    """J. A helper that changes limits must not drop a filter."""
+
+    def test_with_limits_preserves_pdf_only(self):
+        pdf_provider = provider_for([], sites=("https://kichler.com/*",)).for_pdfs()
+        copy = with_limits(pdf_provider, max_calls=5)
+        assert copy.filter_expression() == pdf_provider.filter_expression()
+        assert 'fileType:".pdf"' in copy.filter_expression()
+
+    def test_with_limits_preserves_site_patterns_and_config(self):
+        base = provider_for([], sites=("https://kichler.com/*",))
+        copy = with_limits(base, max_calls=7)
+        assert copy.site_patterns == base.site_patterns
+        assert copy.config == base.config
+        assert copy.limits.max_calls == 7
+
+    def test_with_limits_resets_the_call_budget(self):
+        base = provider_for([], sites=("https://kichler.com/*",))
+        base.search(SearchCall(query="q", max_results=5))
+        assert with_limits(base, max_calls=9).calls_made == 0
+
+    def test_request_options_are_identical_across_a_limits_copy(self):
+        """The replay key must not move because the budget changed."""
+        base = provider_for([], sites=("https://kichler.com/*",)).for_pdfs()
+        assert with_limits(base, max_calls=3).request_options() == base.request_options()
+
+
+class TestPageSizeBound:
+    """K, L. Basic website search documents pageSize max 25 (default 10)."""
+
+    def test_one_is_accepted(self):
+        assert AgentSearchLimits(max_results_per_query=1).max_results_per_query == 1
+
+    def test_twenty_five_is_accepted(self):
+        assert AgentSearchLimits(max_results_per_query=25).max_results_per_query == 25
+
+    def test_twenty_six_is_rejected(self):
+        with pytest.raises(ValueError) as exc:
+            AgentSearchLimits(max_results_per_query=26)
+        assert "25" in str(exc.value)
+
+    def test_zero_is_rejected(self):
+        with pytest.raises(ValueError):
+            AgentSearchLimits(max_results_per_query=0)
+
+    def test_the_default_matches_the_documented_default(self):
+        assert AgentSearchLimits().max_results_per_query == 10
+
+    def test_the_page_size_bound_is_not_the_corpus_bound(self):
+        assert MAX_RESULTS_PER_QUERY == 25
+        assert MAX_INCLUDED_PATTERNS == 50
+
+
 class TestCorpusIsTheReviewedSet:
     def test_only_reviewed_domains_become_url_patterns(self):
         """O, Q. Schneider is in the registry, unreviewed, and stays out."""
-        assert included_patterns_for(registry()) == ("kichler.com/*",)
+        assert included_patterns_for(registry()) == ("https://kichler.com/*",)
 
     def test_an_unreviewed_registry_yields_no_patterns(self):
         text = REVIEWED_TOML.replace(

@@ -18,6 +18,8 @@ from .agent_search import (
     AgentSearchProvider,
     build_filter,
     included_patterns_for,
+    reviewed_patterns_for_hint,
+    site_pattern_for,
 )
 from .domains import (
     DEFAULT_REGISTRY_DIR,
@@ -147,6 +149,8 @@ __all__ = [
     "host_covered_by",
     "host_of",
     "included_patterns_for",
+    "reviewed_patterns_for_hint",
+    "site_pattern_for",
     "load_registry",
     "normalize_host",
     "normalize_manufacturer",

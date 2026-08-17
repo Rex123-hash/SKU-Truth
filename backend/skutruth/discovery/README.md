@@ -149,16 +149,54 @@ believed was configured.
 
 ### Queries and filters
 
-Site restriction and file type are filters, not query text, so the query stays exactly the
-reference being looked for:
+Site restriction and file type are **filters**, not query text, so the query stays exactly
+the reference being looked for:
 
     query  = 45297BK
-    filter = siteSearch:"kichler.com/*" AND fileType:".pdf"
+    filter = siteSearch:"https://kichler.com/*" AND fileType:".pdf"
+
+Basic website search's documented grammar is `filter = expression, { "AND", expression }`.
+There is **no `OR`** — using one returns *"Unsupported expression type in filter"*, because
+`OR` belongs to the advanced-indexing grammar and advanced indexing is off here. So
+`build_filter` takes a single site pattern; an OR filter is not expressible rather than
+being a runtime parse error waiting to happen.
 
 `fileType` is available on basic search and not on advanced indexing — one more reason
 basic suits this use. Snippets are returned and kept as locator metadata; they are
 deliberately **not** consulted by `classify_relevance`, so a snippet can never establish
 that a page is about a product.
+
+### Corpus, and per-row site filter, are different things
+
+| | what it is | how wide |
+|---|---|---|
+| **data store corpus** | what the app may search at all | every reviewed domain, ≤ 50 patterns |
+| **query-time filter** | what one row searches | only *that row's* manufacturer's reviewed domains |
+
+Conflating them would search every reviewed manufacturer's site for every part number —
+spending calls on other manufacturers and inviting a near-miss host to be considered in
+the first place. `reviewed_patterns_for_hint` resolves the row's manufacturer hint through
+the registry and returns its reviewed domains, or **empty**, which means: make no call for
+this row.
+
+A manufacturer with several reviewed domains (Makita publishes from `makitatools.com` and
+`makita.com`) costs one bounded request per domain, merged deterministically — domains in
+configured order, results in provider order, first sighting of a URL wins. Rank stays the
+position within its own query, which is what the provider actually reported; there is no
+synthetic global score, and `ranking.py` orders candidates by its own tiers regardless.
+
+Result caps: basic website search documents `pageSize` default 10, **maximum 25**. The API
+coerces larger values down silently, so `AgentSearchLimits` refuses them — a run that
+believed it saw 100 results when it saw 25 would draw conclusions from a truncated set it
+did not know was truncated. That ceiling is unrelated to the 50-pattern corpus limit.
+
+### What has and has not been verified
+
+The `SearchRequest` shape was verified against the installed SDK
+(`google-cloud-discoveryengine` 0.20.2), and the filter grammar is implemented from
+Google's documented basic website-search syntax. **No live Agent Search request has run**,
+so the backend has not parsed our filters. Constructing a `SearchRequest` locally proves
+the field names and types, and nothing about whether the service accepts the expression.
 
 ## Four deterministic decisions, none of them asked of a model
 

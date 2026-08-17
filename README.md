@@ -111,7 +111,7 @@ datasheet it reads cannot be committed.
 | Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
 | Identity resolution | `EXACT` / `FAMILY_OR_INCOMPLETE_REFERENCE` / `UNKNOWN` / `CONTRADICTORY`, with exact-SKU evidence required for `EXACT` |
 | Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store |
-| Live search provider | Agent Search basic website search — caller's query executed verbatim, real publisher URLs, site + file-type filters, no model in the loop, bounded calls, typed failures, record/replay. Exercised offline; **no live run yet** |
+| Live search provider | Agent Search basic website search — caller's query executed verbatim, real publisher URLs, one `siteSearch` filter per reviewed domain (basic search has no `OR`), no model in the loop, bounded calls, typed failures, record/replay. Exercised offline; **no live run yet** |
 | Human domain review workflow | review packets from organizer input, and an explicit `confirm` command that cannot default a reviewer from git config, the OS username, or the environment |
 | Artifact ingestion | byte and page hashing, page-preserving text, content-addressed store that validates and never repairs |
 | Table extraction | ruled-table structure as an additive fallback; pypdf text stays canonical |
