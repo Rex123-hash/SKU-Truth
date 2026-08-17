@@ -40,6 +40,70 @@ class BudgetExceededError(DiscoveryError):
     """Discovery hit a configured limit. Bounded work is a feature, not a failure."""
 
 
+class SearchProviderError(DiscoveryError):
+    """A live search provider could not answer.
+
+    Distinct from `FetchError`, which is about retrieving a *document*. This is about
+    the search call itself, and it is never a statement about the product: a provider
+    timing out tells us nothing about whether a manufacturer publishes a datasheet.
+
+    ## These messages are constructed, never inherited
+
+    An HTTP client's own exception text contains the request URL, and for an API keyed
+    by query parameter that URL contains the credential. Every subclass here is raised
+    with a message this package built, and `SearchCredentials.scrub` is applied to it,
+    so a secret cannot reach a log, a traceback, or a report by riding along inside a
+    third-party error string.
+    """
+
+
+class MissingSearchCredentialsError(SearchProviderError):
+    """A live search was requested and the environment supplies no credential.
+
+    Raised at construction rather than at call time, so a misconfigured run fails
+    before it starts instead of halfway through a pilot.
+    """
+
+
+class SearchProviderTimeout(SearchProviderError):
+    """The provider did not respond inside the configured timeout."""
+
+
+class SearchProviderHTTPError(SearchProviderError):
+    """The provider answered with an error status.
+
+    Carries `status_code` so a caller can tell a quota refusal (429) from a bad
+    credential (403) without parsing prose.
+    """
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(f"search provider returned HTTP {status_code}: {detail}")
+        self.status_code = status_code
+        self.detail = detail
+
+
+class SearchProviderTransportError(SearchProviderError):
+    """The provider could not be reached at all — DNS, TLS, connection reset."""
+
+
+class MalformedSearchResponseError(SearchProviderError):
+    """The provider answered, and the body is not the shape its API documents.
+
+    Refused rather than best-effort parsed. A partially understood response would
+    silently drop results, and a run would report "no candidates" for a query that
+    actually returned some.
+    """
+
+
+class SearchBudgetExceededError(BudgetExceededError):
+    """The provider's total call budget for this process is spent.
+
+    A separate ceiling from per-product query budgets: those bound one product, this
+    bounds a whole run, so a loop over many rows cannot quietly become thousands of
+    billable calls.
+    """
+
+
 class RejectionReason(StrEnum):
     """Why a candidate did not become an acquired manufacturer source."""
 
@@ -95,6 +159,13 @@ __all__ = [
     "DiscoveryError",
     "FetchError",
     "MalformedRegistryError",
+    "MalformedSearchResponseError",
+    "MissingSearchCredentialsError",
     "RejectionReason",
+    "SearchBudgetExceededError",
+    "SearchProviderError",
+    "SearchProviderHTTPError",
+    "SearchProviderTimeout",
+    "SearchProviderTransportError",
     "UnsafeUrlError",
 ]

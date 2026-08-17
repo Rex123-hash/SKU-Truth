@@ -25,7 +25,14 @@ from .errors import (
     DiscoveryError,
     FetchError,
     MalformedRegistryError,
+    MalformedSearchResponseError,
+    MissingSearchCredentialsError,
     RejectionReason,
+    SearchBudgetExceededError,
+    SearchProviderError,
+    SearchProviderHTTPError,
+    SearchProviderTimeout,
+    SearchProviderTransportError,
     UnsafeUrlError,
 )
 from .fetch import (
@@ -51,6 +58,15 @@ from .models import (
     SourceKind,
 )
 from .policy import classify_authority, classify_kind, classify_relevance, host_of
+from .programmable_search import (
+    API_KEY_ENV,
+    ENGINE_ID_ENV,
+    PROVIDER_NAME,
+    PROVIDER_VERSION,
+    ProgrammableSearchProvider,
+    SearchCredentials,
+    SearchLimits,
+)
 from .provider import SearchCall, SearchProvider, execute_search
 from .query import QueryBudget, build_queries
 from .ranking import rank_candidates, ranking_key, ranking_reasons
@@ -58,10 +74,14 @@ from .service import DiscoveryBudget, classify_candidate, discover_sources
 
 __all__ = [
     "ACQUISITION_VERSION",
+    "API_KEY_ENV",
     "DEFAULT_REGISTRY_DIR",
     "DISCOVERY_VERSION",
+    "ENGINE_ID_ENV",
     "HTML_CONTENT_TYPES",
     "PDF_CONTENT_TYPES",
+    "PROVIDER_NAME",
+    "PROVIDER_VERSION",
     "USER_AGENT",
     "AcquiredArtifact",
     "BudgetExceededError",
@@ -76,13 +96,23 @@ __all__ = [
     "FetchPolicy",
     "FetchedResource",
     "MalformedRegistryError",
+    "MalformedSearchResponseError",
     "ManufacturerEntry",
+    "MissingSearchCredentialsError",
     "MpnRelevance",
+    "ProgrammableSearchProvider",
     "QueryBudget",
     "RegistryAuthority",
     "RejectionReason",
+    "SearchBudgetExceededError",
     "SearchCall",
+    "SearchCredentials",
+    "SearchLimits",
     "SearchProvider",
+    "SearchProviderError",
+    "SearchProviderHTTPError",
+    "SearchProviderTimeout",
+    "SearchProviderTransportError",
     "SearchResult",
     "SourceAuthority",
     "SourceCandidate",

@@ -68,6 +68,63 @@ a small lie told in exactly the place the system's provenance rests on.
 That is a scope statement, not a quality judgement, and it is deliberate: half a safe HTML
 pipeline is worse than none.
 
+## The live path, and the four different things it can achieve
+
+```
+    organizer row
+        ↓
+    deterministic queries          query.py — no model, no sampling
+        ↓
+    LIVE search provider           programmable_search.py
+        ↓
+    candidate LOCATOR              a URL. Nothing more.
+        ↓
+    human domain review            review.py + scripts/review_manufacturer_domains.py
+        ↓
+    manufacturer authority         domains.py — only now may bytes be stored
+        ↓
+    safe acquisition               fetch.py + acquire.py → ArtifactStore
+```
+
+Each arrow is a separate achievement, and the report never collapses them:
+
+* **LIVE SEARCH ≠ HUMAN REVIEW.** A search engine naming `kichler.com` establishes that a
+  search engine named it. Whether Kichler operates that host is a question a person
+  answers, and until they do, everything found there is `UNVERIFIED_MANUFACTURER`.
+* **HUMAN DOMAIN REVIEW ≠ PRODUCT IDENTITY.** Confirming that a manufacturer owns a domain
+  says nothing about whether a given document on it describes the product in hand. That is
+  decided by exact-reference matching and then by identity resolution on the fetched bytes.
+* **PRODUCT IDENTITY ≠ ATTRIBUTE VERIFICATION.** Knowing a PDF is about `LC1D18P7` does not
+  make any number in it true of the product. Mechanical verification decides that, span by
+  span, and most claims do not survive it.
+
+`diagnostics.py` reports which of these a row reached, as a state rather than a score.
+
+## The live search provider
+
+`ProgrammableSearchProvider` calls the Google Custom Search JSON API. Two properties made
+it the right choice over Google Search grounding, and both are documented API behaviour:
+
+* **the caller supplies the query.** Grounding's documentation states that the model
+  "analyzes the prompt and determines if a Google Search can improve the answer" and then
+  "automatically generates one or multiple search queries and executes them". Our query
+  set is deterministic so two runs consult the same documents; a provider that substituted
+  its own queries would silently remove that guarantee.
+* **the URLs are the publisher's.** Grounding returns
+  `groundingChunks[].web.uri` as a `vertexaisearch.cloud.google.com/grounding-api-redirect/…`
+  link with only a domain in `web.title`. Every authority decision here is made from the
+  host *before* anything is fetched, so redirect URIs would collapse a manufacturer
+  datasheet and a marketplace listing onto one Google host. Recovering the real host means
+  fetching first — inverting the gate that makes the fetch safe.
+
+The key is read from `SKUTRUTH_SEARCH_API_KEY`, sent as an `X-Goog-Api-Key` header rather
+than a query parameter, kept out of the replay descriptor, and scrubbed from every error
+message this package raises. Tests assert it reaches no cassette on disk.
+
+Live calls are bounded on results per query (the API's own maximum is 10), timeout, total
+calls per provider instance, and response size. `REPLAY` makes no provider call at all and
+fails closed on a miss.
+
 ## Four deterministic decisions, none of them asked of a model
 
 | Question | Answered by |
@@ -299,11 +356,24 @@ Two places where a convenient default would have been a lie:
   including `OPERATOR_SUPPLIED` and `DIRECT_URL` — would assert something untrue about how
   the document was found. An artifact that cannot say how it was discovered is not stored.
 
-  **This is a recorded contract gap, not a solved problem.** The enum names specific
-  mechanisms and has no value for "a third-party web search engine". A future live
-  provider will either declare an existing value truthfully or supply the concrete case
-  that justifies widening the frozen contract. Guessing now, in either direction, would be
-  the same mistake in different clothing.
+  **This is a recorded contract gap, and the live provider is now the concrete case.**
+  The enum names specific mechanisms and has no value for "a third-party web search
+  engine". `ProgrammableSearchProvider` declares `None`, because:
+
+  | Candidate value | Why it would be untrue |
+  |---|---|
+  | `GOOGLE_SEARCH_GROUNDING` | A different Google product. These results never touched the grounding pipeline, were not chosen by a model, and are not redirect URIs. Google operating both services is branding, not provenance. |
+  | `URL_CONTEXT` | The Gemini URL-context tool. Nothing here reads a URL into a model. |
+  | `CURATED_CORPUS` | Asserts a reviewed, fixed corpus. The open web is the opposite. |
+  | `DIRECT_URL` | Asserts someone supplied the URL. A search engine did. |
+  | `OPERATOR_SUPPLIED` | Same claim, and it would credit a person for a machine's result. |
+
+  The consequence is real and currently blocking: acquisition refuses every candidate this
+  provider finds with `DISCOVERY_PROVENANCE_UNDECLARED`, **even from a reviewed domain**,
+  and `diagnostics.SearchOutcome.PROVENANCE_UNDECLARED` reports it. Storage waits on a
+  contract decision — the smallest truthful extension would be a value meaning "a web
+  search API returned this URL", e.g. `WEB_SEARCH_API`. That is a change to a frozen
+  contract and is deliberately not made here.
 * **`source_type`.** `MANUFACTURER_DATASHEET` asserts the document *is a datasheet*. A PDF
   from a manufacturer may equally be a manual, a warranty, a brochure, or a catalogue, so
   only a candidate whose kind is actually `DATASHEET` receives it, `PRODUCT_PAGE` receives
@@ -340,6 +410,32 @@ and counting it twice would let a mirror manufacture agreement.
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.
   Resolving that needs the manufacturer master, not more discovery.
-* No live search provider is implemented. The `SearchProvider` protocol is the whole
-  interface; adding one is a small, isolated piece of work, deliberately not bundled with
-  the policy engine.
+* **Acquisition is blocked on the `DiscoveryMethod` gap, not only on domain review**
+  (above). Even a fully reviewed domain stores nothing while the live provider cannot
+  state its provenance truthfully. Both blockers are real, and clearing one does not
+  clear the other.
+* The live provider has been exercised offline against a mocked transport through the
+  whole service. Running it against the real API needs `SKUTRUTH_SEARCH_API_KEY` and
+  `SKUTRUTH_SEARCH_ENGINE_ID`; no committed test reaches the network, and none may.
+
+## Reviewing a domain
+
+```
+python scripts/review_manufacturer_domains.py packet --input <organizer csv>
+python scripts/review_manufacturer_domains.py confirm \
+    --manufacturer <key> --confirm-domain <domain> \
+    --reviewed-by "<your name>" --basis "<what you checked>" --write
+```
+
+`packet` gathers the observed spellings, row counts, sample references, configured
+domains, and — with `--search` — live results, and decides nothing. Every candidate comes
+out with an unticked decision box.
+
+`confirm` records a decision you state. There is no default for `--reviewed-by`: not git
+config, not the OS username, not the environment, and a test parses both files' ASTs to
+prove none of those can be read. A review licenses *every* domain on its entry, so all of
+them must be confirmed together or the entry must be split first.
+
+Confirming a domain never rewrites a manufacturer spelling. `Phillips Lighting` stays a
+locator hint after Signify's domains are confirmed; that is canonicalisation, and it needs
+the manufacturer master.

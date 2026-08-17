@@ -28,6 +28,8 @@ PIM — is knowing which of those proposals are actually supported.
 ```
 raw Unilog row
       ↓  placeholder policy · Part_Manuf structural parse
+live search provider             deterministic queries · locators only, never evidence
+      ↓  human-reviewed manufacturer domain required
 manufacturer source discovery    approved domains only · exact reference required
       ↓  bounded, SSRF-checked acquisition
 manufacturer artifact ingestion  bytes hashed · pages mapped · text preserved
@@ -57,13 +59,17 @@ assets — are not built. So SKUTruth can write verified attributes into the off
 delivery schema through explicit mappings; it cannot yet claim those attributes are
 Unilog-compliant, and the code refuses to pretend otherwise.
 
-Discovery is likewise a foundation, not a solved problem. The policy engine, the
-SSRF-bounded fetcher, and the acquisition seam into the artifact store are implemented and
-tested offline; **no live search provider is implemented**, so no product has been
-discovered from the open web yet. Manufacturer-domain approval is a reviewed local
-registry covering a handful of suppliers, and several of the organizer input's largest
-`Part_Manuf` values are buying groups rather than manufacturers, so there is no
-manufacturer site to find for them at all.
+Discovery is likewise a foundation, not a solved problem. SKUTruth now has a live
+manufacturer-source discovery seam and a human-reviewed domain authority workflow: the
+policy engine, the SSRF-bounded fetcher, the acquisition seam, and a real search-provider
+adapter are implemented and exercised offline through the whole service. **No product has
+been acquired from the open web yet**, and two separate things block it. No manufacturer
+entry carries a human domain review, so nothing found may be stored; and the frozen
+`DiscoveryMethod` contract has no value that truthfully describes a web-search API, so
+acquisition refuses rather than record a false provenance. Both are recorded in
+[`backend/skutruth/discovery/README.md`](backend/skutruth/discovery/README.md); neither is
+papered over. Several of the organizer input's largest `Part_Manuf` values are also buying
+groups rather than manufacturers, so there is no manufacturer site to find for them at all.
 
 ## What the verification actually checks
 
@@ -99,7 +105,9 @@ datasheet it reads cannot be committed.
 | Frozen data contracts | identity, applicability, typed values with lineage, conditions, evidence, conflicts, abstention, coverage, run provenance |
 | Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
 | Identity resolution | `EXACT` / `FAMILY_OR_INCOMPLETE_REFERENCE` / `UNKNOWN` / `CONTRADICTORY`, with exact-SKU evidence required for `EXACT` |
-| Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store. No live provider yet |
+| Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store |
+| Live search provider | Google Custom Search JSON API adapter — locators only, env-only credentials, bounded calls, typed failures, record/replay. Exercised offline end to end; not yet run against the live API |
+| Human domain review workflow | review packets from organizer input, and an explicit `confirm` command that cannot default a reviewer from git config, the OS username, or the environment |
 | Artifact ingestion | byte and page hashing, page-preserving text, content-addressed store that validates and never repairs |
 | Table extraction | ruled-table structure as an additive fallback; pypdf text stays canonical |
 | Gemini structured extraction | Vertex, schema-constrained, gated on exact identity, always through record/replay |
@@ -112,17 +120,22 @@ datasheet it reads cannot be committed.
 So: verification, adjudication, explicit non-authoritative mapping, and Unilog attribute-slot
 assembly are implemented and run end to end.
 
-**Not yet implemented** — official mappings; a live search provider; manufacturer and
-brand canonicalisation; classpath classification; the five description forms; a batch
-product workflow; any user interface. Also outstanding inside the parts that do exist:
-range and logical value verification, controlled-vocabulary synonym licensing, UOM and
-fraction normalisation, and HTML artifact ingestion.
+**Not yet implemented** — official mappings; manufacturer and brand canonicalisation;
+classpath classification; the five description forms; a batch product workflow; any user
+interface. Also outstanding inside the parts that do exist: range and logical value
+verification, controlled-vocabulary synonym licensing, UOM and fraction normalisation, and
+HTML artifact ingestion.
 
 Two of those are worth separating from the rest. Every mapping rule in the repository is
 hand-written, so **no output is claimed to conform to Unilog's published rules**. And no
-row in the organizer's 1,000-row input has yet been enriched end to end: discovery has the
-policy, the fetcher, and the acquisition seam, but no live provider is wired, so **the
-open-web half is a tested foundation rather than a working retrieval system**.
+row in the organizer's 1,000-row input has yet been enriched end to end: the provider,
+policy, fetcher, and acquisition seam all exist, but nothing has been stored from the open
+web, so **the open-web half is a wired seam rather than a working retrieval system**.
+
+Against the organizer input, 291 of the 959 rows with a usable part number and
+manufacturer hint are searchable through configured domains, and **0 may license
+manufacturer evidence**, because no entry has been reviewed. That number moves when a
+person reviews domains, not when more code is written.
 
 Several of those wait on organizer reference files that are not in the supplied pack — a
 brand master, the LOV, the UOM standard, the decimal/fraction table, the content
@@ -168,7 +181,13 @@ python scripts/etim_stats.py                       # ETIM statistics and integri
 python scripts/verify_extraction_run.py --cassette <path>       # re-derive a recorded run
 python scripts/assemble_delivery_record.py --cassette <path>    # and map it into a record
 python scripts/discover_sources.py --input <organizer csv>      # plan source discovery
+python scripts/discover_sources.py --input <csv> --live         # run the live provider
+python scripts/review_manufacturer_domains.py packet --input <csv>   # prepare a domain review
 ```
+
+Live search needs `SKUTRUTH_SEARCH_API_KEY` and `SKUTRUTH_SEARCH_ENGINE_ID` in the
+environment. Without them the pilot refuses rather than degrading to a plan and calling it
+a live run. No committed test reaches the network.
 
 Python 3.12 and Pydantic on the backend. The data contracts in
 `backend/skutruth/contracts/` are frozen: components adapt to the contract rather than the

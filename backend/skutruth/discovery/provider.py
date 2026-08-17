@@ -63,6 +63,12 @@ class SearchProvider(Protocol):
     truthfully describes this provider. Acquisition then refuses rather than defaulting,
     because `SourceMetadata.discovery_method` is non-optional and every available default
     would assert something untrue.
+
+    Two further attributes are read when present and are deliberately *not* declared
+    here, so a minimal provider stays valid without them: `version`, a behaviour version
+    folded into the replay key, and `request_options`, a mapping (or a callable
+    returning one) of settings that change what a query returns. Both are read through
+    the helpers below.
     """
 
     #: Stable identifier recorded in provenance, e.g. `"fake"`, `"programmable-search"`.
@@ -84,6 +90,36 @@ def declared_discovery_method(provider: SearchProvider) -> DiscoveryMethod | Non
     default happened to be nearby.
     """
     return getattr(provider, "discovery_method", None)
+
+
+def declared_version(provider: SearchProvider) -> str | None:
+    """The provider's own behaviour version, if it declares one.
+
+    Part of the replay key. Two providers can answer the same query differently, and so
+    can one provider before and after a change to how it builds requests or normalises
+    results — replaying the older recording as though the newer code produced it would
+    misreport what the run actually saw.
+
+    `None` for a provider that declares nothing, which keeps every cassette recorded
+    before this existed valid: an absent version is omitted from the descriptor rather
+    than written as a null.
+    """
+    version = getattr(provider, "version", None)
+    return str(version) if version else None
+
+
+def declared_request_options(provider: SearchProvider) -> dict:
+    """Provider options that change what a query returns, for the replay key.
+
+    Anything affecting results but not already keyed — a language restriction, a file
+    type filter — belongs here, so it cannot be changed without invalidating recordings
+    made under the old setting. Empty is omitted from the descriptor entirely, so a
+    provider with no options keys exactly as it did before this existed.
+    """
+    options = getattr(provider, "request_options", None)
+    if callable(options):
+        options = options()
+    return dict(options) if options else {}
 
 
 def _to_results(payload: object, *, query: str, provider: str) -> tuple[SearchResult, ...]:
@@ -109,19 +145,34 @@ def _to_results(payload: object, *, query: str, provider: str) -> tuple[SearchRe
     return tuple(results)
 
 
-def search_request(query: str, *, provider: str, max_results: int) -> InteractionRequest:
+def search_request(
+    query: str,
+    *,
+    provider: str,
+    max_results: int,
+    version: str | None = None,
+    options: dict | None = None,
+) -> InteractionRequest:
     """The replay descriptor for one search.
 
     The query and result cap are part of the key: asking for more results is a different
     interaction, and reusing a 5-result recording for a 20-result request would silently
-    change ranking input.
+    change ranking input. `version` and `options` extend that to the provider's own
+    behaviour, so a recording cannot outlive the code that produced it.
+
+    An absent version and empty options are omitted rather than keyed as nulls, which
+    keeps recordings made before those fields existed replayable.
     """
+    payload: dict = {"query": query, "max_results": max_results}
+    if options:
+        payload["options"] = options
     return InteractionRequest(
         provider=provider,
         model=provider,
         endpoint=ENDPOINT,
-        payload={"query": query, "max_results": max_results},
+        payload=payload,
         prompt_version=QUERY_VERSION,
+        stage_version=version,
     )
 
 
@@ -133,7 +184,13 @@ def execute_search(
     mode: RunMode = RunMode.REPLAY,
 ) -> tuple[SearchResult, ...]:
     """Run or replay one query. In `REPLAY` the provider is never touched."""
-    request = search_request(call.query, provider=provider.name, max_results=call.max_results)
+    request = search_request(
+        call.query,
+        provider=provider.name,
+        max_results=call.max_results,
+        version=declared_version(provider),
+        options=declared_request_options(provider),
+    )
 
     live: Callable[[], object] | None = None
     if mode is RunMode.LIVE:
@@ -150,6 +207,8 @@ __all__ = [
     "SearchCall",
     "SearchProvider",
     "declared_discovery_method",
+    "declared_request_options",
+    "declared_version",
     "execute_search",
     "search_request",
 ]

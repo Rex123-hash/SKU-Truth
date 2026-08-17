@@ -19,10 +19,18 @@ order. The rule is applied before any result is seen, so the sample cannot be tu
 flatter the outcome. `--all-manufacturers` drops the registry condition, which is the
 honest way to see how often we have no approved domain at all.
 
+## Phase 1 is search only
+
+`--live` runs the provider and applies policy, and by default acquires nothing. Storing a
+document is gated on a reviewed manufacturer domain, and with no reviewed entries there is
+nothing to acquire; running the search anyway is what tells us whether the *locating* half
+works. `--acquire` opts into the fetch stage for the rows that are genuinely eligible.
+
 ## Usage
 
     python scripts/discover_sources.py --input <organizer input csv>
     python scripts/discover_sources.py --input <csv> --limit 10 --all-manufacturers
+    python scripts/discover_sources.py --input <csv> --live --limit 5
 """
 
 from __future__ import annotations
@@ -34,19 +42,34 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
+from skutruth.contracts import RunMode  # noqa: E402
 from skutruth.discovery import (  # noqa: E402
     DiscoveryRequest,
     MalformedRegistryError,
+    MissingSearchCredentialsError,
+    ProgrammableSearchProvider,
+    SearchLimits,
     build_queries,
+    discover_sources,
     load_registry,
 )
+from skutruth.discovery.diagnostics import (  # noqa: E402
+    SearchOutcome,
+    diagnose,
+    outcome_counts,
+)
 from skutruth.discovery.domains import DomainRegistry  # noqa: E402
+from skutruth.discovery.errors import SearchProviderError  # noqa: E402
+from skutruth.discovery.models import DiscoveryResult  # noqa: E402
+from skutruth.ingest.storage import ArtifactStore  # noqa: E402
+from skutruth.replay.store import CassetteStore  # noqa: E402
 from skutruth.unilog.errors import UnilogError  # noqa: E402
 from skutruth.unilog.input import RawProductRow, read_unilog_input  # noqa: E402
 
-DEFAULT_REGISTRY = (
-    Path(__file__).resolve().parents[1] / "data" / "discovery" / "manufacturer_domains.demo.toml"
-)
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_REGISTRY = ROOT / "data" / "discovery" / "manufacturer_domains.demo.toml"
+DEFAULT_CASSETTES = ROOT / "data" / "replay" / "runtime"
+DEFAULT_ARTIFACTS = ROOT / "data" / "artifacts" / "runtime"
 
 
 def request_from_row(row: RawProductRow) -> DiscoveryRequest | None:
@@ -127,6 +150,166 @@ def plan_for(request: DiscoveryRequest, registry: DomainRegistry) -> dict:
     }
 
 
+def run_live(
+    requests: list[DiscoveryRequest],
+    *,
+    registry: DomainRegistry,
+    cassettes: Path,
+    artifacts: Path | None,
+    max_results: int,
+    mode: RunMode,
+) -> list[DiscoveryResult]:
+    """Execute discovery for each selected row. One provider, so budgets accumulate."""
+    provider = ProgrammableSearchProvider.from_env(
+        limits=SearchLimits(max_results_per_query=max_results)
+    )
+    store = CassetteStore(cassettes)
+    artifact_store = ArtifactStore(artifacts) if artifacts else None
+
+    results: list[DiscoveryResult] = []
+    for request in requests:
+        results.append(
+            discover_sources(
+                request,
+                provider=provider,
+                registry=registry,
+                cassettes=store,
+                artifacts=artifact_store,
+                mode=mode,
+            )
+        )
+    return results
+
+
+def live_row(result: DiscoveryResult) -> dict:
+    """Everything observed for one row, with each stage reported separately.
+
+    Finding a URL, the host being manufacturer-owned, that binding being reviewed, and a
+    document actually being stored are four different achievements. They are reported as
+    four different fields so a summary cannot round the first up into the last.
+    """
+    request = result.request
+    return {
+        "row": request.row_number,
+        "mpn": request.mpn,
+        "manufacturer_hint": request.manufacturer_hint,
+        "queries_executed": list(result.executed_queries),
+        "search_results": result.summary.search_results,
+        "outcome": diagnose(result).value,
+        "candidates": [
+            {
+                "rank": c.result.rank,
+                "url": c.url,
+                "host": c.host,
+                "kind": c.kind.value,
+                "authority": c.authority.value,
+                "relevance": c.relevance.value,
+                "status": c.status.value,
+                "may_store_as_manufacturer_evidence": c.may_store_as_manufacturer_evidence,
+                "rejections": list(c.rejections),
+            }
+            for c in result.candidates
+        ],
+        "rejection_counts": result.rejection_counts(),
+        "acquired_artifacts": [c.artifact_sha256 for c in result.acquired],
+        "summary": result.summary.model_dump(),
+    }
+
+
+def render_live(rows: list[dict], *, registry: DomainRegistry, source: str, mode: str) -> str:
+    """The pilot report. Every stage is counted separately and nothing is scored."""
+    lines = [
+        f"LIVE DISCOVERY PILOT · {source}",
+        f"  mode       {mode}",
+        f"  registry   {registry.name} — {registry.authority.value}",
+        f"  rows       {len(rows)}",
+        "",
+    ]
+
+    for row in rows:
+        lines.append("=" * 78)
+        lines.append(
+            f"row {row['row']}  {row['mpn']}  ({row['manufacturer_hint']!r})  "
+            f"-> {row['outcome']}"
+        )
+        for query in row["queries_executed"]:
+            lines.append(f"    query    {query}")
+        lines.append(f"    results  {row['search_results']}")
+        for candidate in row["candidates"]:
+            evidence = "MAY LICENSE" if candidate["may_store_as_manufacturer_evidence"] else "—"
+            lines.append(
+                f"    [{candidate['rank']:>2}] {candidate['host']:<28} "
+                f"{candidate['authority']:<24} {candidate['relevance']:<12} "
+                f"{candidate['kind']:<13} {candidate['status']:<22} {evidence}"
+            )
+            lines.append(f"         {candidate['url']}")
+            if candidate["rejections"]:
+                lines.append(f"         rejected: {', '.join(candidate['rejections'])}")
+        if row["acquired_artifacts"]:
+            for sha in row["acquired_artifacts"]:
+                lines.append(f"    ARTIFACT {sha}")
+        lines.append("")
+
+    totals = _totals(rows)
+    lines += [
+        "=" * 78,
+        "STAGE COUNTS — each line is a different achievement, not a running total",
+        f"  rows attempted                {totals['rows']}",
+        f"  queries executed              {totals['queries']}",
+        f"  search results returned       {totals['results']}",
+        f"  candidates classified         {totals['candidates']}",
+        f"  manufacturer-associated hosts {totals['manufacturer_hosts']}",
+        f"  exact-MPN candidates          {totals['exact']}",
+        f"  candidates that MAY license   {totals['licensing']}",
+        f"  PDF fetch attempts            {totals['fetch_attempts']}",
+        f"  PDF fetch successes           {totals['fetch_successes']}",
+        f"  artifacts ingested            {totals['artifacts']}",
+        "",
+        "OUTCOMES",
+        *(f"  {name:<28} {count}" for name, count in totals["outcomes"].items()),
+    ]
+    if totals["rejections"]:
+        lines += ["", "CANDIDATE REJECTIONS"]
+        lines += [f"  {name:<32} {count}" for name, count in totals["rejections"].items()]
+
+    if totals["licensing"] == 0:
+        lines += [
+            "",
+            "SEARCH COMPLETE · DOMAIN REVIEW PENDING · ARTIFACT LICENSING BLOCKED",
+            "  No candidate may be stored as manufacturer evidence, because no manufacturer",
+            "  entry carries a human DomainReview. Search found what it found; nothing here",
+            "  is a claim about a product. Run review_manufacturer_domains.py to prepare a",
+            "  packet, and have a person confirm the domains they actually checked.",
+        ]
+    return "\n".join(lines)
+
+
+def _totals(rows: list[dict]) -> dict:
+    candidates = [c for row in rows for c in row["candidates"]]
+    rejections: dict[str, int] = {}
+    for row in rows:
+        for name, count in row["rejection_counts"].items():
+            rejections[name] = rejections.get(name, 0) + count
+    return {
+        "rows": len(rows),
+        "queries": sum(len(r["queries_executed"]) for r in rows),
+        "results": sum(r["search_results"] for r in rows),
+        "candidates": len(candidates),
+        "manufacturer_hosts": sum(
+            1
+            for c in candidates
+            if c["authority"] in {"APPROVED_MANUFACTURER", "UNVERIFIED_MANUFACTURER"}
+        ),
+        "exact": sum(1 for c in candidates if c["relevance"] == "EXACT"),
+        "licensing": sum(1 for c in candidates if c["may_store_as_manufacturer_evidence"]),
+        "fetch_attempts": sum(r["summary"]["fetch_attempts"] for r in rows),
+        "fetch_successes": sum(r["summary"]["fetch_successes"] for r in rows),
+        "artifacts": sum(r["summary"]["artifacts_ingested"] for r in rows),
+        "outcomes": outcome_counts(SearchOutcome(r["outcome"]) for r in rows),
+        "rejections": dict(sorted(rejections.items())),
+    }
+
+
 def render(plans: list[dict], *, registry: DomainRegistry, source: str) -> str:
     lines = [
         f"discovery plan · {source}",
@@ -174,6 +357,24 @@ def main(argv: list[str] | None = None) -> int:
         help="drop the known-manufacturer condition, to see how often we have no domain",
     )
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="execute the queries against the configured search provider",
+    )
+    parser.add_argument(
+        "--replay",
+        action="store_true",
+        help="with --live, serve from recorded cassettes and make no provider call",
+    )
+    parser.add_argument(
+        "--acquire",
+        action="store_true",
+        help="with --live, also fetch eligible manufacturer PDFs (needs a reviewed domain)",
+    )
+    parser.add_argument("--cassettes", type=Path, default=DEFAULT_CASSETTES)
+    parser.add_argument("--artifacts", type=Path, default=DEFAULT_ARTIFACTS)
+    parser.add_argument("--max-results", type=int, default=10)
     args = parser.parse_args(argv)
 
     try:
@@ -187,6 +388,36 @@ def main(argv: list[str] | None = None) -> int:
     except (MalformedRegistryError, UnilogError, OSError) as exc:
         print(f"cannot plan discovery: {exc}", file=sys.stderr)
         return 2
+
+    if args.live:
+        mode = RunMode.REPLAY if args.replay else RunMode.LIVE
+        try:
+            results = run_live(
+                requests,
+                registry=registry,
+                cassettes=args.cassettes,
+                artifacts=args.artifacts if args.acquire else None,
+                max_results=args.max_results,
+                mode=mode,
+            )
+        except MissingSearchCredentialsError as exc:
+            # Never degrade to the plan and call it a live run.
+            print(f"LIVE PILOT NOT EXECUTED — {exc}", file=sys.stderr)
+            return 3
+        except (SearchProviderError, OSError) as exc:
+            print(f"live discovery failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+            return 2
+
+        rows = [live_row(r) for r in results]
+        if args.json:
+            print(json.dumps({"mode": mode.value, "rows": rows, "totals": _totals(rows)}, indent=2))
+        else:
+            print(
+                render_live(
+                    rows, registry=registry, source=args.input.name, mode=mode.value
+                )
+            )
+        return 0
 
     plans = [plan_for(r, registry) for r in requests]
     if args.json:
