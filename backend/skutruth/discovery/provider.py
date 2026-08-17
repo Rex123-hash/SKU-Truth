@@ -29,7 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from skutruth.contracts import RunMode
+from skutruth.contracts import DiscoveryMethod, RunMode
 from skutruth.replay.models import InteractionRequest
 from skutruth.replay.runner import run_interaction
 from skutruth.replay.store import CassetteStore
@@ -51,14 +51,39 @@ class SearchCall:
 
 
 class SearchProvider(Protocol):
-    """One query in, results out. Deliberately the entire interface."""
+    """One query in, results out. Deliberately almost the entire interface.
+
+    The one addition is `discovery_method`, and it is not decoration. A stored artifact
+    records *how it was found*, and only the provider knows that. Inferring it from the
+    provider's name would mean a class calling itself `google-search` could mint
+    `GOOGLE_SEARCH_GROUNDING` provenance for results that never went near Google —
+    branding deciding what the audit trail says.
+
+    `None` is a legitimate answer: it means the frozen `DiscoveryMethod` has no value that
+    truthfully describes this provider. Acquisition then refuses rather than defaulting,
+    because `SourceMetadata.discovery_method` is non-optional and every available default
+    would assert something untrue.
+    """
 
     #: Stable identifier recorded in provenance, e.g. `"fake"`, `"programmable-search"`.
     name: str
 
+    #: How this provider finds candidates, in the frozen contract's own vocabulary.
+    discovery_method: DiscoveryMethod | None
+
     def search(self, call: SearchCall) -> list[dict]:  # pragma: no cover - protocol
         """Return raw result dicts with at least `url`; `title` and `snippet` optional."""
         ...
+
+
+def declared_discovery_method(provider: SearchProvider) -> DiscoveryMethod | None:
+    """What the provider says about its own discovery mechanism.
+
+    Read through a helper so a provider written before this attribute existed reports
+    `None` — unable to state its provenance — rather than silently inheriting whatever
+    default happened to be nearby.
+    """
+    return getattr(provider, "discovery_method", None)
 
 
 def _to_results(payload: object, *, query: str, provider: str) -> tuple[SearchResult, ...]:
@@ -120,4 +145,11 @@ def execute_search(
     return _to_results(outcome.cassette.response, query=call.query, provider=provider.name)
 
 
-__all__ = ["ENDPOINT", "SearchCall", "SearchProvider", "execute_search", "search_request"]
+__all__ = [
+    "ENDPOINT",
+    "SearchCall",
+    "SearchProvider",
+    "declared_discovery_method",
+    "execute_search",
+    "search_request",
+]

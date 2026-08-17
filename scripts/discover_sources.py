@@ -111,15 +111,18 @@ def plan_for(request: DiscoveryRequest, registry: DomainRegistry) -> dict:
     hint. A row can be fully searchable and still license nothing.
     """
     domains = registry.domains_for_hint(request.manufacturer_hint)
-    grants_authority = registry.entry_for_hint(request.manufacturer_hint) is not None
+    entry = registry.entry_for_hint(request.manufacturer_hint)
     return {
         "row": request.row_number,
         "mpn": request.mpn,
         "manufacturer_hint": request.manufacturer_hint,
         "manufacturer_code": request.manufacturer_code,
         "searchable_domains": list(domains),
-        "grants_manufacturer_authority": grants_authority
-        and registry.authority.may_license_evidence,
+        #: Whether the spelling names this manufacturer under a reviewed authority hint.
+        "identified_manufacturer": entry is not None,
+        # Licensing needs the registry's provenance *and* this binding's audit record.
+        "grants_manufacturer_authority": registry.licenses(entry),
+        "reviewed_by": entry.review.describe() if entry and entry.review else None,
         "queries": list(build_queries(request, approved_domains=domains)),
     }
 
@@ -137,10 +140,13 @@ def render(plans: list[dict], *, registry: DomainRegistry, source: str) -> str:
     for plan in plans:
         if plan["grants_manufacturer_authority"]:
             mark = "searchable · may license evidence"
-        elif plan["searchable_domains"]:
-            mark = "searchable · locator hint only, licenses nothing"
-        else:
+        elif not plan["searchable_domains"]:
             mark = "NO KNOWN DOMAIN"
+        elif plan["identified_manufacturer"]:
+            # The spelling names the manufacturer; the domain binding is unreviewed.
+            mark = "searchable · domain not reviewed, licenses nothing"
+        else:
+            mark = "searchable · locator hint only, licenses nothing"
         lines.append(
             f"  row {plan['row']:>4}  {plan['mpn']:<28} {plan['manufacturer_hint']!r} — {mark}"
         )

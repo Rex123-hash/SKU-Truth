@@ -54,10 +54,23 @@ RESULTS = [
 ]
 
 
+#: A complete audit record. Entries without one are locator-grade by design.
+REVIEW = {
+    "reviewed_at": "2026-08-17",
+    "reviewed_by": "test",
+    "basis": "synthetic fixture; no real domain was checked",
+}
+
+
 class FakeSearchProvider:
-    """A provider that returns fixed results and counts how often it was asked."""
+    """A provider that returns fixed results and counts how often it was asked.
+
+    `CURATED_CORPUS` is the truthful `DiscoveryMethod` here: results come from a fixed
+    local set, which is exactly what that value means. It is not a stand-in for "search".
+    """
 
     name = "fake"
+    discovery_method = DiscoveryMethod.CURATED_CORPUS
 
     def __init__(self, results=None, *, api_key: str = "secret-key-never-stored") -> None:
         self._results = results if results is not None else RESULTS
@@ -79,7 +92,14 @@ def registry():
                     "key": "schneider",
                     "authority_hints": [MAKER, "Schneider"],
                     "domains": ["se.com", "schneider-electric.com"],
-                }
+                    "review": REVIEW,
+                },
+                {
+                    "key": "acme",
+                    "authority_hints": ["Acme Corp"],
+                    "domains": ["acme.example"],
+                    "review": REVIEW,
+                },
             ],
             "hosts": {
                 "marketplaces": ["amazon.com"],
@@ -429,23 +449,50 @@ class TestRedirectAuthority:
 
 
 class TestStoredProvenance:
-    def test_provider_provenance_is_not_hard_coded_to_google(self, stores):
-        """M. A fake provider must not leave artifacts claiming Google search grounding."""
+    def test_provenance_comes_from_the_provider_not_a_default(self, stores):
+        """M. The fake provider declares a curated corpus, and that is what is stored."""
         _, artifacts = stores
         result = run(stores)
         stored = artifacts.load(result.acquired[0].artifact_sha256)
-        assert stored.source.discovery_method is DiscoveryMethod.DIRECT_URL
+        assert stored.source.discovery_method is DiscoveryMethod.CURATED_CORPUS
 
-    def test_google_provenance_is_emitted_only_for_a_google_provider(self, stores):
-        """N."""
+    def test_a_provider_name_alone_cannot_spoof_google_grounding(self, stores):
+        """N. Branding is not provenance."""
 
-        class GoogleProvider(FakeSearchProvider):
+        class NamedGoogle(FakeSearchProvider):
             name = "google-search"
+            discovery_method = DiscoveryMethod.CURATED_CORPUS
 
         _, artifacts = stores
-        result = run(stores, provider=GoogleProvider())
+        result = run(stores, provider=NamedGoogle())
+        stored = artifacts.load(result.acquired[0].artifact_sha256)
+        assert stored.source.discovery_method is DiscoveryMethod.CURATED_CORPUS
+
+    def test_a_provider_declaring_google_grounding_records_it(self, stores):
+        """N. The declaration is what counts, and only the provider can make it."""
+
+        class RealGoogle(FakeSearchProvider):
+            name = "programmable-search"
+            discovery_method = DiscoveryMethod.GOOGLE_SEARCH_GROUNDING
+
+        _, artifacts = stores
+        result = run(stores, provider=RealGoogle())
         stored = artifacts.load(result.acquired[0].artifact_sha256)
         assert stored.source.discovery_method is DiscoveryMethod.GOOGLE_SEARCH_GROUNDING
+
+    def test_an_undeclared_provider_cannot_store_an_artifact(self, stores):
+        """Unsupported provenance is refused, not rounded to whatever fits the enum."""
+
+        class Undeclared(FakeSearchProvider):
+            name = "mystery"
+            discovery_method = None
+
+        _, artifacts = stores
+        result = run(stores, provider=Undeclared())
+        candidate = next(c for c in result.candidates if c.url == DATASHEET_URL)
+        assert candidate.status is CandidateStatus.REJECTED
+        assert RejectionReason.DISCOVERY_PROVENANCE_UNDECLARED.value in candidate.rejections
+        assert artifacts.hashes() == ()
 
     def test_an_unknown_document_kind_is_not_called_a_datasheet(self, stores):
         """O. A PDF from a manufacturer may be a manual, a warranty, or a brochure.
@@ -496,6 +543,7 @@ class TestHintStanding:
                         "authority_hints": ["DeWalt"],
                         "locator_hints": ["Black & Decker/dewlt"],
                         "domains": ["dewalt.com"],
+                        "review": REVIEW,
                     }
                 ],
             }
@@ -547,6 +595,17 @@ class TestHintStanding:
         assert candidate.authority is SourceAuthority.UNVERIFIED_MANUFACTURER
         assert RejectionReason.AUTHORITY_NOT_ESTABLISHED.value in candidate.rejections
         assert artifacts.hashes() == ()
+
+    def test_review_metadata_does_not_promote_a_locator_alias(self):
+        """A reviewed *domain* says nothing about which dirty strings name the maker."""
+        assert (
+            classify_authority(
+                "dewalt.com",
+                registry=self._registry(),
+                manufacturer_hint="Black & Decker/dewlt",
+            )
+            is SourceAuthority.UNVERIFIED_MANUFACTURER
+        )
 
     def test_a_demo_registry_cannot_license_evidence(self):
         """L."""

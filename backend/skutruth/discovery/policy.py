@@ -74,16 +74,19 @@ def classify_authority(
 ) -> SourceAuthority:
     """Whose site this is, relative to the product's manufacturer.
 
-    Three things must all hold before a host is `APPROVED_MANUFACTURER`:
+    Four things must all hold before a host is `APPROVED_MANUFACTURER`:
 
-    1. the registry itself may license evidence — a `DEMO` registry never does;
+    1. the registry's provenance permits licensing — a `DEMO` registry never does;
     2. the host belongs to a manufacturer the registry knows;
-    3. the supplied hint *identifies* that manufacturer under a reviewed authority hint,
+    3. **that binding carries an audit record**, where the registry's provenance is a
+       manual review. An unreviewed entry has not been checked by anyone, and a licence
+       resting on an unrecorded check is an assertion, not a review;
+    4. the supplied hint *identifies* that manufacturer under a reviewed authority hint,
        not merely under a locator spelling.
 
-    Failing (1) or (3) yields `UNVERIFIED_MANUFACTURER`: the connection is real and the
-    candidate is worth looking at, but nothing here has standing to call the bytes that
-    manufacturer's own publication.
+    Failing (1), (3), or (4) yields `UNVERIFIED_MANUFACTURER`: the connection is real and
+    the candidate is worth looking at, but nothing here has standing to call the bytes
+    that manufacturer's own publication.
 
     Blocked hosts are checked first, so an explicit refusal outranks every other reading —
     including a host that also appears on a manufacturer's domain list.
@@ -98,7 +101,7 @@ def classify_authority(
     if owner is not None:
         if not owner.matches_for_locating(manufacturer_hint):
             return SourceAuthority.OTHER_MANUFACTURER
-        if owner.grants_authority(manufacturer_hint) and registry.authority.may_license_evidence:
+        if owner.grants_authority(manufacturer_hint) and registry.licenses(owner):
             return SourceAuthority.APPROVED_MANUFACTURER
         return SourceAuthority.UNVERIFIED_MANUFACTURER
 

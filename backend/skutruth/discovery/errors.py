@@ -62,6 +62,9 @@ class RejectionReason(StrEnum):
     CONTENT_INTEGRITY_ERROR = "CONTENT_INTEGRITY_ERROR"
     #: An official HTML page. A legitimate candidate; this milestone does not ingest it.
     NOT_INGESTABLE_YET = "NOT_INGESTABLE_YET"
+    #: The provider cannot state how it found the candidate, and `discovery_method` is
+    #: non-optional on stored metadata. Refused rather than defaulted to a false value.
+    DISCOVERY_PROVENANCE_UNDECLARED = "DISCOVERY_PROVENANCE_UNDECLARED"
 
     # -- authority ------------------------------------------------------------
     DOMAIN_NOT_APPROVED = "DOMAIN_NOT_APPROVED"

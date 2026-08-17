@@ -39,7 +39,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from skutruth.contracts import RunMode
+from skutruth.contracts import DiscoveryMethod, RunMode
 from skutruth.ingest.storage import ArtifactStore
 from skutruth.replay.errors import ReplayError
 from skutruth.replay.store import CassetteStore
@@ -64,7 +64,7 @@ from .policy import (
     host_of,
     rejection_reasons,
 )
-from .provider import SearchCall, SearchProvider, execute_search
+from .provider import SearchCall, SearchProvider, declared_discovery_method, execute_search
 from .query import QueryBudget, build_queries
 from .ranking import rank_candidates, ranking_reasons
 
@@ -142,6 +142,7 @@ def _acquire_one(
     registry: DomainRegistry,
     manufacturer_hint: str | None,
     publisher: str | None,
+    discovery_method: DiscoveryMethod | None,
     policy: FetchPolicy,
     transport: httpx.BaseTransport | None,
     resolver: Resolver,
@@ -188,7 +189,13 @@ def _acquire_one(
     )
 
     try:
-        acquired = acquire_pdf(fetched, resource, store=store, publisher=publisher)
+        acquired = acquire_pdf(
+            fetched,
+            resource,
+            store=store,
+            discovery_method=discovery_method,
+            publisher=publisher,
+        )
     except FetchError as exc:
         # An official HTML page lands here as NOT_INGESTABLE_YET. It stays accepted:
         # the source is real and eligible, and only this milestone's scope stops short.
@@ -276,6 +283,7 @@ def discover_sources(
             registry=registry,
             manufacturer_hint=request.manufacturer_hint,
             publisher=request.manufacturer_hint,
+            discovery_method=declared_discovery_method(provider),
             policy=limits.fetch,
             transport=transport,
             resolver=resolver,

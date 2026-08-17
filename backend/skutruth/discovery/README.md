@@ -25,23 +25,32 @@ DiscoveryRequest  →  deterministic queries  →  provider (through record/repl
                                                  DiscoveryResult
 ```
 
-## Five independent gates. None substitutes for another.
+## Six independent gates. None substitutes for another.
+
+```
+SEARCH RESULT  ≠  NETWORK SAFETY  ≠  DOMAIN REVIEW  ≠  MANUFACTURER IDENTITY  ≠  PRODUCT SCOPE
+```
 
 | Gate | Question | Answered by |
 |---|---|---|
 | **search result** | where might this be? | the provider — a locator, nothing more |
 | **network safety** | is this safe to connect to? | `fetch.py` — scheme, DNS, address ranges, per hop |
-| **manufacturer authority** | may this host publish this manufacturer's data? | the reviewed registry, on the **final** URL |
+| **domain review** | has anyone actually checked that this manufacturer publishes from this host? | a `DomainReview` record on the registry entry |
+| **manufacturer identity** | does this supplier spelling *name* that manufacturer? | `authority_hints`, never `locator_hints` |
 | **MPN relevance** | is it worth acquiring for *this* reference? | `canonical_mpn` token comparison |
 | **product scope** | what does the document actually cover? | the identity resolver, after acquisition |
 
-The third gate is the one that is easy to get wrong, because the second looks like it. A
-public, reachable, perfectly safe third-party host is *safe to connect to* and has **no
-standing to publish a manufacturer's specification**. Those are different properties and
-they are checked separately: `REDIRECT_AUTHORITY_LOST` is deliberately not an SSRF reason.
+Each pair is genuinely different, and each confusion is a real failure mode:
 
-The fifth gate is why none of the others is allowed to conclude anything about the
-product. Discovery hands over bytes; identity resolution decides what they are about.
+* **safety vs review.** A public, reachable, perfectly safe third-party host is *safe to
+  connect to* and has no standing to publish a manufacturer's specification.
+  `REDIRECT_AUTHORITY_LOST` is deliberately not an SSRF reason.
+* **review vs identity.** `dewalt.com` being a reviewed DeWalt domain says nothing about
+  whether the supplier string `Black & Decker/dewlt` means DeWalt. One is a fact about a
+  host; the other is canonicalisation, and it needs the manufacturer master.
+* **identity vs product scope.** Knowing whose site a document is on says nothing about
+  which product it describes. Discovery hands over bytes; identity resolution decides what
+  they are about, and mechanical verification decides what they support.
 
 ## Scope of this milestone
 
@@ -125,18 +134,49 @@ lookup would make that decision without the evidence.
 
 ### What a registry's own provenance permits
 
-| | `is_authoritative` | `may_license_evidence` |
-|---|---|---|
-| `OFFICIAL` — organizer-supplied master | yes | yes |
-| `REVIEWED` — a person checked each domain | no | **yes** |
-| `DEMO` — illustrative | no | no |
+| | `is_authoritative` | may license | needs a per-entry review record |
+|---|---|---|---|
+| `OFFICIAL` — organizer master, named in `source` | yes | yes | no |
+| `REVIEWED` — a person checked each domain | no | **only with a record** | **yes** |
+| `DEMO` — illustrative | no | no | n/a |
 
 `REVIEWED` licenses evidence because domain ownership is a checkable fact, and a different
 claim from conforming to Unilog's catalogue rules. `DEMO` licenses nothing — an
 illustrative entry that could authorise a download would make the label meaningless.
 
-**We hold no organizer manufacturer master**, so the shipped registry is `REVIEWED` and
-`is_authoritative` is `False`.
+`OFFICIAL` needs no per-entry review: its basis is the organizer master, named once on the
+registry, and inventing a "manual review" for rows that came from a supplied file would
+record a check nobody performed. An `OFFICIAL` registry that names no `source` is refused.
+
+### What `REVIEWED` actually means, and what backs it
+
+Licensing authority now rests on the review, so the review cannot be an unaudited
+assertion. Every entry that licenses evidence carries:
+
+```toml
+[manufacturer.review]
+reviewed_at = "2026-08-17"
+reviewed_by = "Amaan Khan"
+basis      = "what was checked, ideally something re-examinable in this repository"
+```
+
+A half-filled record is refused at load — one naming no reviewer, no date, or no basis
+answers none of the questions it exists to answer. An entry with **no** review block is
+not an error: it is simply unreviewed, stays useful for locating candidates, and licenses
+nothing.
+
+**In the shipped registry exactly one entry is reviewed: Schneider Electric.** Its basis is
+three artifacts in this repository fetched from those hosts and ingested with their URLs
+and byte hashes recorded, plus `research/lc1d18_artifact_note.md` documenting the
+`download.schneider-electric.com → download.se.com` redirect — evidence a reviewer can
+re-examine without leaving the repo.
+
+The other eight entries have domains written from general knowledge while building this
+engine. Nobody verified them, so they are locator-grade. The honest consequence, measured
+against the organizer input: 5 of 75 supplier spellings remain **searchable** (291 of 959
+rows) and **none of them licenses evidence** (0 of 959) — Schneider does not appear in the
+organizer data at all. Promoting an entry means doing the review and recording it, not
+editing a flag.
 
 ## Exact-MPN relevance can only demote
 
@@ -221,12 +261,24 @@ appears in a cassette file.
 
 Two places where a convenient default would have been a lie:
 
-* **`discovery_method`.** The frozen `DiscoveryMethod` enumerates specific mechanisms and
-  has no generic "a search engine" value. Only a genuinely Google-labelled provider
-  records `GOOGLE_SEARCH_GROUNDING`; anything else records `DIRECT_URL`, which is true —
-  we fetched that URL directly — and the real provider name is kept on the candidate and
-  the `DiscoveryResult`. Widening a frozen contract for a labelling convenience is not a
-  concrete bug, so this stays a documented narrowing instead.
+* **`discovery_method`. The provider declares it; nothing infers it.** A `SearchProvider`
+  states its own `discovery_method`, because only it knows how it finds things. Reading it
+  off the provider's *name* would let a class called `google-search` mint
+  `GOOGLE_SEARCH_GROUNDING` provenance for results that never went near Google — branding
+  deciding what the audit trail says.
+
+  `None` is a legitimate declaration: it means the frozen `DiscoveryMethod` has no value
+  that truthfully describes this provider. Acquisition then **refuses**
+  (`DISCOVERY_PROVENANCE_UNDECLARED`) rather than defaulting, because
+  `SourceMetadata.discovery_method` is non-optional and every available default —
+  including `OPERATOR_SUPPLIED` and `DIRECT_URL` — would assert something untrue about how
+  the document was found. An artifact that cannot say how it was discovered is not stored.
+
+  **This is a recorded contract gap, not a solved problem.** The enum names specific
+  mechanisms and has no value for "a third-party web search engine". A future live
+  provider will either declare an existing value truthfully or supply the concrete case
+  that justifies widening the frozen contract. Guessing now, in either direction, would be
+  the same mistake in different clothing.
 * **`source_type`.** `MANUFACTURER_DATASHEET` asserts the document *is a datasheet*. A PDF
   from a manufacturer may equally be a manual, a warranty, a brochure, or a catalogue, so
   only a candidate whose kind is actually `DATASHEET` receives it, `PRODUCT_PAGE` receives
@@ -253,11 +305,13 @@ and counting it twice would let a mirror manufacture agreement.
 
 * HTML pages are discovered and hashed but not ingested (above).
 * DNS is not pinned (above).
-* Manufacturer hints are matched against explicitly listed spellings. A manufacturer not
-  in the registry yields no approved domain — correct, and it means coverage is bounded by
-  how much of the registry has been written. Against the organizer input, 5 of 75 distinct
-  supplier spellings are searchable (291 of 959 rows) but only **3 may license evidence**
-  (125 rows); the other two are locator-only spellings awaiting the manufacturer master.
+* Manufacturer hints are matched against explicitly listed spellings, so coverage is
+  bounded by how much of the registry has been written *and reviewed*. Against the
+  organizer input: 5 of 75 supplier spellings are searchable (291 of 959 rows), and
+  **none licenses evidence** (0 of 959), because the only reviewed manufacturer does not
+  appear in that data. Discovery can currently find candidates for those rows and store
+  none of them as manufacturer evidence. Raising that number means performing and
+  recording real domain reviews.
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.
   Resolving that needs the manufacturer master, not more discovery.

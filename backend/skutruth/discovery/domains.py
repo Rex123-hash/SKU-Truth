@@ -92,16 +92,21 @@ class RegistryAuthority(StrEnum):
       enough to store its bytes as that manufacturer's evidence? `OFFICIAL` and
       `REVIEWED` may; `DEMO` may not.
 
-    `REVIEWED` licenses evidence because domain ownership is a *checkable* fact — a person
-    confirmed the manufacturer publishes from that host — and it is a different claim from
-    conforming to Unilog's catalogue rules. `DEMO` licenses nothing: it exists for
-    illustration and tests, and an illustrative entry that could authorise a download
-    would make the label meaningless.
+    `REVIEWED` licenses evidence because domain ownership is a *checkable* fact and a
+    different claim from conforming to Unilog's catalogue rules. But "a person checked it"
+    is only worth something if the check left a record — otherwise it is an assertion
+    wearing a review's clothing, and it would be load-bearing for every fact acquired
+    through it. So a `REVIEWED` entry licenses evidence **only when it carries a
+    `DomainReview`**; without one it is locator-grade, exactly like a `DEMO` entry.
+
+    `DEMO` licenses nothing at all: it exists for illustration and tests, and an
+    illustrative entry that could authorise a download would make the label meaningless.
     """
 
     #: Organizer-supplied manufacturer master. We do not have one.
     OFFICIAL = "OFFICIAL"
-    #: A person checked each domain against the manufacturer's own site.
+    #: A person checked each domain against the manufacturer's own publications, and
+    #: recorded what they checked.
     REVIEWED = "REVIEWED"
     #: Illustrative. Not checked, and never a licence.
     DEMO = "DEMO"
@@ -113,8 +118,40 @@ class RegistryAuthority(StrEnum):
 
     @property
     def may_license_evidence(self) -> bool:
-        """Whether entries here may establish manufacturer ownership of a host."""
+        """Whether entries here *can* establish ownership — necessary, not sufficient.
+
+        A `REVIEWED` registry still needs a per-entry review record; see
+        `ManufacturerEntry.licenses_evidence`.
+        """
         return self in {RegistryAuthority.OFFICIAL, RegistryAuthority.REVIEWED}
+
+    @property
+    def requires_entry_review(self) -> bool:
+        """Whether each licensing entry must carry its own review record.
+
+        `OFFICIAL` does not: its basis is the organizer master, named once on the
+        registry, and inventing a per-entry "manual review" for rows that came from a
+        supplied file would be recording a check nobody performed.
+        """
+        return self is RegistryAuthority.REVIEWED
+
+
+@dataclass(frozen=True, slots=True)
+class DomainReview:
+    """The audit record behind one manufacturer-domain binding.
+
+    Small on purpose. The question a reviewer needs answered later is only ever "who
+    decided this, when, and on what evidence" — and a `basis` that names something
+    checkable in this repository is worth more than a long prose justification.
+    """
+
+    reviewed_at: str
+    reviewed_by: str
+    basis: str
+    note: str = ""
+
+    def describe(self) -> str:
+        return f"{self.reviewed_by} on {self.reviewed_at}: {self.basis}"
 
 
 def normalize_manufacturer(name: str | None) -> str:
@@ -156,9 +193,24 @@ class ManufacturerEntry:
     #: Observed spellings that may help find it, and may not identify it.
     locator_hints: tuple[str, ...]
     domains: tuple[str, ...]
+    #: The audit record behind this binding. `None` means nobody has checked it yet,
+    #: which is a normal state and simply means the entry cannot license evidence.
+    review: DomainReview | None = None
     note: str = ""
     _authority_keys: frozenset[str] = field(default_factory=frozenset, repr=False)
     _locator_keys: frozenset[str] = field(default_factory=frozenset, repr=False)
+
+    def licenses_evidence(self, authority: RegistryAuthority) -> bool:
+        """Whether this binding may make a host's bytes count as manufacturer evidence.
+
+        Both halves must hold: the registry's provenance must permit licensing at all,
+        and — where that provenance is a manual review — this entry must carry the record
+        of it. An unreviewed entry in a `REVIEWED` file is not an error; it is an entry
+        that has not been checked yet, and it stays useful for locating candidates.
+        """
+        if not authority.may_license_evidence:
+            return False
+        return self.review is not None or not authority.requires_entry_review
 
     def grants_authority(self, hint: str | None) -> bool:
         """Whether this hint may bind the manufacturer's ownership of its domains."""
@@ -183,12 +235,22 @@ class DomainRegistry:
         *,
         name: str,
         authority: RegistryAuthority,
+        source: str = "",
         distributors: tuple[str, ...] = (),
         marketplaces: tuple[str, ...] = (),
         blocked: tuple[str, ...] = (),
     ) -> None:
         self.name = name
         self.authority = authority
+        #: For `OFFICIAL`, the organizer file these bindings came from. Required there,
+        #: because "official" with no named master is the same unaudited assertion this
+        #: design exists to refuse — it just sounds more authoritative.
+        self.source = source
+        if authority is RegistryAuthority.OFFICIAL and not source.strip():
+            raise MalformedRegistryError(
+                f"{name}: an OFFICIAL registry must name the organizer master it came "
+                f"from in `source`; otherwise nothing records what makes it official"
+            )
         self.distributors = tuple(sorted({normalize_host(d) for d in distributors if d}))
         self.marketplaces = tuple(sorted({normalize_host(m) for m in marketplaces if m}))
         self.blocked = tuple(sorted({normalize_host(b) for b in blocked if b}))
@@ -259,6 +321,19 @@ class DomainRegistry:
         return tuple(self._entries[k] for k in sorted(self._entries))
 
     @property
+    def licensing_entries(self) -> tuple[ManufacturerEntry, ...]:
+        """Entries whose bindings may make a host's bytes manufacturer evidence."""
+        return tuple(e for e in self.entries if e.licenses_evidence(self.authority))
+
+    @property
+    def unreviewed_entries(self) -> tuple[ManufacturerEntry, ...]:
+        """Entries usable for locating candidates but not for licensing them."""
+        return tuple(e for e in self.entries if not e.licenses_evidence(self.authority))
+
+    def licenses(self, entry: ManufacturerEntry | None) -> bool:
+        return entry is not None and entry.licenses_evidence(self.authority)
+
+    @property
     def is_authoritative(self) -> bool:
         """True only for an organizer-supplied master. Conservative by design."""
         return self.authority.is_authoritative
@@ -271,6 +346,31 @@ class DomainRegistry:
             f"DomainRegistry({self.name!r}, {len(self._entries)} manufacturers, "
             f"{self.authority.value})"
         )
+
+
+def _parse_review(raw: object, *, source: str, key: str) -> DomainReview | None:
+    """Read one entry's audit record, or `None` when it has not been reviewed.
+
+    A half-filled review is refused rather than accepted with blanks: a record naming no
+    reviewer, no date, or no basis answers none of the questions it exists to answer, and
+    accepting it would let an entry license evidence on the strength of an empty form.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise MalformedRegistryError(
+            f"{source}: `review` for {key!r} must be a table, got {type(raw).__name__}"
+        )
+
+    required = ("reviewed_at", "reviewed_by", "basis")
+    fields = {name: str(raw.get(name, "")).strip() for name in required}
+    missing = sorted(name for name, value in fields.items() if not value)
+    if missing:
+        raise MalformedRegistryError(
+            f"{source}: `review` for {key!r} is missing {', '.join(missing)}. A review "
+            f"record must say who checked what, and when, or it establishes nothing."
+        )
+    return DomainReview(**fields, note=str(raw.get("note", "")).strip())
 
 
 def parse_registry(data: dict, *, source: str = "<memory>") -> DomainRegistry:
@@ -328,6 +428,7 @@ def parse_registry(data: dict, *, source: str = "<memory>") -> DomainRegistry:
                 authority_hints=authority_hints,
                 locator_hints=locator_hints,
                 domains=domains,
+                review=_parse_review(raw.get("review"), source=source, key=key),
                 note=str(raw.get("note", "")),
                 _authority_keys=authority_keys,
                 _locator_keys=locator_keys,
@@ -339,6 +440,7 @@ def parse_registry(data: dict, *, source: str = "<memory>") -> DomainRegistry:
         entries,
         name=name,
         authority=authority,
+        source=str(data.get("source", "")),
         distributors=tuple(hosts.get("distributors", []) or []),
         marketplaces=tuple(hosts.get("marketplaces", []) or []),
         blocked=tuple(hosts.get("blocked", []) or []),

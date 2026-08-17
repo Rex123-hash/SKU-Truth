@@ -66,29 +66,12 @@ class AcquiredArtifact:
         return self.artifact.sha256
 
 
-#: Provider names that genuinely mean Google search grounding. The frozen
-#: `DiscoveryMethod` enumerates specific mechanisms and has no generic "a search engine"
-#: value, so anything else records `DIRECT_URL` — truthful, because we did fetch that URL
-#: directly — and the actual provider name is preserved on the candidate and the
-#: `DiscoveryResult` instead. Widening the frozen contract for this would be reopening it
-#: for a labelling convenience, which is not a concrete bug.
-GOOGLE_PROVIDERS = frozenset({"google", "google-search", "google_search", "programmable-search"})
-
-
-def discovery_method_for(provider: str | None) -> DiscoveryMethod:
-    """The narrowest truthful `DiscoveryMethod` for the provider that found a candidate.
-
-    Never claims Google unless Google was actually used. A stored artifact asserting a
-    discovery mechanism it did not go through is false provenance, and false provenance in
-    the artifact store is the one thing this system cannot tolerate anywhere.
-    """
-    if provider and provider.strip().casefold() in GOOGLE_PROVIDERS:
-        return DiscoveryMethod.GOOGLE_SEARCH_GROUNDING
-    return DiscoveryMethod.DIRECT_URL
-
-
 def source_metadata_for(
-    candidate: SourceCandidate, resource: FetchedResource, *, publisher: str | None
+    candidate: SourceCandidate,
+    resource: FetchedResource,
+    *,
+    publisher: str | None,
+    discovery_method: DiscoveryMethod,
 ) -> SourceMetadata:
     """Discovery lineage in the frozen ingestion contract's own terms.
 
@@ -97,6 +80,9 @@ def source_metadata_for(
     publisher or the document kind is not established. `None` is stored rather than a
     plausible-looking default: `SourceMetadata.source_type` is optional exactly so this
     can be left unsaid, and the repository's own ingested catalogue records `null` there.
+
+    `discovery_method` is supplied by the provider that found the candidate, never
+    inferred here from its name.
 
     `identity_scope` and `covers_mpn` are likewise left unset. Discovery observed a
     reference in a URL and a title; whether the *document* covers that exact SKU is a
@@ -108,7 +94,7 @@ def source_metadata_for(
         publisher=publisher if manufacturer_owned else None,
         final_artifact_url=resource.final_url,
         discovery_url=candidate.url,
-        discovery_method=discovery_method_for(candidate.result.provider),
+        discovery_method=discovery_method,
         source_type=candidate.source_type(),
         retrieved_at=resource.fetched_at,
         original_filename=resource.final_url.rsplit("/", 1)[-1] or None,
@@ -124,6 +110,7 @@ def acquire_pdf(
     resource: FetchedResource,
     *,
     store: ArtifactStore,
+    discovery_method: DiscoveryMethod | None,
     publisher: str | None = None,
 ) -> AcquiredArtifact:
     """Ingest fetched PDF bytes into the existing artifact store.
@@ -143,6 +130,15 @@ def acquire_pdf(
             f"{candidate.effective_authority.value}; only a host approved for this "
             f"manufacturer may be stored as its evidence",
         )
+    if discovery_method is None:
+        # `SourceMetadata.discovery_method` is non-optional, so there is no way to store
+        # this artifact without asserting *some* mechanism. Every available default would
+        # be false, so the artifact is not stored at all.
+        raise FetchError(
+            RejectionReason.DISCOVERY_PROVENANCE_UNDECLARED,
+            f"{candidate.result.provider!r} declares no DiscoveryMethod; an artifact "
+            f"cannot be stored without recording how it was found",
+        )
     if not resource.is_pdf:
         raise FetchError(
             RejectionReason.NOT_INGESTABLE_YET,
@@ -158,7 +154,13 @@ def acquire_pdf(
 
     try:
         artifact = ingest_pdf_bytes(
-            resource.body, source=source_metadata_for(candidate, resource, publisher=publisher)
+            resource.body,
+            source=source_metadata_for(
+                candidate,
+                resource,
+                publisher=publisher,
+                discovery_method=discovery_method,
+            ),
         )
     except IngestionError as exc:
         raise FetchError(

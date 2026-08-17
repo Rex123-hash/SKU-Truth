@@ -9,6 +9,24 @@
 # REVIEWED registry may license evidence. It is NOT a claim about Unilog's catalogue
 # rules, and `is_authoritative` stays false.
 #
+# ## A review is only worth what its record says
+#
+# An entry licenses evidence ONLY if it carries a `[manufacturer.review]` block naming
+# who checked it, when, and on what basis. Without one it is locator-grade: it still
+# builds queries, and anything found through it is UNVERIFIED_MANUFACTURER.
+#
+# Most entries below have no review block, and that is the honest state. Their domains
+# were written from general knowledge while building the discovery engine — nobody in
+# this project verified them against the manufacturers' own publications, and an
+# unrecorded check cannot license a fact. They stay because they are useful for locating
+# candidates, and they are marked for exactly what they are.
+#
+# **Exactly one entry has a genuine, checkable basis**: Schneider Electric, where this
+# repository holds three ingested artifacts fetched from those hosts, with their URLs and
+# hashes recorded, plus `research/lc1d18_artifact_note.md` documenting the
+# `download.schneider-electric.com -> download.se.com` redirect. That is evidence a
+# reviewer can re-examine without leaving the repo.
+#
 # ## Two kinds of hint, and only one of them grants ownership
 #
 # `authority_hints` — reviewed as genuinely naming this manufacturer. Differences from
@@ -32,18 +50,39 @@ authority = "REVIEWED"
 
 [[manufacturer]]
 key = "schneider-electric"
-authority_hints = ["Schneider Electric", "Schneider", "Square D"]
-domains = ["se.com", "schneider-electric.com", "schneider-electric.co.uk", "squared.com"]
+authority_hints = ["Schneider Electric", "Schneider"]
+domains = ["se.com", "schneider-electric.com"]
 note = """
 The LC1D18P7 engineering example. download.se.com serves datasheets and is covered as a
-subdomain of se.com.
+subdomain of se.com. `squared.com` and `schneider-electric.co.uk` were dropped from an
+earlier draft of this file: plausible, and not evidenced by anything in this repository.
 """
+
+[manufacturer.review]
+reviewed_at = "2026-08-17"
+reviewed_by = "Amaan Khan"
+basis = """
+Three artifacts in this repository were fetched from these hosts and ingested with their
+URLs and byte hashes recorded: LC1D18P7_DATASHEET and LC1D18_DATASHEET from
+download.se.com, and the B8 Contactors catalogue requested from
+download.schneider-electric.com and served by download.se.com. See
+research/lc1d18_artifact_note.md, which records that redirect.
+"""
+note = """
+Verifies domain ownership only. It says nothing about which products these hosts cover —
+that stays with identity resolution — and nothing about Unilog's catalogue rules.
+"""
+
+# -- unreviewed entries: locator-grade until someone checks them -------------------
+#
+# Everything below builds queries and licenses nothing. Adding a `[manufacturer.review]`
+# block after genuinely checking the domains is what promotes one.
 
 [[manufacturer]]
 key = "kichler-lighting"
 authority_hints = ["Kichler Lighting", "Kichler"]
 domains = ["kichler.com"]
-note = "Appears in the organizer input as `Kichler Lighting (KICLI)`."
+note = "Appears in the organizer input as `Kichler Lighting (KICLI)`. Domain unverified."
 
 [[manufacturer]]
 key = "signify-philips-lighting"

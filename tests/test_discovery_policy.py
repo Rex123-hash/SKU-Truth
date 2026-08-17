@@ -35,6 +35,13 @@ from skutruth.discovery.query import QueryBudget
 MPN = "LC1D18P7"
 MAKER = "Schneider Electric"
 
+#: A complete audit record. Entries without one are locator-grade by design.
+REVIEW = {
+    "reviewed_at": "2026-08-17",
+    "reviewed_by": "test",
+    "basis": "synthetic fixture; no real domain was checked",
+}
+
 
 def registry(authority: str = "REVIEWED"):
     """A registry that may license evidence unless a test asks for one that may not."""
@@ -48,11 +55,13 @@ def registry(authority: str = "REVIEWED"):
                     "authority_hints": ["Schneider Electric", "Schneider"],
                     "locator_hints": ["Schnieder Elec"],
                     "domains": ["se.com", "schneider-electric.com"],
+                    "review": REVIEW,
                 },
                 {
                     "key": "acme",
                     "authority_hints": ["Acme Corp"],
                     "domains": ["acme.example"],
+                    "review": REVIEW,
                 },
             ],
             "hosts": {
@@ -402,3 +411,98 @@ class TestRegistryLoading:
         for authority in RegistryAuthority:
             expected = authority is RegistryAuthority.OFFICIAL
             assert authority.is_authoritative is expected
+
+
+class TestReviewProvenance:
+    """A REVIEWED binding licenses evidence only if the review left a record.
+
+    Otherwise "a person checked it" is load-bearing for every fact acquired through the
+    domain, and nothing anywhere says who, when, or against what.
+    """
+
+    def _entry(self, review=None, *, authority="REVIEWED"):
+        body = {"key": "acme", "authority_hints": ["Acme"], "domains": ["acme.example"]}
+        if review is not None:
+            body["review"] = review
+        data = {"name": "t", "authority": authority, "manufacturer": [body]}
+        if authority == "OFFICIAL":
+            data["source"] = "UniCat_Manufacturer_and_Brand_List.xlsx"
+        return parse_registry(data)
+
+    def test_a_reviewed_entry_with_a_record_may_license(self):
+        loaded = self._entry(REVIEW)
+        assert len(loaded.licensing_entries) == 1
+        assert (
+            classify_authority("acme.example", registry=loaded, manufacturer_hint="Acme")
+            is SourceAuthority.APPROVED_MANUFACTURER
+        )
+
+    def test_a_reviewed_entry_without_a_record_fails_closed(self):
+        """The headline: an unaudited assertion cannot license evidence."""
+        loaded = self._entry(None)
+        assert loaded.licensing_entries == ()
+        assert len(loaded.unreviewed_entries) == 1
+        assert (
+            classify_authority("acme.example", registry=loaded, manufacturer_hint="Acme")
+            is SourceAuthority.UNVERIFIED_MANUFACTURER
+        )
+
+    def test_an_unreviewed_entry_still_locates(self):
+        """Demotion costs licensing, not searchability."""
+        assert self._entry(None).domains_for_hint("Acme") == ("acme.example",)
+
+    @pytest.mark.parametrize("missing", ["reviewed_at", "reviewed_by", "basis"])
+    def test_a_half_filled_review_is_refused(self, missing):
+        partial = {k: v for k, v in REVIEW.items() if k != missing}
+        with pytest.raises(MalformedRegistryError, match=missing):
+            self._entry(partial)
+
+    def test_a_review_that_is_not_a_table_is_refused(self):
+        with pytest.raises(MalformedRegistryError, match="must be a table"):
+            self._entry("checked it, honest")
+
+    def test_a_demo_entry_needs_no_review_and_still_licenses_nothing(self):
+        loaded = self._entry(None, authority="DEMO")
+        assert loaded.licensing_entries == ()
+        assert (
+            classify_authority("acme.example", registry=loaded, manufacturer_hint="Acme")
+            is SourceAuthority.UNVERIFIED_MANUFACTURER
+        )
+
+    def test_a_demo_entry_carrying_a_review_still_licenses_nothing(self):
+        """The registry's own provenance is the outer gate; a review cannot override it."""
+        assert self._entry(REVIEW, authority="DEMO").licensing_entries == ()
+
+    def test_an_official_entry_needs_no_per_entry_review(self):
+        """Its basis is the master file, named once, not a per-row manual check."""
+        loaded = self._entry(None, authority="OFFICIAL")
+        assert len(loaded.licensing_entries) == 1
+        assert loaded.is_authoritative is True
+
+    def test_an_official_registry_must_name_its_master(self):
+        with pytest.raises(MalformedRegistryError, match="must name the organizer master"):
+            parse_registry(
+                {
+                    "name": "t",
+                    "authority": "OFFICIAL",
+                    "manufacturer": [{"key": "a", "domains": ["a.example"]}],
+                }
+            )
+
+    def test_the_shipped_registry_licenses_only_what_it_evidences(self):
+        """One entry has a checkable basis in this repository. The rest do not."""
+        from pathlib import Path
+
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "data"
+            / "discovery"
+            / "manufacturer_domains.demo.toml"
+        )
+        loaded = load_registry(path)
+        licensing = {e.key for e in loaded.licensing_entries}
+        assert licensing == {"schneider-electric"}
+        assert loaded.unreviewed_entries
+        review = loaded.entry_for_hint("Schneider Electric").review
+        assert review is not None
+        assert "research/lc1d18_artifact_note.md" in review.basis
