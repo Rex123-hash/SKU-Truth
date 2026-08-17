@@ -14,12 +14,7 @@ import httpx
 import pytest
 from conftest_pdf import build_pdf
 from skutruth.contracts import DiscoveryMethod, RunMode
-from skutruth.discovery import (
-    DiscoveryRequest,
-    SearchCredentials,
-    SearchLimits,
-    discover_sources,
-)
+from skutruth.discovery import DiscoveryRequest, discover_sources
 from skutruth.discovery.diagnostics import (
     SearchOutcome,
     candidate_states,
@@ -28,7 +23,6 @@ from skutruth.discovery.diagnostics import (
 )
 from skutruth.discovery.domains import parse_registry
 from skutruth.discovery.models import SourceAuthority
-from skutruth.discovery.programmable_search import ProgrammableSearchProvider
 from skutruth.ingest.storage import ArtifactStore
 from skutruth.replay.store import CassetteStore
 
@@ -56,30 +50,27 @@ distributors = ["grainger.com"]
 marketplaces = ["amazon.com"]
 """
 
-CREDS = SearchCredentials(api_key="not-a-real-key", engine_id="cx000")
-
-
 def registry():
     return parse_registry(tomllib.loads(REGISTRY_TOML), source="diagnostics-registry")
 
 
-def provider_returning(items_by_query: dict[str, list[dict]] | list[dict]):
-    """A real `ProgrammableSearchProvider` whose transport is a mock."""
+class FakeProvider:
+    """A minimal `SearchProvider`. Declares grounding, like the live one."""
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        query = request.url.params["q"]
-        items = (
-            items_by_query.get(query, [])
-            if isinstance(items_by_query, dict)
-            else items_by_query
-        )
-        return httpx.Response(200, json={"items": items})
+    name = "fake-grounded"
+    version = "fake@v1"
+    discovery_method = DiscoveryMethod.GOOGLE_SEARCH_GROUNDING
 
-    return ProgrammableSearchProvider(
-        CREDS,
-        limits=SearchLimits(max_results_per_query=5),
-        client=httpx.Client(transport=httpx.MockTransport(handler)),
-    )
+    def __init__(self, rows: list[dict], *, method=DiscoveryMethod.GOOGLE_SEARCH_GROUNDING):
+        self._rows = rows
+        self.discovery_method = method
+
+    def search(self, call):
+        return [dict(row) for row in self._rows]
+
+
+def provider_returning(rows: list[dict]):
+    return FakeProvider(rows)
 
 
 def run(items, *, mpn="LC1D18P7", hint="Schneider Electric", tmp_path=None, artifacts=None):
@@ -94,39 +85,19 @@ def run(items, *, mpn="LC1D18P7", hint="Schneider Electric", tmp_path=None, arti
 
 
 def item(url: str, title: str = "") -> dict:
-    return {"link": url, "title": title or url, "snippet": ""}
+    return {"url": url, "title": title or url, "snippet": "", "rank": 1}
 
 
-def live_provider(client: httpx.Client) -> ProgrammableSearchProvider:
-    """The real adapter, which declares no `DiscoveryMethod`."""
-    return ProgrammableSearchProvider(CREDS, client=client)
-
-
-def declaring_provider(client: httpx.Client) -> ProgrammableSearchProvider:
-    """The same adapter with a truthful method, to reach the gates behind provenance.
-
-    `CURATED_CORPUS` is not what a web search does; it stands in here only so the
-    acquisition path past the provenance gate can be exercised at all.
-    """
-
-    class Declaring(ProgrammableSearchProvider):
-        discovery_method = DiscoveryMethod.CURATED_CORPUS
-
-    return Declaring(CREDS, client=client)
-
-
-def acquiring_run(body: bytes, content_type: str, *, provider, tmp_path):
+def acquiring_run(body: bytes, content_type: str, *, method, tmp_path):
     """Discovery against a reviewed domain, with a document served for the fetch."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.host == "www.googleapis.com":
-            return httpx.Response(200, json={"items": [item("https://kichler.com/p/45297BK")]})
         return httpx.Response(200, content=body, headers={"content-type": content_type})
 
     transport = httpx.MockTransport(handler)
     return discover_sources(
         DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
-        provider=provider(httpx.Client(transport=transport)),
+        provider=FakeProvider([item("https://kichler.com/p/45297BK")], method=method),
         registry=registry(),
         cassettes=CassetteStore(tmp_path / "cassettes"),
         artifacts=ArtifactStore(tmp_path / "artifacts"),
@@ -245,35 +216,32 @@ class TestDiagnosis:
         )
         assert diagnose(result) is SearchOutcome.SIBLING_ONLY
 
-    def test_the_live_provider_is_blocked_at_the_provenance_gate(self, tmp_path):
-        """The contract gap, observed end to end rather than asserted in the abstract.
-
-        Kichler's domain *is* reviewed here, so this candidate clears every authority
-        check and still stores nothing: `ProgrammableSearchProvider` declares no
-        `DiscoveryMethod`, and an artifact that cannot say how it was found is refused.
-        """
+    def test_a_provider_that_declares_no_method_is_blocked_at_the_provenance_gate(
+        self, tmp_path
+    ):
+        """Kichler is reviewed here, so only provenance can be the blocker."""
         result = acquiring_run(
-            b"<html>spec</html>", "text/html", provider=live_provider, tmp_path=tmp_path
+            build_pdf(["45297BK spec"]), "application/pdf", method=None, tmp_path=tmp_path
         )
         assert diagnose(result) is SearchOutcome.PROVENANCE_UNDECLARED
         assert "DISCOVERY_PROVENANCE_UNDECLARED" in result.candidates[0].rejections
         assert not result.acquired
 
-    def test_an_eligible_html_page_is_html_only_once_provenance_is_declarable(
-        self, tmp_path
-    ):
-        """The gate behind the provenance gate, reachable only with a declaring provider."""
+    def test_an_eligible_html_page_is_html_only(self, tmp_path):
         result = acquiring_run(
-            b"<html>spec</html>", "text/html", provider=declaring_provider, tmp_path=tmp_path
+            b"<html>spec</html>",
+            "text/html",
+            method=DiscoveryMethod.GOOGLE_SEARCH_GROUNDING,
+            tmp_path=tmp_path,
         )
         assert diagnose(result) is SearchOutcome.HTML_ONLY
 
     def test_a_pdf_from_a_reviewed_domain_is_acquired(self, tmp_path):
-        """The full success path, to prove the failure states above are not the only ones."""
+        """Grounding declares a truthful method, so this path now completes."""
         result = acquiring_run(
             build_pdf(["45297BK spec"]),
             "application/pdf",
-            provider=declaring_provider,
+            method=DiscoveryMethod.GOOGLE_SEARCH_GROUNDING,
             tmp_path=tmp_path,
         )
         assert diagnose(result) is SearchOutcome.ACQUIRED

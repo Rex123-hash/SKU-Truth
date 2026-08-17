@@ -59,6 +59,24 @@ def host_of(url: str) -> str:
         return ""
 
 
+def candidate_host(result: SearchResult) -> str:
+    """The host to classify this result against.
+
+    A provider-reported `publisher_host` wins over the URL's own host, for one narrow
+    reason: some providers return a redirect. Google Search grounding's `uri` is a
+    `vertexaisearch.cloud.google.com` link, and classifying that would make every grounded
+    result — datasheet and marketplace listing alike — one unknown Google host.
+
+    This decides *what to look up*, not what is true. Everything downstream is unchanged:
+    the lookup still goes through the reviewed registry, an unreviewed binding still
+    yields `UNVERIFIED_MANUFACTURER`, and the authority that governs storage is re-decided
+    on the host the bytes actually came from. A provider that reports a publisher it does
+    not serve buys a fetch attempt and nothing else.
+    """
+    reported = normalize_host(result.publisher_host)
+    return reported or host_of(result.url)
+
+
 def _tokens(*parts: str) -> set[str]:
     """Uppercase alphanumeric tokens from URL and title text."""
     found: set[str] = set()
@@ -212,6 +230,7 @@ __all__ = [
     "AUTHORITY_REJECTIONS",
     "MIN_STEM_LENGTH",
     "RELEVANCE_REJECTIONS",
+    "candidate_host",
     "classify_authority",
     "classify_kind",
     "classify_relevance",

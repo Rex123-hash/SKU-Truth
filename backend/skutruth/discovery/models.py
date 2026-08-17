@@ -147,6 +147,25 @@ class SearchResult(BaseModel):
     query: str = Field(min_length=1, description="The query that returned it")
     provider: str = Field(min_length=1)
 
+    #: The publisher host a provider reported *separately from the URL*, when it reports
+    #: one. Google Search grounding does: its `uri` is a
+    #: `vertexaisearch.cloud.google.com/grounding-api-redirect/…` link, and the real
+    #: publisher appears only in `groundingChunks[].web.domain`. Without this field every
+    #: grounded result would classify as one Google host, and a manufacturer datasheet
+    #: would be indistinguishable from a marketplace listing.
+    #:
+    #: **This is locator metadata, exactly like `url`.** It may decide whether a candidate
+    #: is worth fetching. It may not establish manufacturer ownership, evidence authority,
+    #: product identity, or artifact scope — a provider saying `domain = kichler.com` is
+    #: a provider's claim, and the authority that governs storage is re-decided on the
+    #: host the bytes actually arrived from (`SourceCandidate.final_authority`).
+    #:
+    #: `None` for every provider that returns ordinary URLs; `url` is then the only host
+    #: there is. This never replaces `url`, which stays exactly what the provider returned.
+    publisher_host: str | None = Field(
+        default=None, description="Provider-reported publisher host. A locator hint."
+    )
+
 
 class SourceCandidate(BaseModel):
     """A search result after policy has been applied to it."""
@@ -154,7 +173,14 @@ class SourceCandidate(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     result: SearchResult
+    #: The host authority was decided against: the provider-reported publisher host when
+    #: there is one, otherwise the URL's own host.
     host: str = Field(description="Normalized lowercase host")
+    #: The host the fetch will actually start at, from `result.url`. Differs from `host`
+    #: only for a provider that returns a redirect, and it is kept because the two answer
+    #: different questions — who is said to publish this, and where we are about to
+    #: connect. Collapsing them would hide a redirect behind a manufacturer's name.
+    locator_host: str = ""
     #: Authority of the host the search engine named. This is what decides whether the
     #: candidate is worth fetching — it is **not** what decides what may be stored.
     authority: SourceAuthority
@@ -276,12 +302,39 @@ class DiscoveryResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     request: DiscoveryRequest
+    #: What SKUTruth asked for, from `build_queries`. **Deterministic**: the same row
+    #: produces the same intents on every run, and they are what the code controls.
+    #:
+    #: Named `executed_queries` for the providers where the two coincide — a plain search
+    #: API runs the string it is given. It keeps that name for compatibility; read it as
+    #: "the queries we issued".
     executed_queries: tuple[str, ...] = ()
+    #: What the provider actually searched, when it reports that and it can differ.
+    #: Google Search grounding generates its own queries from a prompt and returns them in
+    #: `groundingMetadata.webSearchQueries`; those are recorded here verbatim.
+    #:
+    #: **Not deterministic, and never presented as such.** Two LIVE runs of one product may
+    #: search differently. Empty means the provider reported nothing separate, which is the
+    #: normal case for a provider that runs the query it was handed — it does *not* mean
+    #: nothing was searched.
+    #:
+    #: QUERY INTENT IS DETERMINISTIC · SEARCH EXECUTION IS PROVIDER-GENERATED AND RECORDED.
+    provider_executed_queries: tuple[str, ...] = ()
     candidates: tuple[SourceCandidate, ...] = ()
     summary: DiscoverySummary = Field(default_factory=DiscoverySummary)
     mode: RunMode
     provider: str = ""
     discovery_version: str = DISCOVERY_VERSION
+
+    @property
+    def requested_queries(self) -> tuple[str, ...]:
+        """The deterministic intents SKUTruth issued. An alias that says what it means."""
+        return self.executed_queries
+
+    @property
+    def search_execution_was_provider_generated(self) -> bool:
+        """Whether the provider chose its own queries rather than running ours."""
+        return bool(self.provider_executed_queries)
 
     @property
     def accepted(self) -> tuple[SourceCandidate, ...]:

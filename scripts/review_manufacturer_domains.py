@@ -55,8 +55,8 @@ from skutruth.contracts import RunMode  # noqa: E402
 from skutruth.discovery import (  # noqa: E402
     DiscoveryRequest,
     MalformedRegistryError,
-    ProgrammableSearchProvider,
     SearchCall,
+    VertexGroundedSearchProvider,
     build_queries,
     execute_search,
     load_registry,
@@ -95,7 +95,7 @@ def _search_for_candidates(
     invents a query, and the results are locator metadata for a human to read — they do
     not feed any decision this tool makes, because it makes none.
     """
-    provider = ProgrammableSearchProvider.from_env()
+    provider = VertexGroundedSearchProvider.from_env()
     store = CassetteStore(cassettes)
     found: dict[str, tuple[SearchResult, ...]] = {}
 
@@ -167,12 +167,21 @@ def render_packet(packet: ReviewPacket) -> str:
         if candidate.search_results:
             lines.append("  live search results (locators only — never evidence):")
             for result in candidate.search_results[:10]:
-                lines.append(f"    [{result.rank}] {result.url}")
-                if result.title:
+                # The publisher domain leads: for a grounded provider the URL is an
+                # opaque redirect, and a page of those tells a reviewer nothing.
+                publisher = result.publisher_host or "(no domain reported)"
+                lines.append(f"    [{result.rank}] {publisher}")
+                if result.title and result.title != result.publisher_host:
                     lines.append(f"        {result.title}")
+                lines.append(f"        locator {result.url[:96]}")
             hosts = candidate.observed_hosts
             if hosts:
-                lines.append(f"  hosts named by search: {', '.join(hosts)}")
+                lines.append(f"  publisher domains named by search: {', '.join(hosts)}")
+                unlisted = [h for h in hosts if h not in candidate.domains]
+                if unlisted:
+                    lines.append(
+                        f"  NOT in the registry — worth a look: {', '.join(unlisted)}"
+                    )
 
         if candidate.needs_review:
             lines += [

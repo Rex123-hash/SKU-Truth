@@ -45,10 +45,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from skutruth.contracts import RunMode  # noqa: E402
 from skutruth.discovery import (  # noqa: E402
     DiscoveryRequest,
+    GroundingLimits,
     MalformedRegistryError,
-    MissingSearchCredentialsError,
-    ProgrammableSearchProvider,
-    SearchLimits,
+    VertexGroundedSearchProvider,
     build_queries,
     discover_sources,
     load_registry,
@@ -60,7 +59,7 @@ from skutruth.discovery.diagnostics import (  # noqa: E402
 )
 from skutruth.discovery.domains import DomainRegistry  # noqa: E402
 from skutruth.discovery.errors import SearchProviderError  # noqa: E402
-from skutruth.discovery.models import DiscoveryResult  # noqa: E402
+from skutruth.discovery.models import DiscoveryResult, DiscoverySummary  # noqa: E402
 from skutruth.ingest.storage import ArtifactStore  # noqa: E402
 from skutruth.replay.store import CassetteStore  # noqa: E402
 from skutruth.unilog.errors import UnilogError  # noqa: E402
@@ -158,27 +157,60 @@ def run_live(
     artifacts: Path | None,
     max_results: int,
     mode: RunMode,
-) -> list[DiscoveryResult]:
-    """Execute discovery for each selected row. One provider, so budgets accumulate."""
-    provider = ProgrammableSearchProvider.from_env(
-        limits=SearchLimits(max_results_per_query=max_results)
+) -> list[tuple[DiscoveryResult | None, DiscoveryRequest, str]]:
+    """Execute discovery for each selected row. One provider, so budgets accumulate.
+
+    Returns `(result, request, error)` per row. A row whose provider call failed keeps its
+    place with `result=None`, so the report shows every selected row rather than only the
+    ones that worked.
+    """
+    provider = VertexGroundedSearchProvider.from_env(
+        limits=GroundingLimits(max_results_per_query=max_results)
     )
     store = CassetteStore(cassettes)
     artifact_store = ArtifactStore(artifacts) if artifacts else None
 
-    results: list[DiscoveryResult] = []
+    results: list[tuple[DiscoveryResult | None, DiscoveryRequest, str]] = []
     for request in requests:
-        results.append(
-            discover_sources(
-                request,
-                provider=provider,
-                registry=registry,
-                cassettes=store,
-                artifacts=artifact_store,
-                mode=mode,
+        try:
+            results.append(
+                (
+                    discover_sources(
+                        request,
+                        provider=provider,
+                        registry=registry,
+                        cassettes=store,
+                        artifacts=artifact_store,
+                        mode=mode,
+                    ),
+                    request,
+                    "",
+                )
             )
-        )
+        except SearchProviderError as exc:
+            # One row's provider failure is a result about that row, not a reason to
+            # abandon the pilot. A transient 504 on row 2 must not silently shrink the
+            # sample — that would turn a documented selection rule into a survivor list.
+            results.append((None, request, f"{type(exc).__name__}: {exc}"))
     return results
+
+
+def failed_row(request: DiscoveryRequest, error: str) -> dict:
+    """A row the provider could not answer for. Reported, never dropped."""
+    return {
+        "row": request.row_number,
+        "mpn": request.mpn,
+        "manufacturer_hint": request.manufacturer_hint,
+        "requested_queries": [],
+        "provider_executed_queries": [],
+        "search_results": 0,
+        "outcome": SearchOutcome.PROVIDER_FAILED.value,
+        "provider_error": error,
+        "candidates": [],
+        "rejection_counts": {},
+        "acquired_artifacts": [],
+        "summary": DiscoverySummary().model_dump(),
+    }
 
 
 def live_row(result: DiscoveryResult) -> dict:
@@ -193,18 +225,31 @@ def live_row(result: DiscoveryResult) -> dict:
         "row": request.row_number,
         "mpn": request.mpn,
         "manufacturer_hint": request.manufacturer_hint,
-        "queries_executed": list(result.executed_queries),
+        # Deterministic: what SKUTruth asked for.
+        "requested_queries": list(result.requested_queries),
+        # Provider-generated: what Google reported actually searching. Kept apart because
+        # a grounded provider writes its own queries from our intent.
+        "provider_executed_queries": list(result.provider_executed_queries),
         "search_results": result.summary.search_results,
         "outcome": diagnose(result).value,
+        "provider_error": "",
         "candidates": [
             {
                 "rank": c.result.rank,
                 "url": c.url,
+                # The publisher the provider named, and the host the fetch would start
+                # at. They differ whenever the provider returns a redirect.
+                "publisher_host": c.result.publisher_host,
                 "host": c.host,
+                "locator_host": c.locator_host,
                 "kind": c.kind.value,
                 "authority": c.authority.value,
                 "relevance": c.relevance.value,
                 "status": c.status.value,
+                "fetch_eligible": c.is_eligible,
+                "final_host_authority": (
+                    c.final_authority.value if c.final_authority else None
+                ),
                 "may_store_as_manufacturer_evidence": c.may_store_as_manufacturer_evidence,
                 "rejections": list(c.rejections),
             }
@@ -232,9 +277,17 @@ def render_live(rows: list[dict], *, registry: DomainRegistry, source: str, mode
             f"row {row['row']}  {row['mpn']}  ({row['manufacturer_hint']!r})  "
             f"-> {row['outcome']}"
         )
-        for query in row["queries_executed"]:
-            lines.append(f"    query    {query}")
-        lines.append(f"    results  {row['search_results']}")
+        if row.get("provider_error"):
+            lines.append(f"    PROVIDER FAILED  {row['provider_error']}")
+            lines.append("")
+            continue
+        for query in row["requested_queries"]:
+            lines.append(f"    requested  {query}")
+        for query in row["provider_executed_queries"]:
+            lines.append(f"    Google ran {query}")
+        if not row["provider_executed_queries"]:
+            lines.append("    Google ran (provider reported no queries)")
+        lines.append(f"    results    {row['search_results']}")
         for candidate in row["candidates"]:
             evidence = "MAY LICENSE" if candidate["may_store_as_manufacturer_evidence"] else "—"
             lines.append(
@@ -242,6 +295,11 @@ def render_live(rows: list[dict], *, registry: DomainRegistry, source: str, mode
                 f"{candidate['authority']:<24} {candidate['relevance']:<12} "
                 f"{candidate['kind']:<13} {candidate['status']:<22} {evidence}"
             )
+            if candidate["locator_host"] and candidate["locator_host"] != candidate["host"]:
+                lines.append(
+                    f"         publisher {candidate['publisher_host']} "
+                    f"· fetch starts at {candidate['locator_host']}"
+                )
             lines.append(f"         {candidate['url']}")
             if candidate["rejections"]:
                 lines.append(f"         rejected: {', '.join(candidate['rejections'])}")
@@ -255,7 +313,8 @@ def render_live(rows: list[dict], *, registry: DomainRegistry, source: str, mode
         "=" * 78,
         "STAGE COUNTS — each line is a different achievement, not a running total",
         f"  rows attempted                {totals['rows']}",
-        f"  queries executed              {totals['queries']}",
+        f"  query intents issued          {totals['queries']} (deterministic)",
+        f"  queries Google actually ran   {totals['provider_queries']} (provider-generated)",
         f"  search results returned       {totals['results']}",
         f"  candidates classified         {totals['candidates']}",
         f"  manufacturer-associated hosts {totals['manufacturer_hosts']}",
@@ -292,7 +351,8 @@ def _totals(rows: list[dict]) -> dict:
             rejections[name] = rejections.get(name, 0) + count
     return {
         "rows": len(rows),
-        "queries": sum(len(r["queries_executed"]) for r in rows),
+        "queries": sum(len(r["requested_queries"]) for r in rows),
+        "provider_queries": sum(len(r["provider_executed_queries"]) for r in rows),
         "results": sum(r["search_results"] for r in rows),
         "candidates": len(candidates),
         "manufacturer_hosts": sum(
@@ -400,15 +460,26 @@ def main(argv: list[str] | None = None) -> int:
                 max_results=args.max_results,
                 mode=mode,
             )
-        except MissingSearchCredentialsError as exc:
-            # Never degrade to the plan and call it a live run.
-            print(f"LIVE PILOT NOT EXECUTED — {exc}", file=sys.stderr)
+        except RuntimeError as exc:
+            # Never degrade to the plan and call it a live run. Grounding runs on the
+            # project's existing Vertex setup, so the missing piece is GCP auth or
+            # configuration — there is no separate search credential to obtain.
+            print(
+                f"LIVE PILOT NOT EXECUTED — {exc}\n"
+                f"  Grounded discovery uses the project's existing Vertex AI setup: "
+                f"SKUTRUTH_GCP_PROJECT plus Application Default Credentials "
+                f"(`gcloud auth application-default login`).",
+                file=sys.stderr,
+            )
             return 3
         except (SearchProviderError, OSError) as exc:
             print(f"live discovery failed: {type(exc).__name__}: {exc}", file=sys.stderr)
             return 2
 
-        rows = [live_row(r) for r in results]
+        rows = [
+            live_row(r) if r is not None else failed_row(req, err)
+            for r, req, err in results
+        ]
         if args.json:
             print(json.dumps({"mode": mode.value, "rows": rows, "totals": _totals(rows)}, indent=2))
         else:

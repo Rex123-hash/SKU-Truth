@@ -75,7 +75,7 @@ pipeline is worse than none.
         ↓
     deterministic queries          query.py — no model, no sampling
         ↓
-    LIVE search provider           programmable_search.py
+    LIVE search provider           grounded_search.py (Vertex + Google Search)
         ↓
     candidate LOCATOR              a URL. Nothing more.
         ↓
@@ -102,28 +102,63 @@ Each arrow is a separate achievement, and the report never collapses them:
 
 ## The live search provider
 
-`ProgrammableSearchProvider` calls the Google Custom Search JSON API. Two properties made
-it the right choice over Google Search grounding, and both are documented API behaviour:
+`VertexGroundedSearchProvider` calls Vertex AI Gemini with Google Search grounding, on the
+project's existing Vertex setup and Application Default Credentials — no second key
+ecosystem. The Custom Search JSON API was implemented first and removed: Google closed it
+to new customers, so it is not a dependency this project can take.
 
-* **the caller supplies the query.** Grounding's documentation states that the model
-  "analyzes the prompt and determines if a Google Search can improve the answer" and then
-  "automatically generates one or multiple search queries and executes them". Our query
-  set is deterministic so two runs consult the same documents; a provider that substituted
-  its own queries would silently remove that guarantee.
-* **the URLs are the publisher's.** Grounding returns
-  `groundingChunks[].web.uri` as a `vertexaisearch.cloud.google.com/grounding-api-redirect/…`
-  link with only a domain in `web.title`. Every authority decision here is made from the
-  host *before* anything is fetched, so redirect URIs would collapse a manufacturer
-  datasheet and a marketplace listing onto one Google host. Recovering the real host means
-  fetching first — inverting the gate that makes the fetch safe.
+Grounding was chosen with its costs understood, not in spite of them.
 
-The key is read from `SKUTRUTH_SEARCH_API_KEY`, sent as an `X-Goog-Api-Key` header rather
-than a query parameter, kept out of the replay descriptor, and scrubbed from every error
-message this package raises. Tests assert it reaches no cassette on disk.
+### Query intent is deterministic. Search execution is not.
 
-Live calls are bounded on results per query (the API's own maximum is 10), timeout, total
-calls per provider instance, and response size. `REPLAY` makes no provider call at all and
-fails closed on a miss.
+The model writes the queries. Google's documentation is explicit that it "analyzes the
+prompt and determines if a Google Search can improve the answer" and "automatically
+generates one or multiple search queries", and the pilot confirms it: asked for
+`"DCL183" Black & Decker/dewlt`, Google ran `"DCL183" Black & Decker/dewalt filetype:pdf`
+— it silently corrected the misspelling we deliberately preserve.
+
+So two things are recorded separately and never conflated:
+
+| | field | deterministic? |
+|---|---|---|
+| what SKUTruth asked for | `DiscoveryResult.requested_queries` | **yes** — from `build_queries` |
+| what Google actually ran | `DiscoveryResult.provider_executed_queries` | **no** — model-generated |
+
+    QUERY INTENT IS DETERMINISTIC
+    SEARCH EXECUTION IS PROVIDER-GENERATED AND RECORDED
+
+This is a genuine weakening of a property the package used to hold outright, and it is
+acceptable only because discovery is a locator stage. Nothing the model does can reach a
+fact. `REPLAY` reproduces both sets exactly.
+
+### The generated answer is discarded
+
+A grounded call returns fluent prose about the product. That is the most dangerous thing
+in the response, because it is exactly what a careless integration would store. It is
+never read — `response.text` is not touched, and grounding-support spans and Search
+Suggestion HTML never enter the domain layer. Tests assert none of it can reach a
+`SearchResult` or an artifact.
+
+### Redirect URIs, and `publisher_host`
+
+`groundingChunks[].web.uri` is a `vertexaisearch.cloud.google.com/grounding-api-redirect/…`
+link. The publisher appears separately in `web.domain`, which Google documents as usable
+"to filter out low-quality sources", and which becomes `SearchResult.publisher_host`.
+
+`url` keeps the redirect exactly as returned; authority is looked up against
+`publisher_host`, because looking it up against the Google host would classify a
+manufacturer datasheet and a marketplace listing identically. `SourceCandidate` keeps both:
+`host` is what authority was decided against, `locator_host` is where the fetch starts.
+
+**`publisher_host` is locator metadata.** It decides whether a candidate is worth
+fetching. It does not establish ownership, evidence authority, or product identity — the
+authority that governs storage is re-decided on the host the bytes actually arrived from.
+If Google reports `kichler.com` and the redirect lands elsewhere, the final-host check
+refuses it as `REDIRECT_AUTHORITY_LOST`, and a test proves the reported domain cannot
+override it.
+
+Live calls are bounded on results per query, timeout, and total calls per provider
+instance. `REPLAY` makes no Vertex call at all and fails closed on a miss.
 
 ## Four deterministic decisions, none of them asked of a model
 
@@ -356,24 +391,14 @@ Two places where a convenient default would have been a lie:
   including `OPERATOR_SUPPLIED` and `DIRECT_URL` — would assert something untrue about how
   the document was found. An artifact that cannot say how it was discovered is not stored.
 
-  **This is a recorded contract gap, and the live provider is now the concrete case.**
-  The enum names specific mechanisms and has no value for "a third-party web search
-  engine". `ProgrammableSearchProvider` declares `None`, because:
-
-  | Candidate value | Why it would be untrue |
-  |---|---|
-  | `GOOGLE_SEARCH_GROUNDING` | A different Google product. These results never touched the grounding pipeline, were not chosen by a model, and are not redirect URIs. Google operating both services is branding, not provenance. |
-  | `URL_CONTEXT` | The Gemini URL-context tool. Nothing here reads a URL into a model. |
-  | `CURATED_CORPUS` | Asserts a reviewed, fixed corpus. The open web is the opposite. |
-  | `DIRECT_URL` | Asserts someone supplied the URL. A search engine did. |
-  | `OPERATOR_SUPPLIED` | Same claim, and it would credit a person for a machine's result. |
-
-  The consequence is real and currently blocking: acquisition refuses every candidate this
-  provider finds with `DISCOVERY_PROVENANCE_UNDECLARED`, **even from a reviewed domain**,
-  and `diagnostics.SearchOutcome.PROVENANCE_UNDECLARED` reports it. Storage waits on a
-  contract decision — the smallest truthful extension would be a value meaning "a web
-  search API returned this URL", e.g. `WEB_SEARCH_API`. That is a change to a frozen
-  contract and is deliberately not made here.
+  **The contract gap is closed for the current provider, and the mechanism stays.**
+  `VertexGroundedSearchProvider` declares `GOOGLE_SEARCH_GROUNDING` because that is
+  literally what it does, so no frozen contract needed widening. The gap it was recorded
+  against was a *different* provider: an earlier Custom Search JSON API adapter, for which
+  no enum value was true and which therefore declared `None` and could store nothing.
+  That adapter is gone, but the rule that produced it stands — a provider that cannot
+  state its mechanism declares `None` and acquisition refuses with
+  `DISCOVERY_PROVENANCE_UNDECLARED` rather than defaulting. Tests still cover that path.
 * **`source_type`.** `MANUFACTURER_DATASHEET` asserts the document *is a datasheet*. A PDF
   from a manufacturer may equally be a manual, a warranty, a brochure, or a catalogue, so
   only a candidate whose kind is actually `DATASHEET` receives it, `PRODUCT_PAGE` receives
@@ -410,13 +435,25 @@ and counting it twice would let a mirror manufacture agreement.
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.
   Resolving that needs the manufacturer master, not more discovery.
-* **Acquisition is blocked on the `DiscoveryMethod` gap, not only on domain review**
-  (above). Even a fully reviewed domain stores nothing while the live provider cannot
-  state its provenance truthfully. Both blockers are real, and clearing one does not
-  clear the other.
-* The live provider has been exercised offline against a mocked transport through the
-  whole service. Running it against the real API needs `SKUTRUTH_SEARCH_API_KEY` and
-  `SKUTRUTH_SEARCH_ENGINE_ID`; no committed test reaches the network, and none may.
+* **Exact-MPN relevance cannot be established from grounding metadata.** This is the
+  hardest limitation, and the live pilot found it: `MpnRelevance` is decided from the URL
+  and the title, and grounding supplies neither usably. The URL is an opaque redirect, and
+  `web.title` is *just the domain* — a call for `"45297BK" site:kichler.com` returns
+  `title='kichler.com'`. Across 33 real candidates in two pilot runs, relevance was
+  `ABSENT` for every single one.
+
+  So `EXACT` is currently unreachable, `is_eligible` is never true, and **no fetch is ever
+  attempted** — independently of domain review. Resolving it means either resolving the
+  redirect to recover the real URL before judging relevance (which moves a network call
+  ahead of a gate that exists to bound network calls), or pairing grounding with a
+  provider that returns real URLs. Both are design decisions, deliberately not taken here.
+* **Vertex grounding was unreliable in the pilot**: 6 of 10 row attempts across two runs
+  failed with HTTP 504, and one with 429. A row whose provider call fails is reported as
+  `PROVIDER_FAILED` and keeps its place in the sample, so a transient error cannot quietly
+  shrink a documented selection rule into a list of survivors. There is no retry.
+* Grounding obliges any future UI to display Search Suggestions
+  (`searchEntryPoint.renderedContent`). It is captured on the provider and deliberately
+  kept out of the domain layer; nothing renders it today.
 
 ## Reviewing a domain
 

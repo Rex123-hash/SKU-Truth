@@ -140,9 +140,30 @@ def _to_results(payload: object, *, query: str, provider: str) -> tuple[SearchRe
                 rank=int(row.get("rank") or index),
                 query=query,
                 provider=provider,
+                # Only providers that return a redirect report this. Every unrecognised
+                # key in `row` is ignored here, which is what keeps provider-specific
+                # payload fields — including recorded provider queries — out of the
+                # domain layer.
+                publisher_host=(str(row.get("publisher_host") or "").strip() or None),
             )
         )
     return tuple(results)
+
+
+def _provider_queries(payload: object) -> tuple[str, ...]:
+    """Queries the provider reported executing, if it reported any.
+
+    Carried inside the recorded payload rather than as a second interaction, so a replayed
+    run reproduces the provider's own queries as exactly as it reproduces the results.
+    """
+    rows = payload if isinstance(payload, list) else []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        recorded = row.get("_provider_executed_queries")
+        if recorded:
+            return tuple(str(q).strip() for q in recorded if str(q).strip())
+    return ()
 
 
 def search_request(
@@ -202,13 +223,59 @@ def execute_search(
     return _to_results(outcome.cassette.response, query=call.query, provider=provider.name)
 
 
+@dataclass(frozen=True, slots=True)
+class SearchExecution:
+    """One query's results, plus what the provider says it actually searched.
+
+    The two are separate because for a grounded provider they genuinely are: we supply a
+    deterministic intent, and the provider generates its own queries from it. Reporting
+    only one would either hide our intent or claim the provider ran it verbatim.
+    """
+
+    results: tuple[SearchResult, ...]
+    #: From the provider's own metadata. Empty when it runs the query it was handed.
+    provider_queries: tuple[str, ...] = ()
+
+
+def execute_search_with_provenance(
+    call: SearchCall,
+    *,
+    provider: SearchProvider,
+    store: CassetteStore,
+    mode: RunMode = RunMode.REPLAY,
+) -> SearchExecution:
+    """Run or replay one query, keeping the provider's own query metadata."""
+    request = search_request(
+        call.query,
+        provider=provider.name,
+        max_results=call.max_results,
+        version=declared_version(provider),
+        options=declared_request_options(provider),
+    )
+
+    live: Callable[[], object] | None = None
+    if mode is RunMode.LIVE:
+
+        def live() -> object:
+            return provider.search(call)
+
+    outcome = run_interaction(mode=mode, request=request, store=store, live_callable=live)
+    payload = outcome.cassette.response
+    return SearchExecution(
+        results=_to_results(payload, query=call.query, provider=provider.name),
+        provider_queries=_provider_queries(payload),
+    )
+
+
 __all__ = [
     "ENDPOINT",
     "SearchCall",
+    "SearchExecution",
     "SearchProvider",
     "declared_discovery_method",
     "declared_request_options",
     "declared_version",
     "execute_search",
+    "execute_search_with_provenance",
     "search_request",
 ]

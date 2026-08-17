@@ -45,6 +45,13 @@ from .fetch import (
     fetch_url,
     validate_url,
 )
+from .grounded_search import (
+    PROVIDER_NAME,
+    PROVIDER_VERSION,
+    GroundingConfig,
+    GroundingLimits,
+    VertexGroundedSearchProvider,
+)
 from .models import (
     DISCOVERY_VERSION,
     CandidateStatus,
@@ -57,27 +64,28 @@ from .models import (
     SourceCandidate,
     SourceKind,
 )
-from .policy import classify_authority, classify_kind, classify_relevance, host_of
-from .programmable_search import (
-    API_KEY_ENV,
-    ENGINE_ID_ENV,
-    PROVIDER_NAME,
-    PROVIDER_VERSION,
-    ProgrammableSearchProvider,
-    SearchCredentials,
-    SearchLimits,
+from .policy import (
+    candidate_host,
+    classify_authority,
+    classify_kind,
+    classify_relevance,
+    host_of,
 )
-from .provider import SearchCall, SearchProvider, execute_search
+from .provider import (
+    SearchCall,
+    SearchExecution,
+    SearchProvider,
+    execute_search,
+    execute_search_with_provenance,
+)
 from .query import QueryBudget, build_queries
 from .ranking import rank_candidates, ranking_key, ranking_reasons
 from .service import DiscoveryBudget, classify_candidate, discover_sources
 
 __all__ = [
     "ACQUISITION_VERSION",
-    "API_KEY_ENV",
     "DEFAULT_REGISTRY_DIR",
     "DISCOVERY_VERSION",
-    "ENGINE_ID_ENV",
     "HTML_CONTENT_TYPES",
     "PDF_CONTENT_TYPES",
     "PROVIDER_NAME",
@@ -100,14 +108,14 @@ __all__ = [
     "ManufacturerEntry",
     "MissingSearchCredentialsError",
     "MpnRelevance",
-    "ProgrammableSearchProvider",
+    "GroundingConfig",
+    "GroundingLimits",
     "QueryBudget",
     "RegistryAuthority",
     "RejectionReason",
     "SearchBudgetExceededError",
     "SearchCall",
-    "SearchCredentials",
-    "SearchLimits",
+    "SearchExecution",
     "SearchProvider",
     "SearchProviderError",
     "SearchProviderHTTPError",
@@ -118,7 +126,9 @@ __all__ = [
     "SourceCandidate",
     "SourceKind",
     "UnsafeUrlError",
+    "VertexGroundedSearchProvider",
     "acquire_pdf",
+    "candidate_host",
     "build_queries",
     "classify_authority",
     "classify_candidate",
@@ -127,6 +137,7 @@ __all__ = [
     "discover_sources",
     "discovered_artifacts",
     "execute_search",
+    "execute_search_with_provenance",
     "fetch_url",
     "host_covered_by",
     "host_of",

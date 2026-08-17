@@ -111,15 +111,22 @@ class ReviewCandidate:
 
     @property
     def observed_hosts(self) -> tuple[str, ...]:
-        """Distinct hosts a live search named, in first-seen order.
+        """Distinct publisher hosts a live search named, in first-seen order.
 
-        Offered as *reading material* for the reviewer. A host appearing here has been
-        named by a search engine and nothing more; it is not a proposed domain, and
-        adding one to the registry is a separate, deliberate edit.
+        Reads `publisher_host` first and falls back to the URL's host. For a grounded
+        provider the URL is an opaque redirect, so using it here would report
+        `vertexaisearch.cloud.google.com` for every result and tell a reviewer nothing —
+        the publisher domain is the entire reason this list is worth reading.
+
+        Offered as *reading material*. A host appearing here has been named by a search
+        engine and nothing more; it is not a proposed domain, and adding one to the
+        registry is a separate, deliberate edit.
         """
         seen: list[str] = []
         for result in self.search_results:
-            host = normalize_host(_host_of(result.url))
+            host = normalize_host(result.publisher_host) or normalize_host(
+                _host_of(result.url)
+            )
             if host and host not in seen:
                 seen.append(host)
         return tuple(seen)

@@ -59,17 +59,21 @@ assets — are not built. So SKUTruth can write verified attributes into the off
 delivery schema through explicit mappings; it cannot yet claim those attributes are
 Unilog-compliant, and the code refuses to pretend otherwise.
 
-Discovery is likewise a foundation, not a solved problem. SKUTruth now has a live
-manufacturer-source discovery seam and a human-reviewed domain authority workflow: the
-policy engine, the SSRF-bounded fetcher, the acquisition seam, and a real search-provider
-adapter are implemented and exercised offline through the whole service. **No product has
-been acquired from the open web yet**, and two separate things block it. No manufacturer
-entry carries a human domain review, so nothing found may be stored; and the frozen
-`DiscoveryMethod` contract has no value that truthfully describes a web-search API, so
-acquisition refuses rather than record a false provenance. Both are recorded in
-[`backend/skutruth/discovery/README.md`](backend/skutruth/discovery/README.md); neither is
-papered over. Several of the organizer input's largest `Part_Manuf` values are also buying
-groups rather than manufacturers, so there is no manufacturer site to find for them at all.
+Discovery is likewise a foundation, not a solved problem. SKUTruth performs live
+manufacturer-source discovery through Vertex Google Search grounding, records what Google
+actually searched, and routes candidate publisher domains through explicit human authority
+review before any source can become evidence. That has now been run against real organizer
+rows, and it found real manufacturer domains — `kichler.com`, `dewalt.com`,
+`makitatools.com` — for products the input names only by part number.
+
+**No product has been acquired from the open web**, and two distinct things block it,
+both recorded in [`backend/skutruth/discovery/README.md`](backend/skutruth/discovery/README.md).
+No manufacturer entry carries a human domain review, so nothing found may be stored. And
+grounding returns opaque redirect URIs with the domain as the title, so the exact-part
+check that gates every fetch has nothing to match against — across 33 real candidates it
+was `ABSENT` every time. The first needs a person; the second needs a design decision.
+Several of the organizer input's largest `Part_Manuf` values are also buying groups rather
+than manufacturers, so there is no manufacturer site to find for them at all.
 
 ## What the verification actually checks
 
@@ -106,7 +110,7 @@ datasheet it reads cannot be committed.
 | Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
 | Identity resolution | `EXACT` / `FAMILY_OR_INCOMPLETE_REFERENCE` / `UNKNOWN` / `CONTRADICTORY`, with exact-SKU evidence required for `EXACT` |
 | Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store |
-| Live search provider | Google Custom Search JSON API adapter — locators only, env-only credentials, bounded calls, typed failures, record/replay. Exercised offline end to end; not yet run against the live API |
+| Live search provider | Vertex AI Gemini with Google Search grounding — locators only, generated answer discarded, existing GCP auth, bounded calls, typed failures, record/replay. **Run live against the real organizer input** |
 | Human domain review workflow | review packets from organizer input, and an explicit `confirm` command that cannot default a reviewer from git config, the OS username, or the environment |
 | Artifact ingestion | byte and page hashing, page-preserving text, content-addressed store that validates and never repairs |
 | Table extraction | ruled-table structure as an additive fallback; pypdf text stays canonical |
@@ -185,9 +189,10 @@ python scripts/discover_sources.py --input <csv> --live         # run the live p
 python scripts/review_manufacturer_domains.py packet --input <csv>   # prepare a domain review
 ```
 
-Live search needs `SKUTRUTH_SEARCH_API_KEY` and `SKUTRUTH_SEARCH_ENGINE_ID` in the
-environment. Without them the pilot refuses rather than degrading to a plan and calling it
-a live run. No committed test reaches the network.
+Live search runs on the project's existing Vertex setup: `SKUTRUTH_GCP_PROJECT` plus
+Application Default Credentials (`gcloud auth application-default login`). Without them
+the pilot refuses rather than degrading to a plan and calling it a live run. No committed
+test reaches the network.
 
 Python 3.12 and Pydantic on the backend. The data contracts in
 `backend/skutruth/contracts/` are frozen: components adapt to the contract rather than the

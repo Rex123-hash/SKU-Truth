@@ -76,6 +76,10 @@ class SearchOutcome(StrEnum):
     NO_RESULTS = "NO_RESULTS"
     #: No query was run — the row had nothing to search for.
     NOT_SEARCHED = "NOT_SEARCHED"
+    #: The search provider itself failed for this row — timeout, server error, budget.
+    #: Distinct from `NO_RESULTS`, which is an answer: this is the absence of one, and it
+    #: says nothing about whether a source exists.
+    PROVIDER_FAILED = "PROVIDER_FAILED"
 
 
 #: Rejections that mean the fetch itself failed, as opposed to a policy refusal.

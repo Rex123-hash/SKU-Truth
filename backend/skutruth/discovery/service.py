@@ -58,13 +58,19 @@ from .models import (
     SourceCandidate,
 )
 from .policy import (
+    candidate_host,
     classify_authority,
     classify_kind,
     classify_relevance,
     host_of,
     rejection_reasons,
 )
-from .provider import SearchCall, SearchProvider, declared_discovery_method, execute_search
+from .provider import (
+    SearchCall,
+    SearchProvider,
+    declared_discovery_method,
+    execute_search_with_provenance,
+)
 from .query import QueryBudget, build_queries
 from .ranking import rank_candidates, ranking_reasons
 
@@ -83,7 +89,9 @@ def classify_candidate(
     result: SearchResult, *, request: DiscoveryRequest, registry: DomainRegistry
 ) -> SourceCandidate:
     """Apply every deterministic policy to one search result."""
-    host = host_of(result.url)
+    # Authority is decided against the publisher the provider named, where it named one;
+    # the URL's host is kept alongside because that is where the fetch actually starts.
+    host = candidate_host(result)
     authority = classify_authority(
         host, registry=registry, manufacturer_hint=request.manufacturer_hint
     )
@@ -93,6 +101,7 @@ def classify_candidate(
     candidate = SourceCandidate(
         result=result,
         host=host,
+        locator_host=host_of(result.url),
         authority=authority,
         relevance=relevance,
         kind=classify_kind(result),
@@ -109,30 +118,38 @@ def _search_all(
     cassettes: CassetteStore,
     mode: RunMode,
     max_results: int,
-) -> tuple[tuple[SearchResult, ...], tuple[str, ...]]:
+) -> tuple[tuple[SearchResult, ...], tuple[str, ...], tuple[str, ...]]:
     """Run every query, keeping the first sighting of each URL.
 
     A URL found by two queries is one candidate, credited to the query that found it
     first — recording it twice would double its weight in the counts for no reason.
+    Deduplication is on the full URL: two documents on one host are two candidates.
+
+    Returns the results, the query intents we issued, and any queries the provider
+    reported running itself — kept apart because for a grounded provider they differ.
     """
     seen: set[str] = set()
     results: list[SearchResult] = []
-    executed: list[str] = []
+    requested: list[str] = []
+    provider_queries: list[str] = []
 
     for query in queries:
-        executed.append(query)
-        found = execute_search(
+        requested.append(query)
+        execution = execute_search_with_provenance(
             SearchCall(query=query, max_results=max_results),
             provider=provider,
             store=cassettes,
             mode=mode,
         )
-        for result in found:
+        for reported in execution.provider_queries:
+            if reported not in provider_queries:
+                provider_queries.append(reported)
+        for result in execution.results:
             if result.url in seen:
                 continue
             seen.add(result.url)
             results.append(result)
-    return tuple(results), tuple(executed)
+    return tuple(results), tuple(requested), tuple(provider_queries)
 
 
 def _acquire_one(
@@ -245,7 +262,7 @@ def discover_sources(
     approved = registry.domains_for_hint(request.manufacturer_hint)
     queries = build_queries(request, approved_domains=approved, budget=limits.queries)
 
-    results, executed = _search_all(
+    results, executed, provider_queries = _search_all(
         queries,
         provider=provider,
         cassettes=cassettes,
@@ -312,6 +329,7 @@ def discover_sources(
     return DiscoveryResult(
         request=request,
         executed_queries=executed,
+        provider_executed_queries=provider_queries,
         candidates=tuple(final),
         summary=summary,
         mode=mode,
