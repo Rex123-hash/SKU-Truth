@@ -47,6 +47,16 @@ class SearchCall:
     """Everything a provider needs for one query."""
 
     query: str
+    #: The most `SearchResult`s this call may yield — a **logical total**, not a
+    #: per-request cap. A provider that satisfies one query with several physical
+    #: requests (Agent Search issues one per reviewed domain, because basic website
+    #: search cannot express `siteSearch:A OR siteSearch:B`) must still return no more
+    #: than this after merging and deduplicating.
+    #:
+    #: Stated explicitly because it is a shared contract and it was ambiguous:
+    #: `DiscoveryBudget.max_results_per_query` is what the service passes here, the
+    #: summary counts what comes back, and a provider quietly returning two domains'
+    #: worth would inflate both against a budget the caller believed it had set.
     max_results: int = 10
 
 

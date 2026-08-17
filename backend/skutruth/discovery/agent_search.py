@@ -478,6 +478,18 @@ class AgentSearchProvider:
         its own query*, which is what the provider actually reported; there is no
         synthetic global score, and `ranking.py` orders candidates by its own tiers
         afterwards regardless.
+
+        `call.max_results` is a **logical total**, so the merged list is capped at it —
+        two domains do not silently return twice what the caller asked for. The cap is
+        applied *after* deduplication, so a document both domains return does not consume
+        two of the caller's slots.
+
+        Every configured domain is queried before the cap is applied, rather than
+        stopping once the quota is full. Stopping early would mean the second domain was
+        never searched, so whether a document was found would depend on how many results
+        the first domain happened to return — and `makita.com` would be invisible
+        whenever `makitatools.com` was talkative. Every physical request counts against
+        `max_calls`, which is what bounds the cost of that choice.
         """
         query = call.query.strip()
         if not query:
@@ -493,7 +505,7 @@ class AgentSearchProvider:
                     continue
                 seen.add(row["url"])
                 merged.append(row)
-        return merged
+        return merged[:limit]
 
     def _search_once(self, query: str, filter_expression: str, limit: int) -> list[dict]:
         """One request, against one site restriction."""

@@ -29,6 +29,7 @@ from skutruth.discovery import (
     SearchProviderTransportError,
     build_filter,
     discover_sources,
+    execute_search,
     included_patterns_for,
     reviewed_patterns_for_hint,
     site_pattern_for,
@@ -43,6 +44,7 @@ from skutruth.discovery.agent_search import (
 from skutruth.discovery.domains import parse_registry
 from skutruth.discovery.errors import MalformedSearchResponseError, SearchBudgetExceededError
 from skutruth.discovery.models import MpnRelevance, SourceAuthority
+from skutruth.discovery.provider import declared_request_options, search_request
 from skutruth.ingest.storage import ArtifactStore
 from skutruth.replay.errors import ReplayMissError
 from skutruth.replay.store import CassetteStore
@@ -906,3 +908,265 @@ def acquiring_run(body, content_type, *, tmp_path, redirect_to=None):
         transport=transport,
         resolver=lambda host: ["93.184.216.34"],
     )
+
+
+class TestMultiDomainReplayIdentity:
+    """The replay key must be buildable and truthful for a multi-domain provider."""
+
+    def _provider(self, sites, pdf_only=False, results=None):
+        return provider_for(results or [], sites=sites, pdf_only=pdf_only)
+
+    def test_request_options_work_for_one_domain(self):
+        options = declared_request_options(self._provider(("https://kichler.com/*",)))
+        assert options["filters"] == ['siteSearch:"https://kichler.com/*"']
+
+    def test_request_options_work_for_two_domains(self):
+        """The case that would break if the singular accessor were used here."""
+        options = declared_request_options(
+            self._provider(("https://makitatools.com/*", "https://makita.com/*"))
+        )
+        assert options["filters"] == [
+            'siteSearch:"https://makitatools.com/*"',
+            'siteSearch:"https://makita.com/*"',
+        ]
+
+    def test_request_options_never_call_the_singular_accessor(self):
+        """A multi-domain provider raises from filter_expression(); options must not."""
+        provider = self._provider(("https://a.com/*", "https://b.com/*"))
+        calls: list[int] = []
+
+        def exploding():
+            calls.append(1)
+            raise AssertionError("request_options used the singular filter accessor")
+
+        provider.filter_expression = exploding  # type: ignore[method-assign]
+        assert provider.request_options()["filters"]
+        assert calls == []
+
+    def test_a_two_domain_replay_key_is_constructible(self):
+        provider = self._provider(("https://makitatools.com/*", "https://makita.com/*"))
+        key = search_request(
+            "XLC10ZW",
+            provider=provider.name,
+            max_results=5,
+            version=provider.version,
+            options=declared_request_options(provider),
+        ).cassette_key()
+        assert isinstance(key, str) and key
+
+    def test_engine_location_and_serving_config_stay_in_the_identity(self):
+        options = declared_request_options(self._provider(("https://a.com/*",)))
+        assert options["engine"] == "skutruth-manufacturers"
+        assert options["location"] == "global"
+        assert options["serving_config"] == "default_search"
+
+    def test_a_different_engine_changes_the_multi_domain_key(self):
+        sites = ("https://a.com/*", "https://b.com/*")
+        other = AgentSearchProvider(
+            AgentSearchConfig(project="test-project", engine_id="another"),
+            site_patterns=sites,
+            client=FakeSearchClient([]),
+        )
+        keys = {
+            search_request(
+                "q", provider=p.name, max_results=5, options=declared_request_options(p)
+            ).cassette_key()
+            for p in (self._provider(sites), other)
+        }
+        assert len(keys) == 2
+
+    def test_pdf_only_appears_in_every_physical_filter(self):
+        options = declared_request_options(
+            self._provider(("https://a.com/*", "https://b.com/*"), pdf_only=True)
+        )
+        assert options["filters"] == [
+            'siteSearch:"https://a.com/*" AND fileType:".pdf"',
+            'siteSearch:"https://b.com/*" AND fileType:".pdf"',
+        ]
+        assert all(f.endswith('fileType:".pdf"') for f in options["filters"])
+
+
+class TestDomainOrderIsSemantic:
+    """Order decides merged ordering and which results survive the cap, so it is keyed."""
+
+    def test_reversed_domain_order_is_a_different_recording(self):
+        forward = provider_for([], sites=("https://a.com/*", "https://b.com/*"))
+        reverse = provider_for([], sites=("https://b.com/*", "https://a.com/*"))
+        keys = {
+            search_request(
+                "q", provider=p.name, max_results=5, options=declared_request_options(p)
+            ).cassette_key()
+            for p in (forward, reverse)
+        }
+        assert len(keys) == 2, "domain order changes results but not the key"
+
+    def test_order_is_preserved_rather_than_normalised(self):
+        """Normalising the key alone would key two genuinely different runs the same."""
+        reverse = provider_for([], sites=("https://b.com/*", "https://a.com/*"))
+        assert declared_request_options(reverse)["filters"] == [
+            'siteSearch:"https://b.com/*"',
+            'siteSearch:"https://a.com/*"',
+        ]
+
+    def test_execution_order_matches_the_keyed_order(self):
+        provider = provider_for([], sites=("https://b.com/*", "https://a.com/*"))
+        provider.search(SearchCall(query="q", max_results=5))
+        issued = [r.filter for r, _ in provider._client.requests]
+        assert issued == declared_request_options(provider)["filters"]
+
+
+class TestMultiDomainThroughReplay:
+    """The whole public path: LIVE records, REPLAY serves, no provider call."""
+
+    def _client_factory(self):
+        class TwoDomainClient:
+            def __init__(self):
+                self.requests = []
+
+            def search(self, request=None, timeout=None):
+                self.requests.append((request, timeout))
+                host = (
+                    "makitatools.com" if "makitatools" in request.filter else "makita.com"
+                )
+                return FakeResponse(
+                    [
+                        result_for(f"https://{host}/XLC10ZW.pdf", "XLC10ZW"),
+                        result_for(f"https://{host}/XLC10ZW-manual.pdf", "XLC10ZW manual"),
+                    ]
+                )
+
+        return TwoDomainClient()
+
+    def _provider(self, client):
+        return AgentSearchProvider(
+            CONFIG,
+            site_patterns=("https://makitatools.com/*", "https://makita.com/*"),
+            client=client,
+        )
+
+    def test_live_records_and_replay_serves_the_merged_result(self, tmp_path):
+        store = CassetteStore(tmp_path)
+        live_client = self._client_factory()
+        live = execute_search(
+            SearchCall(query="XLC10ZW", max_results=10),
+            provider=self._provider(live_client),
+            store=store,
+            mode=RunMode.LIVE,
+        )
+        assert len(live_client.requests) == 2, "expected one physical request per domain"
+        assert len(live) == 4
+
+        replayed = execute_search(
+            SearchCall(query="XLC10ZW", max_results=10),
+            provider=self._provider(_ExplodingClient()),
+            store=store,
+            mode=RunMode.REPLAY,
+        )
+        assert [r.url for r in replayed] == [r.url for r in live]
+
+    def test_replay_makes_zero_physical_calls(self, tmp_path):
+        store = CassetteStore(tmp_path)
+        execute_search(
+            SearchCall(query="XLC10ZW", max_results=10),
+            provider=self._provider(self._client_factory()),
+            store=store,
+            mode=RunMode.LIVE,
+        )
+        provider = self._provider(_ExplodingClient())
+        execute_search(
+            SearchCall(query="XLC10ZW", max_results=10),
+            provider=provider,
+            store=store,
+            mode=RunMode.REPLAY,
+        )
+        assert provider.calls_made == 0
+
+    def test_a_multi_domain_replay_miss_fails_closed(self, tmp_path):
+        with pytest.raises(ReplayMissError):
+            execute_search(
+                SearchCall(query="never recorded", max_results=10),
+                provider=self._provider(_ExplodingClient()),
+                store=CassetteStore(tmp_path),
+                mode=RunMode.REPLAY,
+            )
+
+
+class TestMaxResultsIsALogicalTotal:
+    """`SearchCall.max_results` caps the call, not each physical request."""
+
+    def _provider(self, per_domain=3, sites=("https://a.com/*", "https://b.com/*")):
+        class PerDomainClient:
+            def __init__(self):
+                self.requests = []
+
+            def search(self, request=None, timeout=None):
+                self.requests.append((request, timeout))
+                host = "a.com" if "a.com" in request.filter else "b.com"
+                return FakeResponse(
+                    [result_for(f"https://{host}/{i}-X.pdf") for i in range(per_domain)]
+                )
+
+        return AgentSearchProvider(CONFIG, site_patterns=sites, client=PerDomainClient())
+
+    def test_two_domains_do_not_return_twice_the_requested_cap(self):
+        provider = self._provider()
+        rows = provider.search(SearchCall(query="X", max_results=4))
+        assert len(rows) == 4, "6 results across two domains must be capped at 4"
+
+    def test_the_cap_applies_after_deduplication(self):
+        """A document both domains return must not consume two of the caller's slots."""
+        shared = result_for("https://shared.example/X.pdf")
+
+        class DuplicateClient:
+            requests: list = []
+
+            def search(self, request=None, timeout=None):
+                self.requests.append((request, timeout))
+                return FakeResponse([shared, result_for("https://other.example/X.pdf")])
+
+        provider = AgentSearchProvider(
+            CONFIG,
+            site_patterns=("https://a.com/*", "https://b.com/*"),
+            client=DuplicateClient(),
+        )
+        rows = provider.search(SearchCall(query="X", max_results=4))
+        assert [r["url"] for r in rows] == [
+            "https://shared.example/X.pdf",
+            "https://other.example/X.pdf",
+        ]
+
+    def test_the_cap_keeps_the_deterministic_merged_prefix(self):
+        provider = self._provider()
+        rows = provider.search(SearchCall(query="X", max_results=4))
+        assert [r["url"] for r in rows] == [
+            "https://a.com/0-X.pdf",
+            "https://a.com/1-X.pdf",
+            "https://a.com/2-X.pdf",
+            "https://b.com/0-X.pdf",
+        ]
+
+    def test_every_domain_is_still_queried_even_once_the_cap_is_full(self):
+        """Stopping early would make the second domain invisible when the first is busy."""
+        provider = self._provider(per_domain=10)
+        provider.search(SearchCall(query="X", max_results=2))
+        assert len(provider._client.requests) == 2
+
+    def test_physical_calls_are_still_counted_against_max_calls(self):
+        provider = self._provider()
+        provider.search(SearchCall(query="X", max_results=1))
+        assert provider.calls_made == 2
+
+    def test_a_single_domain_provider_is_unaffected(self):
+        provider = self._provider(sites=("https://a.com/*",))
+        assert len(provider.search(SearchCall(query="X", max_results=10))) == 3
+
+    def test_the_provider_limit_still_applies(self):
+        provider = AgentSearchProvider(
+            CONFIG,
+            limits=AgentSearchLimits(max_results_per_query=2),
+            site_patterns=("https://a.com/*",),
+            client=FakeSearchClient(
+                [result_for(f"https://a.com/{i}.pdf") for i in range(5)]
+            ),
+        )
+        assert len(provider.search(SearchCall(query="X", max_results=10))) == 2
