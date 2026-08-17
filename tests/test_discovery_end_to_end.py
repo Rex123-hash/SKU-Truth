@@ -658,14 +658,14 @@ class TestHintStanding:
             )
 
 
-#: The only discovery module permitted to touch a model client.
+#: Model-client packages. **No** discovery module may import one.
 #:
-#: Google Search grounding is model-mediated: reaching it *requires* a Gemini call, so a
-#: blanket "discovery imports no model SDK" rule can no longer be stated. The guarantee it
-#: existed to protect is narrower and is unchanged — **no model participates in a
-#: decision** — so the rule now names the seam and holds every deciding module to the
-#: original standard. A model may say where to look. Nothing else.
-MODEL_AWARE_DISCOVERY_MODULES = {"grounded_search.py"}
+#: This invariant was briefly weakened to allowlist a Google Search grounding adapter,
+#: which required a Gemini call to reach the search index at all. That provider has been
+#: removed — its terms do not permit SKUTruth's automated link-collection and fetch — and
+#: with it the reason for the exception. Agent Search is a keyword search API, so
+#: discovery is once again deterministic end to end and the blanket rule is restored.
+MODEL_CLIENT_PACKAGES = {"google.genai", "vertexai", "openai", "anthropic"}
 
 
 class TestArchitecturalGuarantees:
@@ -686,40 +686,36 @@ class TestArchitecturalGuarantees:
 
         return Path(__file__).resolve().parents[1] / "backend" / "skutruth" / "discovery"
 
-    def test_no_deciding_module_imports_a_model_client(self):
+    def test_no_discovery_module_imports_a_model_client(self):
         """AC. Source authority is policy, never a model's opinion."""
         for module in self._package().glob("*.py"):
-            if module.name in MODEL_AWARE_DISCOVERY_MODULES:
-                continue
-            imported = self._imports_of(module)
-            assert not [m for m in imported if m.split(".")[0] in {"google", "vertexai"}], module
-            assert not [m for m in imported if "extraction" in m], module
+            for imported in self._imports_of(module):
+                assert imported not in MODEL_CLIENT_PACKAGES, f"{module.name}: {imported}"
+                assert not imported.startswith("google.genai"), module.name
+                assert "extraction.vertex" not in imported, module.name
 
-    def test_only_the_named_provider_seam_may_reach_a_model(self):
-        """The allowlist is exhaustive: a new model-using module fails this."""
-        offenders = {
-            module.name
+    def test_no_discovery_module_names_a_generative_client(self):
+        """Belt and braces: catch a lazily imported client the AST walk would still see."""
+        for module in self._package().glob("*.py"):
+            source = module.read_text(encoding="utf-8")
+            assert "genai.Client" not in source, module.name
+            assert "generate_content" not in source, module.name
+
+    def test_the_only_google_import_is_the_search_client(self):
+        """Agent Search is a keyword API; that import is allowed and nothing else is."""
+        google_imports = {
+            imported
             for module in self._package().glob("*.py")
-            if [m for m in self._imports_of(module) if m.split(".")[0] in {"google", "vertexai"}]
+            for imported in self._imports_of(module)
+            if imported.split(".")[0] == "google"
         }
-        assert offenders <= MODEL_AWARE_DISCOVERY_MODULES
-
-    def test_the_grounded_provider_asks_the_model_only_to_locate(self):
-        """The prompt must not delegate any judgement the deterministic gates own."""
-        from skutruth.discovery.grounded_search import build_grounding_prompt
-
-        prompt = build_grounding_prompt('"LC1D18P7" site:se.com').casefold()
-        assert "google search" in prompt
-        # It must actively tell the model not to do these, not merely omit them.
-        assert "do not describe the product" in prompt
-        assert "do not state any specification" in prompt
-        assert "authoritative" in prompt
+        assert google_imports <= {"google.cloud"}, google_imports
 
     def test_policy_decides_authority_without_the_provider(self):
         """The deciding modules import the registry, not the search seam."""
         policy = self._imports_of(self._package() / "policy.py")
         assert any("domains" in m for m in policy)
-        assert not any("grounded" in m for m in policy)
+        assert not any("agent_search" in m for m in policy)
 
     def test_no_confidence_or_probability_field_exists(self):
         """AD."""

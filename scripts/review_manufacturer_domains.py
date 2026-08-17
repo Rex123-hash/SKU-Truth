@@ -53,10 +53,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from skutruth.contracts import RunMode  # noqa: E402
 from skutruth.discovery import (  # noqa: E402
+    AgentSearchProvider,
     DiscoveryRequest,
     MalformedRegistryError,
     SearchCall,
-    VertexGroundedSearchProvider,
     build_queries,
     execute_search,
     load_registry,
@@ -95,7 +95,7 @@ def _search_for_candidates(
     invents a query, and the results are locator metadata for a human to read — they do
     not feed any decision this tool makes, because it makes none.
     """
-    provider = VertexGroundedSearchProvider.from_env()
+    provider = AgentSearchProvider.from_env()
     store = CassetteStore(cassettes)
     found: dict[str, tuple[SearchResult, ...]] = {}
 

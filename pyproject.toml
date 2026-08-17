@@ -12,6 +12,10 @@ dependencies = [
     # Vertex AI structured extraction (skutruth.extraction.vertex). Verified against
     # 2.18.1: Client(vertexai=True), Part.from_bytes, response_schema, usage_metadata.
     "google-genai>=2.18,<3",
+    # Agent Search basic website search (skutruth.discovery.agent_search). Verified
+    # against 0.20.2: SearchServiceClient, SearchRequest(serving_config, query,
+    # page_size, filter). Discovery uses this and never a generative model client.
+    "google-cloud-discoveryengine>=0.13,<1",
     "python-dotenv>=1.0",
     "orjson>=3.10",
     "pypdf>=6.0",

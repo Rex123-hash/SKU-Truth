@@ -123,6 +123,18 @@ class DiscoveryMethod(StrEnum):
     DIRECT_URL = "DIRECT_URL"
     OPERATOR_SUPPLIED = "OPERATOR_SUPPLIED"
 
+    #: A keyword search restricted to an explicitly configured set of sites, returning
+    #: the publishers' own URLs. Added for a concrete production need: no existing value
+    #: describes it, and every candidate would have asserted something false —
+    #: `GOOGLE_SEARCH_GROUNDING` names a different mechanism whose links are model-cited,
+    #: `CURATED_CORPUS` implies a pre-assembled document set rather than a live index,
+    #: and `DIRECT_URL` / `OPERATOR_SUPPLIED` would credit a person for a search result.
+    #:
+    #: Named for the mechanism rather than a vendor. The product implementing it today
+    #: has been renamed twice (Vertex AI Search → AI Applications → Agent Search), and
+    #: provenance recorded on stored artifacts has to outlive that.
+    SITE_RESTRICTED_SEARCH = "SITE_RESTRICTED_SEARCH"
+
 
 class AttributeStatus(StrEnum):
     """Whether a value was accepted onto the record.

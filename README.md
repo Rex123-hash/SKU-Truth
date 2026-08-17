@@ -28,8 +28,8 @@ PIM — is knowing which of those proposals are actually supported.
 ```
 raw Unilog row
       ↓  placeholder policy · Part_Manuf structural parse
-live search provider             deterministic queries · locators only, never evidence
-      ↓  human-reviewed manufacturer domain required
+site-restricted search           human-reviewed domains only · locators, never evidence
+      ↓  exact caller query · no model in the loop
 manufacturer source discovery    approved domains only · exact reference required
       ↓  bounded, SSRF-checked acquisition
 manufacturer artifact ingestion  bytes hashed · pages mapped · text preserved
@@ -59,21 +59,22 @@ assets — are not built. So SKUTruth can write verified attributes into the off
 delivery schema through explicit mappings; it cannot yet claim those attributes are
 Unilog-compliant, and the code refuses to pretend otherwise.
 
-Discovery is likewise a foundation, not a solved problem. SKUTruth performs live
-manufacturer-source discovery through Vertex Google Search grounding, records what Google
-actually searched, and routes candidate publisher domains through explicit human authority
-review before any source can become evidence. That has now been run against real organizer
-rows, and it found real manufacturer domains — `kichler.com`, `dewalt.com`,
-`makitatools.com` — for products the input names only by part number.
+Discovery is likewise a foundation, not a solved problem. Agent Search basic website
+search is the selected deterministic manufacturer-site search mechanism, and manufacturer
+domains must be human reviewed before they can license evidence — the reviewed set *is*
+the search corpus, so a domain becomes searchable only after a person has checked it.
 
-**No product has been acquired from the open web**, and two distinct things block it,
-both recorded in [`backend/skutruth/discovery/README.md`](backend/skutruth/discovery/README.md).
-No manufacturer entry carries a human domain review, so nothing found may be stored. And
-grounding returns opaque redirect URIs with the domain as the title, so the exact-part
-check that gates every fetch has nothing to match against — across 33 real candidates it
-was `ABSENT` every time. The first needs a person; the second needs a design decision.
-Several of the organizer input's largest `Part_Manuf` values are also buying groups rather
-than manufacturers, so there is no manufacturer site to find for them at all.
+**No product has been acquired from the open web, and no live search has run**, because
+no domain has been reviewed yet and the corpus is therefore empty. That is the honest
+state and the next step is a human one, not an engineering one.
+
+Two earlier providers were implemented and removed, both for reasons outside our control.
+The Custom Search JSON API is closed to new customers. Google Search grounding is not
+used because its terms do not permit SKUTruth's automated link-collection and fetch flow.
+Both are recorded in
+[`backend/skutruth/discovery/README.md`](backend/skutruth/discovery/README.md). Several of
+the organizer input's largest `Part_Manuf` values are also buying groups rather than
+manufacturers, so no manufacturer site exists to find for them at all.
 
 ## What the verification actually checks
 
@@ -110,7 +111,7 @@ datasheet it reads cannot be committed.
 | Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
 | Identity resolution | `EXACT` / `FAMILY_OR_INCOMPLETE_REFERENCE` / `UNKNOWN` / `CONTRADICTORY`, with exact-SKU evidence required for `EXACT` |
 | Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store |
-| Live search provider | Vertex AI Gemini with Google Search grounding — locators only, generated answer discarded, existing GCP auth, bounded calls, typed failures, record/replay. **Run live against the real organizer input** |
+| Live search provider | Agent Search basic website search — caller's query executed verbatim, real publisher URLs, site + file-type filters, no model in the loop, bounded calls, typed failures, record/replay. Exercised offline; **no live run yet** |
 | Human domain review workflow | review packets from organizer input, and an explicit `confirm` command that cannot default a reviewer from git config, the OS username, or the environment |
 | Artifact ingestion | byte and page hashing, page-preserving text, content-addressed store that validates and never repairs |
 | Table extraction | ruled-table structure as an additive fallback; pypdf text stays canonical |
@@ -187,12 +188,13 @@ python scripts/assemble_delivery_record.py --cassette <path>    # and map it int
 python scripts/discover_sources.py --input <organizer csv>      # plan source discovery
 python scripts/discover_sources.py --input <csv> --live         # run the live provider
 python scripts/review_manufacturer_domains.py packet --input <csv>   # prepare a domain review
+python scripts/setup_agent_search.py                            # what to provision, from reviews
 ```
 
-Live search runs on the project's existing Vertex setup: `SKUTRUTH_GCP_PROJECT` plus
-Application Default Credentials (`gcloud auth application-default login`). Without them
-the pilot refuses rather than degrading to a plan and calling it a live run. No committed
-test reaches the network.
+Live search runs on the project's existing GCP setup: `SKUTRUTH_GCP_PROJECT`,
+`SKUTRUTH_AGENT_SEARCH_ENGINE_ID`, and Application Default Credentials
+(`gcloud auth application-default login`). Without them the pilot refuses rather than
+degrading to a plan and calling it a live run. No committed test reaches the network.
 
 Python 3.12 and Pydantic on the backend. The data contracts in
 `backend/skutruth/contracts/` are frozen: components adapt to the contract rather than the

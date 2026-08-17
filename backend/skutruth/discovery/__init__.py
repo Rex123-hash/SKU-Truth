@@ -9,6 +9,16 @@ from .acquire import (
     discovered_artifacts,
     source_metadata_for,
 )
+from .agent_search import (
+    PROVIDER_NAME,
+    PROVIDER_VERSION,
+    AgentSearchConfig,
+    AgentSearchConfigError,
+    AgentSearchLimits,
+    AgentSearchProvider,
+    build_filter,
+    included_patterns_for,
+)
 from .domains import (
     DEFAULT_REGISTRY_DIR,
     DomainRegistry,
@@ -44,13 +54,6 @@ from .fetch import (
     FetchPolicy,
     fetch_url,
     validate_url,
-)
-from .grounded_search import (
-    PROVIDER_NAME,
-    PROVIDER_VERSION,
-    GroundingConfig,
-    GroundingLimits,
-    VertexGroundedSearchProvider,
 )
 from .models import (
     DISCOVERY_VERSION,
@@ -108,8 +111,10 @@ __all__ = [
     "ManufacturerEntry",
     "MissingSearchCredentialsError",
     "MpnRelevance",
-    "GroundingConfig",
-    "GroundingLimits",
+    "AgentSearchConfig",
+    "AgentSearchConfigError",
+    "AgentSearchLimits",
+    "AgentSearchProvider",
     "QueryBudget",
     "RegistryAuthority",
     "RejectionReason",
@@ -126,9 +131,9 @@ __all__ = [
     "SourceCandidate",
     "SourceKind",
     "UnsafeUrlError",
-    "VertexGroundedSearchProvider",
     "acquire_pdf",
     "candidate_host",
+    "build_filter",
     "build_queries",
     "classify_authority",
     "classify_candidate",
@@ -141,6 +146,7 @@ __all__ = [
     "fetch_url",
     "host_covered_by",
     "host_of",
+    "included_patterns_for",
     "load_registry",
     "normalize_host",
     "normalize_manufacturer",

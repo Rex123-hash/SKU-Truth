@@ -147,21 +147,24 @@ class SearchResult(BaseModel):
     query: str = Field(min_length=1, description="The query that returned it")
     provider: str = Field(min_length=1)
 
-    #: The publisher host a provider reported *separately from the URL*, when it reports
-    #: one. Google Search grounding does: its `uri` is a
-    #: `vertexaisearch.cloud.google.com/grounding-api-redirect/…` link, and the real
-    #: publisher appears only in `groundingChunks[].web.domain`. Without this field every
-    #: grounded result would classify as one Google host, and a manufacturer datasheet
-    #: would be indistinguishable from a marketplace listing.
+    #: The publisher host a provider reported *separately from the URL*, for the class of
+    #: provider whose `url` is a redirect rather than the publisher's own address. A
+    #: Google Search grounding adapter needed this — its links were
+    #: `vertexaisearch.cloud.google.com/grounding-api-redirect/…` with the real publisher
+    #: in a separate field — and without it every result classified as one Google host,
+    #: making a manufacturer datasheet indistinguishable from a marketplace listing.
     #:
-    #: **This is locator metadata, exactly like `url`.** It may decide whether a candidate
-    #: is worth fetching. It may not establish manufacturer ownership, evidence authority,
-    #: product identity, or artifact scope — a provider saying `domain = kichler.com` is
-    #: a provider's claim, and the authority that governs storage is re-decided on the
-    #: host the bytes actually arrived from (`SourceCandidate.final_authority`).
+    #: **No current provider populates it.** Agent Search returns the publisher's own URL,
+    #: so `host_of(url)` applies and this stays `None`. The field is kept because the
+    #: hazard it addresses is a real property of redirect-returning providers, and because
+    #: `candidate_host` handling it in one place is what stops a future adapter
+    #: special-casing itself through the policy layer.
     #:
-    #: `None` for every provider that returns ordinary URLs; `url` is then the only host
-    #: there is. This never replaces `url`, which stays exactly what the provider returned.
+    #: **It is locator metadata, exactly like `url`.** It may decide whether a candidate is
+    #: worth fetching. It may not establish manufacturer ownership, evidence authority,
+    #: product identity, or artifact scope — it is a provider's claim, and the authority
+    #: that governs storage is re-decided on the host the bytes actually arrived from
+    #: (`SourceCandidate.final_authority`). It never replaces `url`.
     publisher_host: str | None = Field(
         default=None, description="Provider-reported publisher host. A locator hint."
     )

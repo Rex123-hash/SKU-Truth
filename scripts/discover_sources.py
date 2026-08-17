@@ -44,12 +44,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from skutruth.contracts import RunMode  # noqa: E402
 from skutruth.discovery import (  # noqa: E402
+    AgentSearchConfigError,
+    AgentSearchLimits,
+    AgentSearchProvider,
     DiscoveryRequest,
-    GroundingLimits,
     MalformedRegistryError,
-    VertexGroundedSearchProvider,
     build_queries,
     discover_sources,
+    included_patterns_for,
     load_registry,
 )
 from skutruth.discovery.diagnostics import (  # noqa: E402
@@ -164,8 +166,12 @@ def run_live(
     place with `result=None`, so the report shows every selected row rather than only the
     ones that worked.
     """
-    provider = VertexGroundedSearchProvider.from_env(
-        limits=GroundingLimits(max_results_per_query=max_results)
+    # The corpus is exactly the human-reviewed domains. With none reviewed this is
+    # empty, and the site filter is empty with it — which is why the pilot refuses to
+    # run live below rather than silently searching the whole configured app.
+    provider = AgentSearchProvider.from_env(
+        limits=AgentSearchLimits(max_results_per_query=max_results),
+        site_patterns=included_patterns_for(registry),
     )
     store = CassetteStore(cassettes)
     artifact_store = ArtifactStore(artifacts) if artifacts else None
@@ -460,14 +466,15 @@ def main(argv: list[str] | None = None) -> int:
                 max_results=args.max_results,
                 mode=mode,
             )
-        except RuntimeError as exc:
+        except (RuntimeError, AgentSearchConfigError) as exc:
             # Never degrade to the plan and call it a live run. Grounding runs on the
             # project's existing Vertex setup, so the missing piece is GCP auth or
             # configuration — there is no separate search credential to obtain.
             print(
                 f"LIVE PILOT NOT EXECUTED — {exc}\n"
-                f"  Grounded discovery uses the project's existing Vertex AI setup: "
-                f"SKUTRUTH_GCP_PROJECT plus Application Default Credentials "
+                f"  Agent Search uses the project's existing GCP setup: "
+                f"SKUTRUTH_GCP_PROJECT, SKUTRUTH_AGENT_SEARCH_ENGINE_ID, and "
+                f"Application Default Credentials "
                 f"(`gcloud auth application-default login`).",
                 file=sys.stderr,
             )

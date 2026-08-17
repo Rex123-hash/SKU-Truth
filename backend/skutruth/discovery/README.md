@@ -75,7 +75,7 @@ pipeline is worse than none.
         ↓
     deterministic queries          query.py — no model, no sampling
         ↓
-    LIVE search provider           grounded_search.py (Vertex + Google Search)
+    LIVE search provider           agent_search.py (site-restricted keyword search)
         ↓
     candidate LOCATOR              a URL. Nothing more.
         ↓
@@ -102,63 +102,63 @@ Each arrow is a separate achievement, and the report never collapses them:
 
 ## The live search provider
 
-`VertexGroundedSearchProvider` calls Vertex AI Gemini with Google Search grounding, on the
-project's existing Vertex setup and Application Default Credentials — no second key
-ecosystem. The Custom Search JSON API was implemented first and removed: Google closed it
-to new customers, so it is not a dependency this project can take.
+`AgentSearchProvider` calls **Agent Search basic website search** (Discovery Engine),
+using the project's existing GCP setup and Application Default Credentials.
 
-Grounding was chosen with its costs understood, not in spite of them.
+### Why not Google Search grounding
 
-### Query intent is deterministic. Search execution is not.
+A grounding provider was implemented and removed. Its terms state that Grounded Results,
+Search Suggestions, and Links "are intended to be used in combination to respond to a
+given End User prompt", and prohibit "using programmatic or automated means to collect
+Links, using Links to build an index, or using Links to identify destination pages for
+crawling or scraping". SKUTruth does all three: it collects links programmatically,
+records them as candidates, and fetches the pages they name.
 
-The model writes the queries. Google's documentation is explicit that it "analyzes the
-prompt and determines if a Google Search can improve the answer" and "automatically
-generates one or multiple search queries", and the pilot confirms it: asked for
-`"DCL183" Black & Decker/dewlt`, Google ran `"DCL183" Black & Decker/dewalt filetype:pdf`
-— it silently corrected the misspelling we deliberately preserve.
+Grounding is therefore not available to this pipeline. That is a terms question, not a
+technical one, and no amount of engineering changes it. The commit that added it stays in
+history as an experiment.
 
-So two things are recorded separately and never conflated:
+An earlier Custom Search JSON API adapter was also removed: Google has closed that API to
+new customers.
 
-| | field | deterministic? |
-|---|---|---|
-| what SKUTruth asked for | `DiscoveryResult.requested_queries` | **yes** — from `build_queries` |
-| what Google actually ran | `DiscoveryResult.provider_executed_queries` | **no** — model-generated |
+### Why basic website search fits
 
-    QUERY INTENT IS DETERMINISTIC
-    SEARCH EXECUTION IS PROVIDER-GENERATED AND RECORDED
+* **the caller's query is executed verbatim.** `build_queries` is the query again, not an
+  intent handed to a model that may rewrite it. Discovery is deterministic end to end, and
+  a test asserts no module in this package imports a model client.
+* **results carry the publisher's real URL** (`derivedStructData.link`), so the exact-MPN
+  gate has something to match and the authority lookup needs no redirect workaround.
+* **no generative feature is used** — no summaries, no `answer`, no follow-ups. Ordinary
+  search results only.
+* **advanced website indexing is off.** It requires verifying domains we do not own;
+  Google's guidance is to disable it in exactly that case. Basic search reads Google's
+  existing index instead.
 
-This is a genuine weakening of a property the package used to hold outright, and it is
-acceptable only because discovery is a locator stage. Nothing the model does can reach a
-fact. `REPLAY` reproduces both sets exactly.
+### The corpus is the reviewed set
 
-### The generated answer is discarded
+`included_patterns_for()` builds the included URL patterns **only** from registry entries
+carrying a `DomainReview`. A domain becomes searchable after a human reviews it, never
+before — so Agent Search cannot be used to decide that a domain is trustworthy, and no
+provider output can add one. `scripts/setup_agent_search.py` prints the resulting
+configuration and creates nothing.
 
-A grounded call returns fluent prose about the product. That is the most dangerous thing
-in the response, because it is exactly what a careless integration would store. It is
-never read — `response.text` is not touched, and grounding-support spans and Search
-Suggestion HTML never enter the domain layer. Tests assert none of it can reach a
-`SearchResult` or an artifact.
+Basic website search allows **50 included URL patterns**. That ceiling is enforced rather
+than truncated: silently dropping the fifty-first would make a reviewed manufacturer
+quietly unsearchable, and the run would report "no results" for a domain the operator
+believed was configured.
 
-### Redirect URIs, and `publisher_host`
+### Queries and filters
 
-`groundingChunks[].web.uri` is a `vertexaisearch.cloud.google.com/grounding-api-redirect/…`
-link. The publisher appears separately in `web.domain`, which Google documents as usable
-"to filter out low-quality sources", and which becomes `SearchResult.publisher_host`.
+Site restriction and file type are filters, not query text, so the query stays exactly the
+reference being looked for:
 
-`url` keeps the redirect exactly as returned; authority is looked up against
-`publisher_host`, because looking it up against the Google host would classify a
-manufacturer datasheet and a marketplace listing identically. `SourceCandidate` keeps both:
-`host` is what authority was decided against, `locator_host` is where the fetch starts.
+    query  = 45297BK
+    filter = siteSearch:"kichler.com/*" AND fileType:".pdf"
 
-**`publisher_host` is locator metadata.** It decides whether a candidate is worth
-fetching. It does not establish ownership, evidence authority, or product identity — the
-authority that governs storage is re-decided on the host the bytes actually arrived from.
-If Google reports `kichler.com` and the redirect lands elsewhere, the final-host check
-refuses it as `REDIRECT_AUTHORITY_LOST`, and a test proves the reported domain cannot
-override it.
-
-Live calls are bounded on results per query, timeout, and total calls per provider
-instance. `REPLAY` makes no Vertex call at all and fails closed on a miss.
+`fileType` is available on basic search and not on advanced indexing — one more reason
+basic suits this use. Snippets are returned and kept as locator metadata; they are
+deliberately **not** consulted by `classify_relevance`, so a snippet can never establish
+that a page is about a product.
 
 ## Four deterministic decisions, none of them asked of a model
 
@@ -391,13 +391,15 @@ Two places where a convenient default would have been a lie:
   including `OPERATOR_SUPPLIED` and `DIRECT_URL` — would assert something untrue about how
   the document was found. An artifact that cannot say how it was discovered is not stored.
 
-  **The contract gap is closed for the current provider, and the mechanism stays.**
-  `VertexGroundedSearchProvider` declares `GOOGLE_SEARCH_GROUNDING` because that is
-  literally what it does, so no frozen contract needed widening. The gap it was recorded
-  against was a *different* provider: an earlier Custom Search JSON API adapter, for which
-  no enum value was true and which therefore declared `None` and could store nothing.
-  That adapter is gone, but the rule that produced it stands — a provider that cannot
-  state its mechanism declares `None` and acquisition refuses with
+  **The contract gained one value, for a concrete case.** `AgentSearchProvider` declares
+  `SITE_RESTRICTED_SEARCH`, added because no existing member was true: `CURATED_CORPUS`
+  implies a pre-assembled document set rather than a live index, `GOOGLE_SEARCH_GROUNDING`
+  names a different mechanism, and `DIRECT_URL` / `OPERATOR_SUPPLIED` would credit a person
+  for a search result. It is named for the mechanism, not the vendor, because the product
+  implementing it has been renamed twice already.
+
+  The rule that produced the earlier gap stands: a provider that cannot state its
+  mechanism declares `None`, and acquisition refuses with
   `DISCOVERY_PROVENANCE_UNDECLARED` rather than defaulting. Tests still cover that path.
 * **`source_type`.** `MANUFACTURER_DATASHEET` asserts the document *is a datasheet*. A PDF
   from a manufacturer may equally be a manual, a warranty, a brochure, or a catalogue, so
@@ -423,37 +425,28 @@ and counting it twice would let a mirror manufacture agreement.
 
 ## Known limitations
 
-* HTML pages are discovered and hashed but not ingested (above).
-* DNS is not pinned (above).
+* **No live Agent Search run has happened yet.** No manufacturer domain has been reviewed,
+  so the corpus is empty and there is nothing to search. The provider is exercised offline
+  through the whole service; whether basic website search returns useful results for
+  third-party manufacturer domains is unverified, and should be checked with a single real
+  query before anything is built on it.
 * Manufacturer hints are matched against explicitly listed spellings, so coverage is
   bounded by how much of the registry has been written *and reviewed*. Against the
   organizer input: 5 of 75 supplier spellings are searchable (291 of 959 rows), and
   **none licenses evidence** (0 of 959), because **no entry has been reviewed by anyone**.
-  Discovery can currently find candidates for those rows and store none of them as
-  manufacturer evidence. Raising that number requires a person to perform and sign real
-  domain reviews; it is not an engineering task.
+  Raising that number requires a person to perform and sign real domain reviews; it is not
+  an engineering task.
+* Basic website search caps the corpus at **50 URL patterns**, so one data store cannot
+  cover every manufacturer in a 1,000-row catalogue. Sharding is a later problem; a handful
+  of reviewed manufacturers is enough to prove the seam.
+* Agent Search reads Google's index, so coverage depends on what Google has indexed and on
+  the publisher's own indexing policy. A manufacturer PDF Google has not indexed is not
+  findable this way.
+* HTML pages are discovered and hashed but not ingested (above).
+* DNS is not pinned (above).
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.
   Resolving that needs the manufacturer master, not more discovery.
-* **Exact-MPN relevance cannot be established from grounding metadata.** This is the
-  hardest limitation, and the live pilot found it: `MpnRelevance` is decided from the URL
-  and the title, and grounding supplies neither usably. The URL is an opaque redirect, and
-  `web.title` is *just the domain* — a call for `"45297BK" site:kichler.com` returns
-  `title='kichler.com'`. Across 33 real candidates in two pilot runs, relevance was
-  `ABSENT` for every single one.
-
-  So `EXACT` is currently unreachable, `is_eligible` is never true, and **no fetch is ever
-  attempted** — independently of domain review. Resolving it means either resolving the
-  redirect to recover the real URL before judging relevance (which moves a network call
-  ahead of a gate that exists to bound network calls), or pairing grounding with a
-  provider that returns real URLs. Both are design decisions, deliberately not taken here.
-* **Vertex grounding was unreliable in the pilot**: 6 of 10 row attempts across two runs
-  failed with HTTP 504, and one with 429. A row whose provider call fails is reported as
-  `PROVIDER_FAILED` and keeps its place in the sample, so a transient error cannot quietly
-  shrink a documented selection rule into a list of survivors. There is no retry.
-* Grounding obliges any future UI to display Search Suggestions
-  (`searchEntryPoint.renderedContent`). It is captured on the provider and deliberately
-  kept out of the domain layer; nothing renders it today.
 
 ## Reviewing a domain
 
