@@ -38,7 +38,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from skutruth.contracts import DiscoveryMethod, SourceType
+from skutruth.contracts import DiscoveryMethod
 from skutruth.ingest.errors import IngestionError
 from skutruth.ingest.models import IngestedArtifact, SourceMetadata
 from skutruth.ingest.pdf import ingest_pdf_bytes
@@ -66,22 +66,50 @@ class AcquiredArtifact:
         return self.artifact.sha256
 
 
+#: Provider names that genuinely mean Google search grounding. The frozen
+#: `DiscoveryMethod` enumerates specific mechanisms and has no generic "a search engine"
+#: value, so anything else records `DIRECT_URL` — truthful, because we did fetch that URL
+#: directly — and the actual provider name is preserved on the candidate and the
+#: `DiscoveryResult` instead. Widening the frozen contract for this would be reopening it
+#: for a labelling convenience, which is not a concrete bug.
+GOOGLE_PROVIDERS = frozenset({"google", "google-search", "google_search", "programmable-search"})
+
+
+def discovery_method_for(provider: str | None) -> DiscoveryMethod:
+    """The narrowest truthful `DiscoveryMethod` for the provider that found a candidate.
+
+    Never claims Google unless Google was actually used. A stored artifact asserting a
+    discovery mechanism it did not go through is false provenance, and false provenance in
+    the artifact store is the one thing this system cannot tolerate anywhere.
+    """
+    if provider and provider.strip().casefold() in GOOGLE_PROVIDERS:
+        return DiscoveryMethod.GOOGLE_SEARCH_GROUNDING
+    return DiscoveryMethod.DIRECT_URL
+
+
 def source_metadata_for(
     candidate: SourceCandidate, resource: FetchedResource, *, publisher: str | None
 ) -> SourceMetadata:
     """Discovery lineage in the frozen ingestion contract's own terms.
 
-    `identity_scope` and `covers_mpn` are deliberately left unset. Discovery observed a
+    `source_type` comes from `candidate.source_type()`, which reads the **effective**
+    authority — the host the bytes actually came from — and returns `None` when either the
+    publisher or the document kind is not established. `None` is stored rather than a
+    plausible-looking default: `SourceMetadata.source_type` is optional exactly so this
+    can be left unsaid, and the repository's own ingested catalogue records `null` there.
+
+    `identity_scope` and `covers_mpn` are likewise left unset. Discovery observed a
     reference in a URL and a title; whether the *document* covers that exact SKU is a
-    question for identity resolution, and pre-filling it here would let a search result
-    decide what only the document's contents can.
+    question for identity resolution, and pre-filling it would let a search result decide
+    what only the document's contents can.
     """
+    manufacturer_owned = candidate.may_store_as_manufacturer_evidence
     return SourceMetadata(
-        publisher=publisher,
+        publisher=publisher if manufacturer_owned else None,
         final_artifact_url=resource.final_url,
         discovery_url=candidate.url,
-        discovery_method=DiscoveryMethod.GOOGLE_SEARCH_GROUNDING,
-        source_type=candidate.source_type() or SourceType.MANUFACTURER_DATASHEET,
+        discovery_method=discovery_method_for(candidate.result.provider),
+        source_type=candidate.source_type(),
         retrieved_at=resource.fetched_at,
         original_filename=resource.final_url.rsplit("/", 1)[-1] or None,
         license_note=(
@@ -102,7 +130,19 @@ def acquire_pdf(
 
     Raises `FetchError` with a typed reason if the bytes are not an ingestible PDF, so a
     caller never has to tell an ingestion failure from a policy refusal by reading prose.
+
+    The authority check here is the last gate before bytes become evidence, and it reads
+    the *effective* authority. A candidate that started at an approved manufacturer host
+    and was redirected elsewhere fails here even though the fetch itself succeeded and was
+    perfectly safe — being reachable and being the publisher are different properties.
     """
+    if not candidate.may_store_as_manufacturer_evidence:
+        raise FetchError(
+            RejectionReason.REDIRECT_AUTHORITY_LOST,
+            f"{resource.final_url} resolved to "
+            f"{candidate.effective_authority.value}; only a host approved for this "
+            f"manufacturer may be stored as its evidence",
+        )
     if not resource.is_pdf:
         raise FetchError(
             RejectionReason.NOT_INGESTABLE_YET,

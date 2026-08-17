@@ -1,19 +1,29 @@
-# NOT AUTHORITATIVE — see `authority` below.
+# NOT ORGANIZER DATA — see `authority` below.
 #
-# Manufacturer-domain associations used to demonstrate source discovery. The organizer
-# pack contains no manufacturer or brand master, so nothing here comes from Unilog and
-# nothing here should be described as approved by them.
+# Manufacturer-domain associations used by source discovery. The organizer pack contains
+# no manufacturer or brand master, so nothing here comes from Unilog and nothing here
+# should be described as approved by them.
 #
-# Every entry below was written by hand. The domains are the ones these manufacturers
-# publish from in public, but "REVIEWED" here means a person looked, not that an
-# authoritative register was consulted. When an organizer manufacturer master arrives, a
-# registry marked OFFICIAL replaces this file and no discovery code changes.
+# `authority = "REVIEWED"` means a person checked that each manufacturer publishes from
+# each listed domain. That is a checkable fact about domain ownership, and it is why a
+# REVIEWED registry may license evidence. It is NOT a claim about Unilog's catalogue
+# rules, and `is_authoritative` stays false.
 #
-# `hints` lists the spellings actually observed in the organizer input, misspellings
-# included. That is deliberate: the input says `Phillips Lighting` on 111 rows, and a
-# registry that only knew the correct spelling would silently find nothing for them.
-# Recording an observed misspelling is not the same as canonicalising it — nothing here
-# rewrites the row, and the manufacturer master remains the only thing that could.
+# ## Two kinds of hint, and only one of them grants ownership
+#
+# `authority_hints` — reviewed as genuinely naming this manufacturer. Differences from
+# the key are case, punctuation, or corporate form: `Makita Usa Inc` reduces to `Makita`
+# under the documented suffix rule. These may produce APPROVED_MANUFACTURER.
+#
+# `locator_hints` — spellings observed in the organizer input that are *plausibly* this
+# manufacturer and have not been confirmed. They help build search queries and can never
+# grant ownership. A candidate found through one is classified UNVERIFIED_MANUFACTURER
+# and cannot be stored as that manufacturer's evidence.
+#
+# The split exists because the approved manufacturer master is missing. Deciding that
+# `Black & Decker/dewlt` *is* DeWalt is precisely the canonicalisation that file would
+# authorise; asserting it here, as a side effect of a domain lookup, would smuggle the
+# decision in without the evidence. Nothing here rewrites the input spelling either way.
 
 name = "manufacturer-domains-demo"
 authority = "REVIEWED"
@@ -22,7 +32,7 @@ authority = "REVIEWED"
 
 [[manufacturer]]
 key = "schneider-electric"
-hints = ["Schneider Electric", "Schneider", "Square D"]
+authority_hints = ["Schneider Electric", "Schneider", "Square D"]
 domains = ["se.com", "schneider-electric.com", "schneider-electric.co.uk", "squared.com"]
 note = """
 The LC1D18P7 engineering example. download.se.com serves datasheets and is covered as a
@@ -31,54 +41,63 @@ subdomain of se.com.
 
 [[manufacturer]]
 key = "kichler-lighting"
-hints = ["Kichler Lighting", "Kichler"]
+authority_hints = ["Kichler Lighting", "Kichler"]
 domains = ["kichler.com"]
 note = "Appears in the organizer input as `Kichler Lighting (KICLI)`."
 
 [[manufacturer]]
 key = "signify-philips-lighting"
-hints = ["Phillips Lighting", "Philips Lighting", "Signify"]
+authority_hints = ["Philips Lighting", "Signify"]
+locator_hints = ["Phillips Lighting"]
 domains = ["lighting.philips.com", "signify.com", "usa.lighting.philips.com"]
 note = """
-The organizer input spells this `Phillips Lighting` on 111 rows. The hint is recorded as
-written so those rows resolve; the spelling is NOT corrected anywhere, because the
-approved manufacturer master that would license a correction is not in the pack.
+The organizer input spells this `Phillips Lighting` on 111 rows — two Ls, which is not a
+corporate-form difference but a different word. It is almost certainly Philips, and
+`almost certainly` is not a licence to publish under Philips' name, so it is a locator
+hint: those rows still generate site-restricted queries, and anything found through them
+is UNVERIFIED_MANUFACTURER until the manufacturer master says otherwise.
 """
 
 [[manufacturer]]
 key = "trex"
-hints = ["Trex", "Trex Company"]
+authority_hints = ["Trex", "Trex Company"]
 domains = ["trex.com"]
 note = "Decking. 159 decking rows in the organizer sample, concentrated here and TimberTech."
 
 [[manufacturer]]
 key = "timbertech"
-hints = ["TimberTech", "AZEK"]
+authority_hints = ["TimberTech", "AZEK"]
 domains = ["timbertech.com", "azekco.com"]
 
 [[manufacturer]]
 key = "makita"
-hints = ["Makita", "Makita Usa Inc", "Makita USA"]
+authority_hints = ["Makita", "Makita Usa Inc", "Makita USA"]
 domains = ["makitatools.com", "makita.com"]
+note = """
+`Makita Usa Inc` reduces to `makita` under the documented suffix rule — a corporate-form
+difference, not a different name — so it is an authority hint rather than a locator one.
+"""
 
 [[manufacturer]]
 key = "dewalt"
-hints = ["DeWalt", "Black & Decker/dewlt", "Black and Decker"]
+authority_hints = ["DeWalt"]
+locator_hints = ["Black & Decker/dewlt", "Black and Decker"]
 domains = ["dewalt.com"]
 note = """
-The organizer input writes `Black & Decker/dewlt` on 55 rows. Recorded as an observed
-hint only. Whether those rows are really DeWalt is a canonicalisation question the
-missing manufacturer master answers, not this file.
+`Black & Decker/dewlt` on 55 organizer rows names a parent company and a misspelling of a
+brand, joined by a slash. Whether those rows are DeWalt products, Black & Decker products,
+or a supplier's shorthand for both is exactly what the missing manufacturer master would
+settle. Locator only.
 """
 
 [[manufacturer]]
 key = "3m"
-hints = ["3M", "3M Company"]
+authority_hints = ["3M", "3M Company"]
 domains = ["3m.com"]
 
 [[manufacturer]]
 key = "freud"
-hints = ["Freud", "Freud Inc"]
+authority_hints = ["Freud", "Freud Inc"]
 domains = ["freudtools.com"]
 
 # -- hosts that may locate a source but never license a fact -----------------------

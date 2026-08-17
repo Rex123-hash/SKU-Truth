@@ -39,8 +39,13 @@ class SourceAuthority(StrEnum):
     "Philips" and is not Philips.
     """
 
-    #: A host the registry approves for *this* product's manufacturer.
+    #: A host the registry approves for *this* product's manufacturer, under a binding
+    #: strong enough to license evidence.
     APPROVED_MANUFACTURER = "APPROVED_MANUFACTURER"
+    #: The registry connects this host to the manufacturer, but not with enough standing
+    #: to license a fact: the name matched only as a search locator, or the registry is
+    #: marked DEMO. A useful candidate; not a publisher we can cite.
+    UNVERIFIED_MANUFACTURER = "UNVERIFIED_MANUFACTURER"
     #: A host approved for a *different* manufacturer. Not authoritative here — a
     #: Schneider domain says nothing authoritative about a Philips part.
     OTHER_MANUFACTURER = "OTHER_MANUFACTURER"
@@ -150,7 +155,13 @@ class SourceCandidate(BaseModel):
 
     result: SearchResult
     host: str = Field(description="Normalized lowercase host")
+    #: Authority of the host the search engine named. This is what decides whether the
+    #: candidate is worth fetching — it is **not** what decides what may be stored.
     authority: SourceAuthority
+    #: Authority of the host the download actually came from, set once a fetch has
+    #: happened. A redirect can move the bytes to a host with no standing to publish
+    #: this manufacturer's data, and only this field can see that.
+    final_authority: SourceAuthority | None = None
     relevance: MpnRelevance
     kind: SourceKind
     status: CandidateStatus
@@ -173,8 +184,27 @@ class SourceCandidate(BaseModel):
 
     @property
     def is_eligible(self) -> bool:
-        """Manufacturer-approved and about this exact reference."""
+        """Worth fetching: manufacturer-approved host, and about this exact reference.
+
+        Eligibility is a decision about the *search result*. Whether the bytes that come
+        back may be stored as manufacturer evidence is decided again afterwards, against
+        `effective_authority`.
+        """
         return self.authority.may_license_evidence and self.relevance.is_exact
+
+    @property
+    def effective_authority(self) -> SourceAuthority:
+        """The authority that governs what may be stored.
+
+        The final host once one is known, the originally named host otherwise. Everything
+        that writes provenance reads this rather than `authority`, so a redirect cannot
+        leave a stored artifact claiming a publisher it never came from.
+        """
+        return self.final_authority or self.authority
+
+    @property
+    def may_store_as_manufacturer_evidence(self) -> bool:
+        return self.effective_authority.may_license_evidence
 
     @model_validator(mode="after")
     def _rejected_candidates_explain_themselves(self) -> SourceCandidate:
@@ -185,17 +215,26 @@ class SourceCandidate(BaseModel):
         return self
 
     def source_type(self) -> SourceType | None:
-        """The frozen contract's publisher class, when it can be stated.
+        """The frozen contract's publisher class, when it can be truthfully stated.
 
-        Only an approved manufacturer host yields one. Everything else returns `None`
-        rather than being labelled `GENERAL_WEB`, because this package does not have the
-        standing to classify a stranger's site.
+        Two ways to return `None`, both deliberate:
+
+        * the host has no standing — returning `GENERAL_WEB` would be this package
+          claiming to classify a stranger's site, which it cannot do;
+        * the document kind is not established. `MANUFACTURER_DATASHEET` asserts the
+          document *is a datasheet*, and a PDF from a manufacturer may equally be a
+          manual, a warranty, a brochure, or a catalogue. Labelling all of them
+          `DATASHEET` would fabricate a document type from a file extension.
+
+        `SourceMetadata.source_type` is optional precisely so this can be left unsaid,
+        and the repository's own ingested Schneider catalogue records `null` here. A
+        later stage that needs the value must establish it from the document.
         """
-        if not self.authority.may_license_evidence:
+        if not self.may_store_as_manufacturer_evidence:
             return None
         if self.kind is SourceKind.PRODUCT_PAGE:
             return SourceType.MANUFACTURER_PAGE
-        if self.kind in {SourceKind.DATASHEET, SourceKind.CATALOG, SourceKind.MANUAL}:
+        if self.kind is SourceKind.DATASHEET:
             return SourceType.MANUFACTURER_DATASHEET
         return None
 

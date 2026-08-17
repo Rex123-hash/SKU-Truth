@@ -103,13 +103,23 @@ def select_rows(
 
 
 def plan_for(request: DiscoveryRequest, registry: DomainRegistry) -> dict:
+    """What discovery would do for one row, and how far its authority would reach.
+
+    Two different questions, reported separately because they have different answers:
+    searchable domains come from the broad locator match, while whether anything found
+    there could be *stored as that manufacturer's evidence* needs a reviewed authority
+    hint. A row can be fully searchable and still license nothing.
+    """
     domains = registry.domains_for_hint(request.manufacturer_hint)
+    grants_authority = registry.entry_for_hint(request.manufacturer_hint) is not None
     return {
         "row": request.row_number,
         "mpn": request.mpn,
         "manufacturer_hint": request.manufacturer_hint,
         "manufacturer_code": request.manufacturer_code,
-        "approved_domains": list(domains),
+        "searchable_domains": list(domains),
+        "grants_manufacturer_authority": grants_authority
+        and registry.authority.may_license_evidence,
         "queries": list(build_queries(request, approved_domains=domains)),
     }
 
@@ -122,9 +132,15 @@ def render(plans: list[dict], *, registry: DomainRegistry, source: str) -> str:
         f"  rows       {len(plans)}",
         "",
     ]
-    with_domains = sum(1 for p in plans if p["approved_domains"])
+    searchable = sum(1 for p in plans if p["searchable_domains"])
+    licensing = sum(1 for p in plans if p["grants_manufacturer_authority"])
     for plan in plans:
-        mark = "official domains known" if plan["approved_domains"] else "NO APPROVED DOMAIN"
+        if plan["grants_manufacturer_authority"]:
+            mark = "searchable · may license evidence"
+        elif plan["searchable_domains"]:
+            mark = "searchable · locator hint only, licenses nothing"
+        else:
+            mark = "NO KNOWN DOMAIN"
         lines.append(
             f"  row {plan['row']:>4}  {plan['mpn']:<28} {plan['manufacturer_hint']!r} — {mark}"
         )
@@ -132,7 +148,8 @@ def render(plans: list[dict], *, registry: DomainRegistry, source: str) -> str:
             lines.append(f"        query  {query}")
     lines += [
         "",
-        f"  {with_domains}/{len(plans)} rows have at least one approved manufacturer domain",
+        f"  {searchable}/{len(plans)} rows have at least one searchable manufacturer domain",
+        f"  {licensing}/{len(plans)} rows could store what they find as manufacturer evidence",
         "",
         "  LIVE PILOT NOT EVALUATED — no search provider is configured.",
         "  Queries above are what discovery would execute; no result is claimed.",

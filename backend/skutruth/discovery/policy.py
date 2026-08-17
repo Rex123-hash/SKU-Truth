@@ -74,7 +74,18 @@ def classify_authority(
 ) -> SourceAuthority:
     """Whose site this is, relative to the product's manufacturer.
 
-    Blocked hosts are checked first: an explicit refusal outranks every other reading,
+    Three things must all hold before a host is `APPROVED_MANUFACTURER`:
+
+    1. the registry itself may license evidence — a `DEMO` registry never does;
+    2. the host belongs to a manufacturer the registry knows;
+    3. the supplied hint *identifies* that manufacturer under a reviewed authority hint,
+       not merely under a locator spelling.
+
+    Failing (1) or (3) yields `UNVERIFIED_MANUFACTURER`: the connection is real and the
+    candidate is worth looking at, but nothing here has standing to call the bytes that
+    manufacturer's own publication.
+
+    Blocked hosts are checked first, so an explicit refusal outranks every other reading —
     including a host that also appears on a manufacturer's domain list.
     """
     normalized = normalize_host(host)
@@ -85,9 +96,11 @@ def classify_authority(
 
     owner = registry.owner_of(normalized)
     if owner is not None:
-        if owner.matches_hint(manufacturer_hint):
+        if not owner.matches_for_locating(manufacturer_hint):
+            return SourceAuthority.OTHER_MANUFACTURER
+        if owner.grants_authority(manufacturer_hint) and registry.authority.may_license_evidence:
             return SourceAuthority.APPROVED_MANUFACTURER
-        return SourceAuthority.OTHER_MANUFACTURER
+        return SourceAuthority.UNVERIFIED_MANUFACTURER
 
     if registry.is_marketplace(normalized):
         return SourceAuthority.KNOWN_MARKETPLACE
@@ -163,6 +176,7 @@ AUTHORITY_REJECTIONS: dict[SourceAuthority, RejectionReason] = {
     SourceAuthority.KNOWN_MARKETPLACE: RejectionReason.MARKETPLACE_SOURCE,
     SourceAuthority.KNOWN_DISTRIBUTOR: RejectionReason.DISTRIBUTOR_SOURCE,
     SourceAuthority.OTHER_MANUFACTURER: RejectionReason.OTHER_MANUFACTURER_DOMAIN,
+    SourceAuthority.UNVERIFIED_MANUFACTURER: RejectionReason.AUTHORITY_NOT_ESTABLISHED,
     SourceAuthority.UNKNOWN: RejectionReason.DOMAIN_NOT_APPROVED,
 }
 

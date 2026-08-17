@@ -68,6 +68,14 @@ class RejectionReason(StrEnum):
     OTHER_MANUFACTURER_DOMAIN = "OTHER_MANUFACTURER_DOMAIN"
     DISTRIBUTOR_SOURCE = "DISTRIBUTOR_SOURCE"
     MARKETPLACE_SOURCE = "MARKETPLACE_SOURCE"
+    #: The registry associates this host with the manufacturer, but the association is
+    #: not strong enough to license evidence — a locator-only spelling, or a registry
+    #: marked DEMO. Distinct from DOMAIN_NOT_APPROVED, where nothing is known at all.
+    AUTHORITY_NOT_ESTABLISHED = "AUTHORITY_NOT_ESTABLISHED"
+    #: The request started at an approved manufacturer host and ended somewhere else.
+    #: Deliberately **not** an SSRF reason: the destination may be entirely safe to
+    #: connect to and still have no standing to publish this manufacturer's data.
+    REDIRECT_AUTHORITY_LOST = "REDIRECT_AUTHORITY_LOST"
 
     # -- product relevance ----------------------------------------------------
     MPN_ABSENT = "MPN_ABSENT"

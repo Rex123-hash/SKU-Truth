@@ -19,13 +19,15 @@ import socket
 import httpx
 import pytest
 from conftest_pdf import build_pdf
-from skutruth.contracts import RunMode
+from skutruth.contracts import DiscoveryMethod, RunMode, SourceType
 from skutruth.discovery import (
     CandidateStatus,
     DiscoveryRequest,
     MpnRelevance,
     SearchCall,
     SourceAuthority,
+    SourceKind,
+    classify_authority,
     discover_sources,
     parse_registry,
 )
@@ -71,11 +73,11 @@ def registry():
     return parse_registry(
         {
             "name": "test",
-            "authority": "DEMO",
+            "authority": "REVIEWED",
             "manufacturer": [
                 {
                     "key": "schneider",
-                    "hints": [MAKER, "Schneider"],
+                    "authority_hints": [MAKER, "Schneider"],
                     "domains": ["se.com", "schneider-electric.com"],
                 }
             ],
@@ -329,6 +331,272 @@ class TestReplay:
             body = cassettes.path_for(key).read_text(encoding="utf-8")
             assert "super-secret-token-abc123" not in body
             assert "api_key" not in body
+
+
+class TestRedirectAuthority:
+    """Being safe to connect to and being the publisher are different properties.
+
+    `fetch_url` already re-applies network policy at every hop, so a redirect into the
+    private network fails. It says nothing about *ownership*: an approved manufacturer URL
+    can redirect to an entirely public, entirely reachable third-party host, and before
+    this gate existed those bytes were stored as manufacturer evidence because the
+    original candidate still said APPROVED_MANUFACTURER.
+    """
+
+    def _redirecting(self, target: str):
+        def handler(request: httpx.Request) -> httpx.Response:
+            if "start" in str(request.url):
+                return httpx.Response(302, headers={"location": target})
+            return httpx.Response(
+                200, content=PDF_BYTES, headers={"content-type": "application/pdf"}
+            )
+
+        return httpx.MockTransport(handler)
+
+    def _run(self, stores, target: str):
+        cassettes, artifacts = stores
+        start = f"https://se.com/start/{MPN}.pdf"
+        return (
+            discover_sources(
+                request_from(raw_row()),
+                provider=FakeSearchProvider([{"url": start, "title": MPN, "rank": 1}]),
+                registry=registry(),
+                cassettes=cassettes,
+                artifacts=artifacts,
+                mode=RunMode.LIVE,
+                transport=self._redirecting(target),
+                resolver=resolver,
+            ),
+            artifacts,
+        )
+
+    def test_redirect_within_the_approved_domain_succeeds(self):
+        """A/B is covered below; this is the same-host case."""
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            f"https://se.com/files/{MPN}.pdf",  # A: same approved host
+            f"https://download.se.com/{MPN}.pdf",  # B: approved subdomain
+            f"https://schneider-electric.com/{MPN}.pdf",  # C: second approved domain
+        ],
+    )
+    def test_redirects_that_stay_with_the_manufacturer_succeed(self, stores, target):
+        result, artifacts = self._run(stores, target)
+        assert len(result.acquired) == 1
+        assert result.acquired[0].final_authority is SourceAuthority.APPROVED_MANUFACTURER
+        assert len(artifacts.hashes()) == 1
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            f"https://unrelated.example/{MPN}.pdf",  # F: public but unknown
+            f"https://grainger.com/{MPN}.pdf",  # D: distributor
+            f"https://amazon.com/{MPN}.pdf",  # E: marketplace
+            f"https://acme.example/{MPN}.pdf",  # G: another manufacturer's domain
+        ],
+    )
+    def test_redirects_that_leave_the_manufacturer_lose_authority(self, stores, target):
+        """C-G. Every one of these destinations is public and safe to connect to."""
+        result, artifacts = self._run(stores, target)
+        candidate = result.candidates[0]
+        assert candidate.status is CandidateStatus.REJECTED
+        assert RejectionReason.REDIRECT_AUTHORITY_LOST.value in candidate.rejections
+        assert candidate.artifact_sha256 is None
+        # H: the bytes were downloaded and then discarded. Nothing was stored.
+        assert artifacts.hashes() == ()
+        assert result.summary.artifacts_ingested == 0
+
+    def test_the_lost_authority_reason_is_not_an_ssrf_reason(self, stores):
+        """Network safety and publisher authority must stay separable in the record."""
+        result, _ = self._run(stores, f"https://unrelated.example/{MPN}.pdf")
+        rejections = result.candidates[0].rejections
+        assert RejectionReason.PRIVATE_ADDRESS.value not in rejections
+        assert RejectionReason.BLOCKED_HOST.value not in rejections
+
+    def test_a_redirect_to_a_private_address_still_fails_as_ssrf(self, stores):
+        """P. The existing network protection is untouched by the authority gate."""
+        result, artifacts = self._run(stores, "http://127.0.0.1/admin.pdf")
+        assert RejectionReason.PRIVATE_ADDRESS.value in result.candidates[0].rejections
+        assert artifacts.hashes() == ()
+
+    def test_the_stored_artifact_records_the_final_url(self, stores):
+        """G (spec): provenance is checked against where the bytes came from."""
+        result, artifacts = self._run(stores, f"https://download.se.com/{MPN}.pdf")
+        stored = artifacts.load(result.acquired[0].artifact_sha256)
+        assert stored.source.final_artifact_url == f"https://download.se.com/{MPN}.pdf"
+        assert stored.source.discovery_url == f"https://se.com/start/{MPN}.pdf"
+
+
+class TestStoredProvenance:
+    def test_provider_provenance_is_not_hard_coded_to_google(self, stores):
+        """M. A fake provider must not leave artifacts claiming Google search grounding."""
+        _, artifacts = stores
+        result = run(stores)
+        stored = artifacts.load(result.acquired[0].artifact_sha256)
+        assert stored.source.discovery_method is DiscoveryMethod.DIRECT_URL
+
+    def test_google_provenance_is_emitted_only_for_a_google_provider(self, stores):
+        """N."""
+
+        class GoogleProvider(FakeSearchProvider):
+            name = "google-search"
+
+        _, artifacts = stores
+        result = run(stores, provider=GoogleProvider())
+        stored = artifacts.load(result.acquired[0].artifact_sha256)
+        assert stored.source.discovery_method is DiscoveryMethod.GOOGLE_SEARCH_GROUNDING
+
+    def test_an_unknown_document_kind_is_not_called_a_datasheet(self, stores):
+        """O. A PDF from a manufacturer may be a manual, a warranty, or a brochure.
+
+        The URL gives no hint of what the document is — no `.pdf`, no `datasheet`, no
+        `/product` — so the kind stays UNKNOWN even though PDF bytes came back.
+        """
+        cassettes, artifacts = stores
+
+        def always_pdf(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, content=PDF_BYTES, headers={"content-type": "application/pdf"}
+            )
+
+        url = f"https://se.com/f/{MPN}"
+        result = discover_sources(
+            request_from(raw_row()),
+            provider=FakeSearchProvider([{"url": url, "title": MPN, "rank": 1}]),
+            registry=registry(),
+            cassettes=cassettes,
+            artifacts=artifacts,
+            mode=RunMode.LIVE,
+            transport=httpx.MockTransport(always_pdf),
+            resolver=resolver,
+        )
+        assert result.acquired[0].kind is SourceKind.UNKNOWN
+        stored = artifacts.load(result.acquired[0].artifact_sha256)
+        assert stored.source.source_type is None
+
+    def test_a_datasheet_is_recorded_as_one(self, stores):
+        _, artifacts = stores
+        result = run(stores)
+        stored = artifacts.load(result.acquired[0].artifact_sha256)
+        assert stored.source.source_type is SourceType.MANUFACTURER_DATASHEET
+
+
+class TestHintStanding:
+    """A dirty spelling may help find a page. It may not name its publisher."""
+
+    def _registry(self):
+        return parse_registry(
+            {
+                "name": "test",
+                "authority": "REVIEWED",
+                "manufacturer": [
+                    {
+                        "key": "dewalt",
+                        "authority_hints": ["DeWalt"],
+                        "locator_hints": ["Black & Decker/dewlt"],
+                        "domains": ["dewalt.com"],
+                    }
+                ],
+            }
+        )
+
+    def test_a_locator_only_hint_cannot_grant_manufacturer_authority(self):
+        """I."""
+        assert (
+            classify_authority(
+                "dewalt.com",
+                registry=self._registry(),
+                manufacturer_hint="Black & Decker/dewlt",
+            )
+            is SourceAuthority.UNVERIFIED_MANUFACTURER
+        )
+
+    def test_a_reviewed_hint_does_grant_authority(self):
+        """K."""
+        assert (
+            classify_authority("dewalt.com", registry=self._registry(), manufacturer_hint="DeWalt")
+            is SourceAuthority.APPROVED_MANUFACTURER
+        )
+
+    def test_a_locator_only_hint_still_builds_site_queries(self):
+        """J. Losing the search would be a worse trade than withholding the authority."""
+        from skutruth.discovery import build_queries
+
+        request = DiscoveryRequest(mpn="DCL183", manufacturer_hint="Black & Decker/dewlt")
+        domains = self._registry().domains_for_hint(request.manufacturer_hint)
+        assert domains == ("dewalt.com",)
+        assert '"DCL183" site:dewalt.com' in build_queries(request, approved_domains=domains)
+
+    def test_an_unverified_candidate_is_never_acquired(self, stores):
+        """The end-to-end consequence of I."""
+        cassettes, artifacts = stores
+        result = discover_sources(
+            DiscoveryRequest(mpn="DCL183", manufacturer_hint="Black & Decker/dewlt"),
+            provider=FakeSearchProvider(
+                [{"url": "https://dewalt.com/p/DCL183.pdf", "title": "DCL183", "rank": 1}]
+            ),
+            registry=self._registry(),
+            cassettes=cassettes,
+            artifacts=artifacts,
+            mode=RunMode.LIVE,
+            transport=transport(),
+            resolver=resolver,
+        )
+        candidate = result.candidates[0]
+        assert candidate.authority is SourceAuthority.UNVERIFIED_MANUFACTURER
+        assert RejectionReason.AUTHORITY_NOT_ESTABLISHED.value in candidate.rejections
+        assert artifacts.hashes() == ()
+
+    def test_a_demo_registry_cannot_license_evidence(self):
+        """L."""
+        demo = parse_registry(
+            {
+                "name": "illustrative",
+                "authority": "DEMO",
+                "manufacturer": [
+                    {"key": "dewalt", "authority_hints": ["DeWalt"], "domains": ["dewalt.com"]}
+                ],
+            }
+        )
+        assert (
+            classify_authority("dewalt.com", registry=demo, manufacturer_hint="DeWalt")
+            is SourceAuthority.UNVERIFIED_MANUFACTURER
+        )
+
+    def test_the_old_single_hint_form_is_refused(self):
+        """Migrating by guessing which spellings were reviewed is the failure to avoid."""
+        from skutruth.discovery import MalformedRegistryError
+
+        with pytest.raises(MalformedRegistryError, match="uses `hints`"):
+            parse_registry(
+                {
+                    "name": "x",
+                    "authority": "REVIEWED",
+                    "manufacturer": [
+                        {"key": "a", "hints": ["A"], "domains": ["a.example"]}
+                    ],
+                }
+            )
+
+    def test_a_name_cannot_be_both_authority_and_locator(self):
+        from skutruth.discovery import MalformedRegistryError
+
+        with pytest.raises(MalformedRegistryError, match="both an authority and a locator"):
+            parse_registry(
+                {
+                    "name": "x",
+                    "authority": "REVIEWED",
+                    "manufacturer": [
+                        {
+                            "key": "a",
+                            "authority_hints": ["Acme"],
+                            "locator_hints": ["ACME."],
+                            "domains": ["a.example"],
+                        }
+                    ],
+                }
+            )
 
 
 class TestArchitecturalGuarantees:

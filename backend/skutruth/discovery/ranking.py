@@ -27,11 +27,14 @@ from .models import MpnRelevance, SourceAuthority, SourceCandidate, SourceKind
 #: Lower sorts first.
 AUTHORITY_ORDER: dict[SourceAuthority, int] = {
     SourceAuthority.APPROVED_MANUFACTURER: 0,
-    SourceAuthority.OTHER_MANUFACTURER: 1,
-    SourceAuthority.UNKNOWN: 2,
-    SourceAuthority.KNOWN_DISTRIBUTOR: 3,
-    SourceAuthority.KNOWN_MARKETPLACE: 4,
-    SourceAuthority.BLOCKED: 5,
+    # Above an unknown host — the registry does connect it to the manufacturer — and
+    # below an approved one, because ranking must never let it be mistaken for licensed.
+    SourceAuthority.UNVERIFIED_MANUFACTURER: 1,
+    SourceAuthority.OTHER_MANUFACTURER: 2,
+    SourceAuthority.UNKNOWN: 3,
+    SourceAuthority.KNOWN_DISTRIBUTOR: 4,
+    SourceAuthority.KNOWN_MARKETPLACE: 5,
+    SourceAuthority.BLOCKED: 6,
 }
 
 RELEVANCE_ORDER: dict[MpnRelevance, int] = {

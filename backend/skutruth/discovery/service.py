@@ -139,12 +139,19 @@ def _acquire_one(
     candidate: SourceCandidate,
     *,
     store: ArtifactStore,
+    registry: DomainRegistry,
+    manufacturer_hint: str | None,
     publisher: str | None,
     policy: FetchPolicy,
     transport: httpx.BaseTransport | None,
     resolver: Resolver,
 ) -> tuple[SourceCandidate, AcquiredArtifact | None, int]:
-    """Fetch and ingest one eligible candidate. Returns the updated candidate."""
+    """Fetch and ingest one eligible candidate. Returns the updated candidate.
+
+    Eligibility was decided from the URL a search engine named. The bytes may arrive from
+    somewhere else entirely, so publisher authority is decided again here — against the
+    host the download actually came from.
+    """
     try:
         resource: FetchedResource = fetch_url(
             candidate.url, policy=policy, transport=transport, resolver=resolver
@@ -161,8 +168,16 @@ def _acquire_one(
             0,
         )
 
+    # `fetch_url` already re-applied network policy at every hop. That answers "is this
+    # safe to connect to", which is a different question from "may this host publish this
+    # manufacturer's data" — a redirect to an ordinary public third-party site passes the
+    # first and must fail the second.
+    final_authority = classify_authority(
+        host_of(resource.final_url), registry=registry, manufacturer_hint=manufacturer_hint
+    )
     fetched = candidate.model_copy(
         update={
+            "final_authority": final_authority,
             "final_url": resource.final_url,
             "redirect_chain": resource.redirect_chain,
             "http_status": resource.status_code,
@@ -258,6 +273,8 @@ def discover_sources(
         updated, acquired, byte_size = _acquire_one(
             candidate,
             store=artifacts,
+            registry=registry,
+            manufacturer_hint=request.manufacturer_hint,
             publisher=request.manufacturer_hint,
             policy=limits.fetch,
             transport=transport,

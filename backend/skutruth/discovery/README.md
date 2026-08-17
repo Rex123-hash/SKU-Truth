@@ -18,10 +18,30 @@ DiscoveryRequest  →  deterministic queries  →  provider (through record/repl
                                                         ↓  authority · relevance · kind
                                                  SourceCandidate[]  ranked, with reasons
                                                         ↓  eligible only
-                                                 safe fetch  →  ArtifactStore
+                                                 safe fetch
+                                                        ↓  authority re-checked on the FINAL host
+                                                 ArtifactStore
                                                         ↓
                                                  DiscoveryResult
 ```
+
+## Five independent gates. None substitutes for another.
+
+| Gate | Question | Answered by |
+|---|---|---|
+| **search result** | where might this be? | the provider — a locator, nothing more |
+| **network safety** | is this safe to connect to? | `fetch.py` — scheme, DNS, address ranges, per hop |
+| **manufacturer authority** | may this host publish this manufacturer's data? | the reviewed registry, on the **final** URL |
+| **MPN relevance** | is it worth acquiring for *this* reference? | `canonical_mpn` token comparison |
+| **product scope** | what does the document actually cover? | the identity resolver, after acquisition |
+
+The third gate is the one that is easy to get wrong, because the second looks like it. A
+public, reachable, perfectly safe third-party host is *safe to connect to* and has **no
+standing to publish a manufacturer's specification**. Those are different properties and
+they are checked separately: `REDIRECT_AUTHORITY_LOST` is deliberately not an SSRF reason.
+
+The fifth gate is why none of the others is allowed to conclude anything about the
+product. Discovery hands over bytes; identity resolution decides what they are about.
 
 ## Scope of this milestone
 
@@ -60,6 +80,7 @@ reason. Host matching is label-aware: `download.se.com` is covered by `se.com`, 
 | Authority | May license a fact |
 |---|---|
 | `APPROVED_MANUFACTURER` | **yes** |
+| `UNVERIFIED_MANUFACTURER` — the registry connects host and manufacturer, but not with enough standing | no |
 | `OTHER_MANUFACTURER` — approved, but for a different manufacturer | no |
 | `KNOWN_DISTRIBUTOR`, `KNOWN_MARKETPLACE` | no |
 | `BLOCKED` — datasheet mirrors, scraped aggregators | no |
@@ -69,9 +90,53 @@ Mirrors are refused even though they frequently carry a genuine manufacturer PDF
 cannot be shown to be unaltered, and knowing exactly what we read is the entire point of
 hashing an artifact.
 
-Registries declare their own provenance — `OFFICIAL` (organizer-supplied), `REVIEWED` (a
-person checked each domain), `DEMO`. **We hold no organizer manufacturer master**, so
-everything shipped today is `REVIEWED` at best and `is_authoritative` is `False`.
+### Authority is re-decided on the host the bytes came from
+
+`fetch.py` re-applies *network* policy at every redirect hop. That is a different question
+from ownership, and answering only it leaves a real hole: an approved manufacturer URL can
+302 to an ordinary public third-party host, pass every SSRF check, and — if authority were
+still read from the URL the search engine named — have its bytes stored as manufacturer
+evidence.
+
+So `SourceCandidate` carries both `authority` (the host named, which decides whether the
+candidate is worth fetching) and `final_authority` (the host the download came from, which
+decides what may be stored). `effective_authority` is what every provenance-writing path
+reads, and `acquire_pdf` refuses outright when it does not license evidence. Bytes from a
+lost-authority redirect are downloaded and discarded, never ingested.
+
+### Two kinds of hint, and only one grants ownership
+
+* `authority_hints` — reviewed as genuinely naming this manufacturer. Differences are
+  case, punctuation, or corporate form; `Makita Usa Inc` reduces to `Makita` under a
+  documented suffix rule. These may produce `APPROVED_MANUFACTURER`.
+* `locator_hints` — observed spellings that are *plausibly* this manufacturer and are not
+  confirmed. `Phillips Lighting` (two Ls) is almost certainly Philips; `Black &
+  Decker/dewlt` is probably DeWalt. They build site-restricted queries and grant nothing;
+  anything found through them is `UNVERIFIED_MANUFACTURER`.
+
+Losing the search would be the worse trade — a `site:` query aimed at the wrong
+manufacturer costs one query and returns nothing, while never searching the right site
+costs the source entirely. Granting ownership on a guess costs correctness, so only that
+half is withheld. Neither path rewrites the input spelling.
+
+Deciding that `Black & Decker/dewlt` *is* DeWalt is exactly the canonicalisation the
+missing manufacturer master would authorise. Asserting it as a side effect of a domain
+lookup would make that decision without the evidence.
+
+### What a registry's own provenance permits
+
+| | `is_authoritative` | `may_license_evidence` |
+|---|---|---|
+| `OFFICIAL` — organizer-supplied master | yes | yes |
+| `REVIEWED` — a person checked each domain | no | **yes** |
+| `DEMO` — illustrative | no | no |
+
+`REVIEWED` licenses evidence because domain ownership is a checkable fact, and a different
+claim from conforming to Unilog's catalogue rules. `DEMO` licenses nothing — an
+illustrative entry that could authorise a download would make the label meaningless.
+
+**We hold no organizer manufacturer master**, so the shipped registry is `REVIEWED` and
+`is_authoritative` is `False`.
 
 ## Exact-MPN relevance can only demote
 
@@ -152,6 +217,26 @@ API keys belong to the live callable and never enter the interaction descriptor,
 cannot reach a cassette key or a stored recording. A test asserts a credential never
 appears in a cassette file.
 
+## Provenance is never rounded up to something plausible
+
+Two places where a convenient default would have been a lie:
+
+* **`discovery_method`.** The frozen `DiscoveryMethod` enumerates specific mechanisms and
+  has no generic "a search engine" value. Only a genuinely Google-labelled provider
+  records `GOOGLE_SEARCH_GROUNDING`; anything else records `DIRECT_URL`, which is true —
+  we fetched that URL directly — and the real provider name is kept on the candidate and
+  the `DiscoveryResult`. Widening a frozen contract for a labelling convenience is not a
+  concrete bug, so this stays a documented narrowing instead.
+* **`source_type`.** `MANUFACTURER_DATASHEET` asserts the document *is a datasheet*. A PDF
+  from a manufacturer may equally be a manual, a warranty, a brochure, or a catalogue, so
+  only a candidate whose kind is actually `DATASHEET` receives it, `PRODUCT_PAGE` receives
+  `MANUFACTURER_PAGE`, and everything else stores `None`. `SourceMetadata.source_type` is
+  optional precisely so this can be left unsaid, and the repository's own ingested
+  Schneider catalogue records `null` there.
+
+`publisher` is likewise only set when the effective authority licenses evidence. An
+artifact that arrived from a host with no standing does not get to name a manufacturer.
+
 ## The seam into the existing pipeline
 
 `ingest/limits.py` already said it, before there was a fetcher: *"Discovery hands over
@@ -170,7 +255,9 @@ and counting it twice would let a mirror manufacture agreement.
 * DNS is not pinned (above).
 * Manufacturer hints are matched against explicitly listed spellings. A manufacturer not
   in the registry yields no approved domain — correct, and it means coverage is bounded by
-  how much of the registry has been written.
+  how much of the registry has been written. Against the organizer input, 5 of 75 distinct
+  supplier spellings are searchable (291 of 959 rows) but only **3 may license evidence**
+  (125 rows); the other two are locator-only spellings awaiting the manufacturer master.
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.
   Resolving that needs the manufacturer master, not more discovery.

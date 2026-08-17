@@ -11,13 +11,25 @@ So domain authority is **configuration, not inference**. A host is manufacturer-
 because a reviewed registry says so, and for no other reason. A hint that matches no
 entry yields no approved domain, which is a perfectly good answer.
 
-## Matching
+## Two kinds of hint, and only one of them grants ownership
 
 Manufacturer hints are dirty: `Phillips Lighting`, `Black & Decker/dewlt`, `Makita Usa
-Inc`. A registry entry therefore lists explicit `hints` — the spellings actually observed
-— rather than relying on a similarity score. Comparison folds case, punctuation, and
-common corporate suffixes, because `Schneider Electric` and `SCHNEIDER ELECTRIC, INC.`
-are the same string written twice, and that much is not a guess.
+Inc`. Some of that dirt is cosmetic and some of it is a substantive claim, and treating
+the two alike is how a spelling mistake becomes a publisher identity.
+
+* **`authority_hints`** — reviewed as genuinely naming this manufacturer. Differences are
+  case, punctuation, or corporate form: `Schneider Electric` and `SCHNEIDER ELECTRIC,
+  INC.` are one string written twice, and `Makita Usa Inc` reduces to `Makita` under a
+  documented suffix rule. These may produce `APPROVED_MANUFACTURER`.
+* **`locator_hints`** — spellings observed in the input that are *plausibly* this
+  manufacturer and have not been confirmed. `Phillips Lighting` is probably Philips.
+  `Black & Decker/dewlt` is probably DeWalt. Probably is not a licence. These help build
+  search queries and can never grant ownership.
+
+The distinction exists because the approved manufacturer master is missing. Deciding that
+`Black & Decker/dewlt` *is* DeWalt is exactly the canonicalisation that file would
+authorise, and asserting it here — as a side effect of a domain lookup — would smuggle in
+the decision without the evidence. Nothing rewrites the input spelling either way.
 
 Hosts match on exact equality or on a **subdomain** of an approved domain, so
 `download.se.com` is covered by `se.com` while `se.com.evil.example` is not — a
@@ -69,18 +81,40 @@ _PUNCTUATION = re.compile(r"[^a-z0-9]+")
 
 
 class RegistryAuthority(StrEnum):
-    """Where a registry's contents came from."""
+    """Where a registry's contents came from, and therefore what they may do.
+
+    Two different questions, kept apart because conflating them either blocks all work or
+    licenses unchecked data:
+
+    * `is_authoritative` — did this come from the organizer's own master? Only `OFFICIAL`
+      does, and nothing may be described as conforming to published rules without it.
+    * `may_license_evidence` — may an entry here bind a host to a manufacturer strongly
+      enough to store its bytes as that manufacturer's evidence? `OFFICIAL` and
+      `REVIEWED` may; `DEMO` may not.
+
+    `REVIEWED` licenses evidence because domain ownership is a *checkable* fact — a person
+    confirmed the manufacturer publishes from that host — and it is a different claim from
+    conforming to Unilog's catalogue rules. `DEMO` licenses nothing: it exists for
+    illustration and tests, and an illustrative entry that could authorise a download
+    would make the label meaningless.
+    """
 
     #: Organizer-supplied manufacturer master. We do not have one.
     OFFICIAL = "OFFICIAL"
     #: A person checked each domain against the manufacturer's own site.
     REVIEWED = "REVIEWED"
-    #: Illustrative. Not checked, not authoritative.
+    #: Illustrative. Not checked, and never a licence.
     DEMO = "DEMO"
 
     @property
     def is_authoritative(self) -> bool:
+        """Whether this came from organizer-supplied data."""
         return self is RegistryAuthority.OFFICIAL
+
+    @property
+    def may_license_evidence(self) -> bool:
+        """Whether entries here may establish manufacturer ownership of a host."""
+        return self in {RegistryAuthority.OFFICIAL, RegistryAuthority.REVIEWED}
 
 
 def normalize_manufacturer(name: str | None) -> str:
@@ -114,17 +148,27 @@ def host_covered_by(host: str, domain: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class ManufacturerEntry:
-    """One manufacturer and the hosts it is known to publish from."""
+    """One manufacturer, the hosts it publishes from, and the names it answers to."""
 
     key: str
-    hints: tuple[str, ...]
+    #: Reviewed spellings that genuinely name this manufacturer.
+    authority_hints: tuple[str, ...]
+    #: Observed spellings that may help find it, and may not identify it.
+    locator_hints: tuple[str, ...]
     domains: tuple[str, ...]
     note: str = ""
-    _normalized_hints: frozenset[str] = field(default_factory=frozenset, repr=False)
+    _authority_keys: frozenset[str] = field(default_factory=frozenset, repr=False)
+    _locator_keys: frozenset[str] = field(default_factory=frozenset, repr=False)
 
-    def matches_hint(self, hint: str | None) -> bool:
+    def grants_authority(self, hint: str | None) -> bool:
+        """Whether this hint may bind the manufacturer's ownership of its domains."""
         normalized = normalize_manufacturer(hint)
-        return bool(normalized) and normalized in self._normalized_hints
+        return bool(normalized) and normalized in self._authority_keys
+
+    def matches_for_locating(self, hint: str | None) -> bool:
+        """Whether this hint may be used to build queries. Broader, and grants nothing."""
+        normalized = normalize_manufacturer(hint)
+        return bool(normalized) and normalized in (self._authority_keys | self._locator_keys)
 
     def owns(self, host: str) -> bool:
         return any(host_covered_by(host, d) for d in self.domains)
@@ -158,16 +202,36 @@ class DomainRegistry:
             self._entries[entry.key] = entry
 
     def entry_for_hint(self, hint: str | None) -> ManufacturerEntry | None:
-        """The manufacturer this hint names, or `None`. Never a nearest match."""
+        """The manufacturer this hint *identifies*, or `None`. Never a nearest match.
+
+        Authority hints only. A locator-only spelling deliberately returns `None` here,
+        so nothing that reads this function can turn an unconfirmed name into ownership.
+        """
         if not hint:
             return None
         for entry in self._entries.values():
-            if entry.matches_hint(hint):
+            if entry.grants_authority(hint):
+                return entry
+        return None
+
+    def entry_for_locating(self, hint: str | None) -> ManufacturerEntry | None:
+        """The manufacturer this hint may point at, for query construction only."""
+        if not hint:
+            return None
+        for entry in self._entries.values():
+            if entry.matches_for_locating(hint):
                 return entry
         return None
 
     def domains_for_hint(self, hint: str | None) -> tuple[str, ...]:
-        entry = self.entry_for_hint(hint)
+        """Domains worth searching. Uses the broader locator match on purpose.
+
+        A `site:` query aimed at a manufacturer that turns out to be the wrong one costs
+        one query and returns nothing. That is a far better trade than never searching the
+        right site because the input misspelled its name — and it grants nothing, because
+        whatever comes back is classified by `entry_for_hint`, which is stricter.
+        """
+        entry = self.entry_for_locating(hint)
         return entry.domains if entry else ()
 
     def owner_of(self, host: str) -> ManufacturerEntry | None:
@@ -224,7 +288,8 @@ def parse_registry(data: dict, *, source: str = "<memory>") -> DomainRegistry:
     for index, raw in enumerate(data.get("manufacturer", []) or [], start=1):
         try:
             key = str(raw["key"]).strip()
-            hints = tuple(str(h) for h in raw.get("hints", []) or [])
+            authority_hints = tuple(str(h) for h in raw.get("authority_hints", []) or [])
+            locator_hints = tuple(str(h) for h in raw.get("locator_hints", []) or [])
             domains = tuple(normalize_host(str(d)) for d in raw["domains"])
         except (KeyError, TypeError) as exc:
             raise MalformedRegistryError(
@@ -234,15 +299,38 @@ def parse_registry(data: dict, *, source: str = "<memory>") -> DomainRegistry:
             raise MalformedRegistryError(
                 f"{source}: manufacturer entry {index} has an empty key or domain"
             )
+        if "hints" in raw:
+            # The old single-list form is refused rather than mapped onto either side.
+            # Guessing which spellings were reviewed is the decision this split exists
+            # to stop being made implicitly.
+            raise MalformedRegistryError(
+                f"{source}: manufacturer entry {index} ({key!r}) uses `hints`; declare "
+                f"`authority_hints` (reviewed as naming this manufacturer) and "
+                f"`locator_hints` (search aids that grant nothing) separately"
+            )
+
+        authority_keys = frozenset(
+            filter(None, (normalize_manufacturer(h) for h in (*authority_hints, key)))
+        )
+        locator_keys = frozenset(
+            filter(None, (normalize_manufacturer(h) for h in locator_hints))
+        )
+        overlap = authority_keys & locator_keys
+        if overlap:
+            raise MalformedRegistryError(
+                f"{source}: {key!r} lists {sorted(overlap)} as both an authority and a "
+                f"locator hint; a name either identifies this manufacturer or it does not"
+            )
+
         entries.append(
             ManufacturerEntry(
                 key=key,
-                hints=hints,
+                authority_hints=authority_hints,
+                locator_hints=locator_hints,
                 domains=domains,
                 note=str(raw.get("note", "")),
-                _normalized_hints=frozenset(
-                    filter(None, (normalize_manufacturer(h) for h in (*hints, key)))
-                ),
+                _authority_keys=authority_keys,
+                _locator_keys=locator_keys,
             )
         )
 

@@ -36,18 +36,24 @@ MPN = "LC1D18P7"
 MAKER = "Schneider Electric"
 
 
-def registry():
+def registry(authority: str = "REVIEWED"):
+    """A registry that may license evidence unless a test asks for one that may not."""
     return parse_registry(
         {
             "name": "test",
-            "authority": "DEMO",
+            "authority": authority,
             "manufacturer": [
                 {
                     "key": "schneider",
-                    "hints": ["Schneider Electric", "Schneider"],
+                    "authority_hints": ["Schneider Electric", "Schneider"],
+                    "locator_hints": ["Schnieder Elec"],
                     "domains": ["se.com", "schneider-electric.com"],
                 },
-                {"key": "acme", "hints": ["Acme Corp"], "domains": ["acme.example"]},
+                {
+                    "key": "acme",
+                    "authority_hints": ["Acme Corp"],
+                    "domains": ["acme.example"],
+                },
             ],
             "hosts": {
                 "marketplaces": ["amazon.com", "ebay.com"],
