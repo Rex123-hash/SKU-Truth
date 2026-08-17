@@ -28,10 +28,12 @@ PIM — is knowing which of those proposals are actually supported.
 ```
 raw Unilog row
       ↓  placeholder policy · Part_Manuf structural parse
-identity resolution              EXACT / FAMILY / UNKNOWN / CONTRADICTORY
-      ↓  exact reference required before anything is enriched
+manufacturer source discovery    approved domains only · exact reference required
+      ↓  bounded, SSRF-checked acquisition
 manufacturer artifact ingestion  bytes hashed · pages mapped · text preserved
       ↓
+identity resolution              EXACT / FAMILY / UNKNOWN / CONTRADICTORY
+      ↓  exact reference required before anything is enriched
 Gemini structured extraction     schema-constrained proposals, through record/replay
       ↓
 deterministic validation         units, picklists, ranges, condition completeness
@@ -54,6 +56,14 @@ manufacturer and brand normalisation, classpath, the five description forms, dig
 assets — are not built. So SKUTruth can write verified attributes into the official
 delivery schema through explicit mappings; it cannot yet claim those attributes are
 Unilog-compliant, and the code refuses to pretend otherwise.
+
+Discovery is likewise a foundation, not a solved problem. The policy engine, the
+SSRF-bounded fetcher, and the acquisition seam into the artifact store are implemented and
+tested offline; **no live search provider is implemented**, so no product has been
+discovered from the open web yet. Manufacturer-domain approval is a reviewed local
+registry covering a handful of suppliers, and several of the organizer input's largest
+`Part_Manuf` values are buying groups rather than manufacturers, so there is no
+manufacturer site to find for them at all.
 
 ## What the verification actually checks
 
@@ -89,6 +99,7 @@ datasheet it reads cannot be committed.
 | Frozen data contracts | identity, applicability, typed values with lineage, conditions, evidence, conflicts, abstention, coverage, run provenance |
 | Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
 | Identity resolution | `EXACT` / `FAMILY_OR_INCOMPLETE_REFERENCE` / `UNKNOWN` / `CONTRADICTORY`, with exact-SKU evidence required for `EXACT` |
+| Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store. No live provider yet |
 | Artifact ingestion | byte and page hashing, page-preserving text, content-addressed store that validates and never repairs |
 | Table extraction | ruled-table structure as an additive fallback; pypdf text stays canonical |
 | Gemini structured extraction | Vertex, schema-constrained, gated on exact identity, always through record/replay |
@@ -101,17 +112,17 @@ datasheet it reads cannot be committed.
 So: verification, adjudication, explicit non-authoritative mapping, and Unilog attribute-slot
 assembly are implemented and run end to end.
 
-**Not yet implemented** — official mappings; manufacturer and brand canonicalisation;
-classpath classification; the five description forms; document discovery for organizer
-rows; a batch product workflow; any user interface. Also outstanding inside the parts that
-do exist: range and logical value verification, controlled-vocabulary synonym licensing,
-and UOM and fraction normalisation.
+**Not yet implemented** — official mappings; a live search provider; manufacturer and
+brand canonicalisation; classpath classification; the five description forms; a batch
+product workflow; any user interface. Also outstanding inside the parts that do exist:
+range and logical value verification, controlled-vocabulary synonym licensing, UOM and
+fraction normalisation, and HTML artifact ingestion.
 
 Two of those are worth separating from the rest. Every mapping rule in the repository is
 hand-written, so **no output is claimed to conform to Unilog's published rules**. And no
-row in the organizer's 1,000-row input currently has a manufacturer artifact — the worked
-example is an engineering one, not organizer data — so **document discovery is what stands
-between this architecture and a batch demonstration**, not the mapping layer.
+row in the organizer's 1,000-row input has yet been enriched end to end: discovery has the
+policy, the fetcher, and the acquisition seam, but no live provider is wired, so **the
+open-web half is a tested foundation rather than a working retrieval system**.
 
 Several of those wait on organizer reference files that are not in the supplied pack — a
 brand master, the LOV, the UOM standard, the decimal/fraction table, the content
@@ -156,6 +167,7 @@ python -m ruff check backend tests scripts
 python scripts/etim_stats.py                       # ETIM statistics and integrity check
 python scripts/verify_extraction_run.py --cassette <path>       # re-derive a recorded run
 python scripts/assemble_delivery_record.py --cassette <path>    # and map it into a record
+python scripts/discover_sources.py --input <organizer csv>      # plan source discovery
 ```
 
 Python 3.12 and Pydantic on the backend. The data contracts in

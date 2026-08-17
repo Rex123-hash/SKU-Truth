@@ -1,0 +1,123 @@
+# NOT AUTHORITATIVE — see `authority` below.
+#
+# Manufacturer-domain associations used to demonstrate source discovery. The organizer
+# pack contains no manufacturer or brand master, so nothing here comes from Unilog and
+# nothing here should be described as approved by them.
+#
+# Every entry below was written by hand. The domains are the ones these manufacturers
+# publish from in public, but "REVIEWED" here means a person looked, not that an
+# authoritative register was consulted. When an organizer manufacturer master arrives, a
+# registry marked OFFICIAL replaces this file and no discovery code changes.
+#
+# `hints` lists the spellings actually observed in the organizer input, misspellings
+# included. That is deliberate: the input says `Phillips Lighting` on 111 rows, and a
+# registry that only knew the correct spelling would silently find nothing for them.
+# Recording an observed misspelling is not the same as canonicalising it — nothing here
+# rewrites the row, and the manufacturer master remains the only thing that could.
+
+name = "manufacturer-domains-demo"
+authority = "REVIEWED"
+
+# -- manufacturers ---------------------------------------------------------------
+
+[[manufacturer]]
+key = "schneider-electric"
+hints = ["Schneider Electric", "Schneider", "Square D"]
+domains = ["se.com", "schneider-electric.com", "schneider-electric.co.uk", "squared.com"]
+note = """
+The LC1D18P7 engineering example. download.se.com serves datasheets and is covered as a
+subdomain of se.com.
+"""
+
+[[manufacturer]]
+key = "kichler-lighting"
+hints = ["Kichler Lighting", "Kichler"]
+domains = ["kichler.com"]
+note = "Appears in the organizer input as `Kichler Lighting (KICLI)`."
+
+[[manufacturer]]
+key = "signify-philips-lighting"
+hints = ["Phillips Lighting", "Philips Lighting", "Signify"]
+domains = ["lighting.philips.com", "signify.com", "usa.lighting.philips.com"]
+note = """
+The organizer input spells this `Phillips Lighting` on 111 rows. The hint is recorded as
+written so those rows resolve; the spelling is NOT corrected anywhere, because the
+approved manufacturer master that would license a correction is not in the pack.
+"""
+
+[[manufacturer]]
+key = "trex"
+hints = ["Trex", "Trex Company"]
+domains = ["trex.com"]
+note = "Decking. 159 decking rows in the organizer sample, concentrated here and TimberTech."
+
+[[manufacturer]]
+key = "timbertech"
+hints = ["TimberTech", "AZEK"]
+domains = ["timbertech.com", "azekco.com"]
+
+[[manufacturer]]
+key = "makita"
+hints = ["Makita", "Makita Usa Inc", "Makita USA"]
+domains = ["makitatools.com", "makita.com"]
+
+[[manufacturer]]
+key = "dewalt"
+hints = ["DeWalt", "Black & Decker/dewlt", "Black and Decker"]
+domains = ["dewalt.com"]
+note = """
+The organizer input writes `Black & Decker/dewlt` on 55 rows. Recorded as an observed
+hint only. Whether those rows are really DeWalt is a canonicalisation question the
+missing manufacturer master answers, not this file.
+"""
+
+[[manufacturer]]
+key = "3m"
+hints = ["3M", "3M Company"]
+domains = ["3m.com"]
+
+[[manufacturer]]
+key = "freud"
+hints = ["Freud", "Freud Inc"]
+domains = ["freudtools.com"]
+
+# -- hosts that may locate a source but never license a fact -----------------------
+#
+# These are not blocklists in a security sense. A distributor page may be a perfectly
+# accurate description of a product; it is simply not the manufacturer's own publication,
+# so it cannot be the source a specification is verified against.
+
+[hosts]
+marketplaces = [
+    "amazon.com",
+    "amazon.co.uk",
+    "ebay.com",
+    "walmart.com",
+    "aliexpress.com",
+    "etsy.com",
+    "temu.com",
+]
+
+distributors = [
+    "grainger.com",
+    "mcmaster.com",
+    "rs-online.com",
+    "digikey.com",
+    "mouser.com",
+    "newark.com",
+    "farnell.com",
+    "homedepot.com",
+    "lowes.com",
+    "zoro.com",
+    "globalindustrial.com",
+]
+
+# Datasheet mirrors and scraped aggregators. They frequently carry a real manufacturer
+# PDF, and they are still refused: the copy cannot be shown to be unaltered, and the
+# whole point of hashing an artifact is that we know what we read.
+blocked = [
+    "datasheetarchive.com",
+    "alldatasheet.com",
+    "datasheets360.com",
+    "pdf1.alldatasheet.com",
+]
