@@ -421,19 +421,36 @@ class TestApplyRefusals:
         assert "already carries a review" in str(exc.value)
 
 
-class TestShippedRegistryStaysUnreviewed:
-    """The committed registry must not acquire a review as a side effect of anything."""
+class TestShippedRegistryOnlyLicensesWhatWasReviewed:
+    """The committed registry must not acquire a review as a side effect of anything.
 
-    def test_no_shipped_entry_licenses_evidence(self):
-        registry = load_registry(REGISTRY_PATH)
-        assert registry.licensing_entries == ()
+    Phrased as a correspondence rather than a count. Entries gain reviews when people
+    perform them; what may never happen is an entry licensing evidence without one.
+    """
 
-    def test_the_shipped_registry_is_reviewed_grade_but_carries_no_review_records(self):
+    def test_licensing_entries_are_exactly_the_reviewed_entries(self):
         registry = load_registry(REGISTRY_PATH)
-        assert registry.authority is RegistryAuthority.REVIEWED
-        assert all(e.review is None for e in registry.entries)
+        assert {e.key for e in registry.licensing_entries} == {
+            e.key for e in registry.entries if e.review is not None
+        }
 
-    def test_generating_a_packet_over_the_shipped_registry_licenses_nothing(self):
+    def test_the_registry_is_reviewed_grade(self):
+        assert load_registry(REGISTRY_PATH).authority is RegistryAuthority.REVIEWED
+
+    def test_every_unreviewed_entry_licenses_nothing(self):
         registry = load_registry(REGISTRY_PATH)
-        build_packet(ROWS, registry)
-        assert load_registry(REGISTRY_PATH).licensing_entries == ()
+        for entry in registry.unreviewed_entries:
+            assert entry.review is None, entry.key
+            assert not entry.licenses_evidence(registry.authority), entry.key
+
+    def test_generating_a_packet_does_not_change_what_licenses(self):
+        """Reading the registry to build review material must never promote an entry."""
+        before = {e.key for e in load_registry(REGISTRY_PATH).licensing_entries}
+        build_packet(ROWS, load_registry(REGISTRY_PATH))
+        assert {e.key for e in load_registry(REGISTRY_PATH).licensing_entries} == before
+
+    def test_a_reviewed_entry_carries_a_complete_record(self):
+        for entry in load_registry(REGISTRY_PATH).licensing_entries:
+            assert entry.review.reviewed_by.strip(), entry.key
+            assert entry.review.basis.strip(), entry.key
+            assert entry.review.reviewed_at.strip(), entry.key

@@ -9,6 +9,7 @@ domain, and a sibling part number reliably fail to become manufacturer evidence.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -496,16 +497,31 @@ class TestReviewProvenance:
             )
 
     def test_the_shipped_registry_licenses_nothing_it_has_not_reviewed(self):
-        """No entry carries a review record, so none of them licenses evidence.
+        """Licensing tracks review records exactly — never more, never fewer.
 
-        Zero licensing entries is the correct state for a registry nobody has audited. It
-        is more honest than one entry whose review was attributed to a person who never
-        performed it.
+        This deliberately does *not* assert a count. The registry gains reviews as people
+        perform them, and a test pinned to "zero" would fail on the first genuine review
+        and tempt someone to delete it. What must stay true is the correspondence: an
+        entry licenses evidence if and only if a person recorded a review of it.
         """
         loaded = load_registry(SHIPPED_REGISTRY)
-        assert loaded.licensing_entries == ()
-        assert len(loaded.unreviewed_entries) == len(loaded.entries)
-        assert all(e.review is None for e in loaded.entries)
+        licensing = {e.key for e in loaded.licensing_entries}
+        reviewed = {e.key for e in loaded.entries if e.review is not None}
+        assert licensing == reviewed
+
+        # And the split is total: every entry is on exactly one side.
+        unreviewed = {e.key for e in loaded.unreviewed_entries}
+        assert licensing | unreviewed == {e.key for e in loaded.entries}
+        assert not licensing & unreviewed
+
+    def test_every_shipped_review_names_a_person_a_date_and_a_basis(self):
+        """A review with an empty field answers none of the questions it exists to ask."""
+        for entry in load_registry(SHIPPED_REGISTRY).licensing_entries:
+            review = entry.review
+            assert review is not None
+            assert review.reviewed_by.strip(), entry.key
+            assert review.basis.strip(), entry.key
+            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", review.reviewed_at), entry.key
 
     def test_supporting_artifacts_do_not_constitute_a_review(self):
         """Schneider has the most evidence available and is still not reviewed.
