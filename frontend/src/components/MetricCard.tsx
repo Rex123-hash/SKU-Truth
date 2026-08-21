@@ -31,9 +31,11 @@ export function MetricCard({
       <p className={`text-[11.5px] font-semibold uppercase tracking-[.11em] ${dark ? "text-[var(--status-success)]" : "text-olive"}`}>
         {eyebrow}
       </p>
-      <p className={`display-heading mt-3 text-[36px] leading-none ${dark ? "text-cream" : "text-forest"}`}>
+      {/* `value` is an arbitrary ReactNode (callers pass a loading <Skeleton />), so this
+          wrapper must accept flow content. A <p> here reparses and breaks hydration. */}
+      <div className={`display-heading mt-3 text-[36px] leading-none ${dark ? "text-cream" : "text-forest"}`}>
         {value}
-      </p>
+      </div>
       <p className={`mt-2 text-[14px] font-medium leading-relaxed ${dark ? "text-[var(--text-on-dark-secondary)]" : "text-ink"}`}>
         {label}
       </p>
