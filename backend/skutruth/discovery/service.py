@@ -247,6 +247,7 @@ def discover_sources(
     provider: SearchProvider,
     registry: DomainRegistry,
     cassettes: CassetteStore,
+    queries: Sequence[str] | None = None,
     artifacts: ArtifactStore | None = None,
     mode: RunMode = RunMode.REPLAY,
     budget: DiscoveryBudget | None = None,
@@ -259,11 +260,19 @@ def discover_sources(
     surveying what is findable without downloading anything.
     """
     limits = budget or DiscoveryBudget()
-    approved = registry.domains_for_hint(request.manufacturer_hint)
-    queries = build_queries(request, approved_domains=approved, budget=limits.queries)
+    if queries is None:
+        approved = registry.domains_for_hint(request.manufacturer_hint)
+        search_queries = build_queries(
+            request, approved_domains=approved, budget=limits.queries
+        )
+    else:
+        # An explicit sequence is already the caller's deterministic search strategy.
+        # Preserve its text and order exactly; the provider and replay layer must see
+        # the same queries the caller supplied.
+        search_queries = tuple(queries)
 
     results, executed, provider_queries = _search_all(
-        queries,
+        search_queries,
         provider=provider,
         cassettes=cassettes,
         mode=mode,

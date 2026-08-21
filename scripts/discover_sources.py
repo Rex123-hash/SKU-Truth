@@ -190,9 +190,10 @@ def run_live(
                 (
                     discover_sources(
                         request,
-                        provider=base.for_manufacturer(patterns),
+                        provider=base.for_manufacturer(patterns).for_pdfs(),
                         registry=registry,
                         cassettes=store,
+                        queries=(request.mpn,),
                         artifacts=artifact_store,
                         mode=mode,
                     ),

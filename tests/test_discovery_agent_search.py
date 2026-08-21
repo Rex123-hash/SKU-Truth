@@ -752,6 +752,23 @@ class TestQueryProvenance:
             '"45297BK" datasheet',
         )
 
+    def test_explicit_queries_replace_only_this_calls_query_strategy(self, tmp_path):
+        provider = provider_for(
+            [KICHLER_PDF],
+            sites=reviewed_patterns_for_hint(registry(), "Kichler Lighting"),
+        )
+        result = discover_sources(
+            DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
+            provider=provider,
+            registry=registry(),
+            cassettes=CassetteStore(tmp_path),
+            queries=("45297BK",),
+            mode=RunMode.LIVE,
+        )
+
+        assert result.requested_queries == ("45297BK",)
+        assert [request.query for request, _ in provider._client.requests] == ["45297BK"]
+
 
 class TestTypedFailures:
     def test_a_timeout_is_typed(self):
@@ -832,6 +849,62 @@ class TestReplay:
         )
         assert replayed.candidates
         assert exploding.calls_made == 0
+
+    def test_explicit_query_replay_makes_zero_provider_calls(self, tmp_path):
+        patterns = reviewed_patterns_for_hint(registry(), "Kichler Lighting")
+        live = discover_sources(
+            DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
+            provider=provider_for([KICHLER_PDF], sites=patterns, pdf_only=True),
+            registry=registry(),
+            cassettes=CassetteStore(tmp_path),
+            queries=("45297BK",),
+            mode=RunMode.LIVE,
+        )
+        replay_provider = AgentSearchProvider(
+            CONFIG,
+            site_patterns=patterns,
+            pdf_only=True,
+            client=_ExplodingClient(),
+        )
+        replayed = discover_sources(
+            DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
+            provider=replay_provider,
+            registry=registry(),
+            cassettes=CassetteStore(tmp_path),
+            queries=("45297BK",),
+            mode=RunMode.REPLAY,
+        )
+
+        assert [candidate.url for candidate in replayed.candidates] == [
+            candidate.url for candidate in live.candidates
+        ]
+        assert replay_provider.calls_made == 0
+
+    def test_explicit_query_text_is_part_of_cassette_identity(self, tmp_path):
+        patterns = reviewed_patterns_for_hint(registry(), "Kichler Lighting")
+        discover_sources(
+            DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
+            provider=provider_for([], sites=patterns, pdf_only=True),
+            registry=registry(),
+            cassettes=CassetteStore(tmp_path),
+            queries=("45297BK",),
+            mode=RunMode.LIVE,
+        )
+
+        with pytest.raises(ReplayMissError):
+            discover_sources(
+                DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
+                provider=AgentSearchProvider(
+                    CONFIG,
+                    site_patterns=patterns,
+                    pdf_only=True,
+                    client=_ExplodingClient(),
+                ),
+                registry=registry(),
+                cassettes=CassetteStore(tmp_path),
+                queries=("different-query",),
+                mode=RunMode.REPLAY,
+            )
 
     def test_a_replay_miss_fails_closed(self, tmp_path):
         """U."""

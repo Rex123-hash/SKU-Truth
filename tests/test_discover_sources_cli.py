@@ -12,9 +12,14 @@ from __future__ import annotations
 
 import csv
 import sys
+import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+from skutruth.contracts import RunMode
+from skutruth.discovery import AgentSearchConfig, AgentSearchProvider, DiscoveryRequest
+from skutruth.discovery.domains import parse_registry
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -70,6 +75,91 @@ def registry_file(tmp_path, text):
 
 def run(argv):
     return discover_sources.main(argv)
+
+
+class CapturingClient:
+    def __init__(self):
+        self.requests = []
+
+    def search(self, request=None, timeout=None):
+        self.requests.append((request, timeout))
+        return SimpleNamespace(results=[])
+
+
+def agent_search_base(client, **kwargs):
+    return AgentSearchProvider(
+        AgentSearchConfig(project="test-project", engine_id="test-engine"),
+        limits=kwargs.get("limits"),
+        client=client,
+    )
+
+
+class TestOrganizerAgentSearchWiring:
+    def test_reviewed_row_uses_exact_mpn_and_pdf_filter(self, tmp_path, monkeypatch):
+        client = CapturingClient()
+        monkeypatch.setattr(
+            discover_sources.AgentSearchProvider,
+            "from_env",
+            classmethod(lambda cls, **kwargs: agent_search_base(client, **kwargs)),
+        )
+        registry = parse_registry(tomllib.loads(REVIEWED_TOML), source="test-registry")
+        request = DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting")
+
+        rows = discover_sources.run_live(
+            [request],
+            registry=registry,
+            cassettes=tmp_path / "cassettes",
+            artifacts=None,
+            max_results=10,
+            mode=RunMode.LIVE,
+        )
+
+        assert rows[0][0] is not None
+        assert rows[0][2] == ""
+        assert len(client.requests) == 1
+        physical, _ = client.requests[0]
+        assert physical.query == "45297BK"
+        assert "site:" not in physical.query
+        assert "Kichler Lighting" not in physical.query
+        assert "datasheet" not in physical.query
+        assert physical.filter == (
+            'siteSearch:"https://kichler.com/*" AND fileType:".pdf"'
+        )
+        assert physical.page_size == 10
+
+    def test_unreviewed_row_makes_zero_agent_search_calls(self, tmp_path, monkeypatch):
+        client = CapturingClient()
+        monkeypatch.setattr(
+            discover_sources.AgentSearchProvider,
+            "from_env",
+            classmethod(lambda cls, **kwargs: agent_search_base(client, **kwargs)),
+        )
+        registry = parse_registry(
+            tomllib.loads(
+                REVIEWED_TOML
+                + """
+
+[[manufacturer]]
+key = "schneider-electric"
+authority_hints = ["Schneider Electric"]
+domains = ["se.com"]
+"""
+            ),
+            source="test-registry",
+        )
+
+        rows = discover_sources.run_live(
+            [DiscoveryRequest(mpn="LC1D18P7", manufacturer_hint="Schneider Electric")],
+            registry=registry,
+            cassettes=tmp_path / "cassettes",
+            artifacts=None,
+            max_results=10,
+            mode=RunMode.LIVE,
+        )
+
+        assert rows[0][0] is None
+        assert rows[0][2].startswith("DOMAIN_REVIEW_REQUIRED")
+        assert client.requests == []
 
 
 class TestLiveNotExecutedIsNotSuccess:
