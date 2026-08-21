@@ -97,7 +97,7 @@ domains = ["kichler.com"]
 note = "Appears in the organizer input as `Kichler Lighting (KICLI)`. Reviewed — see the review block below."
 
 [manufacturer.review]
-reviewed_at = "2026-08-20"
+reviewed_at = "2026-08-21"
 reviewed_by = "Amaan Khan"
 basis = "Personally opened the manufacturer site and confirmed kichler.com is Kichler Lighting's own official manufacturer website, not a distributor, reseller, or marketplace. Consulted: https://www.kichler.com/ https://www.kichler.com/why-kichler https://www.kichler.com/customer-care/contact-us"
 

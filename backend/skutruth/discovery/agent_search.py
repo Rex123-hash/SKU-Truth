@@ -37,6 +37,19 @@ trustworthy, because a domain only becomes searchable once someone already decid
 `included_patterns_for` builds the pattern list exclusively from registry entries that
 carry a `DomainReview`, and refuses to exceed the documented 50-pattern ceiling.
 
+## Two pattern representations, deliberately kept apart
+
+The corpus and the per-query filter are configured through different Google API surfaces
+with different documented syntax, so each has its own helper:
+
+* **data store target** (`corpus_pattern_for`) — `kichler.com/*`. The `TargetSite`
+  documentation says the URI pattern must not include the http or https protocol.
+* **query-time filter** (`query_site_pattern_for`) — `https://kichler.com/*`, as used in
+  `siteSearch:"https://kichler.com/*"`. The filter examples are full URLs.
+
+Neither format is verified by the SDK: constructing a request locally proves field names
+and types, never what the backend accepts. Both come from Google's published docs.
+
 ## Credentials
 
 Application Default Credentials against the existing GCP project, the same as the
@@ -176,16 +189,34 @@ class AgentSearchLimits:
             )
 
 
-def site_pattern_for(domain: str) -> str:
-    """The documented `siteSearch` pattern form for one domain.
+def corpus_pattern_for(domain: str) -> str:
+    """The **data store** target pattern for one domain: `kichler.com/*`.
 
-    Google's examples are full URLs with a wildcard —
-    `siteSearch:"https://example.com/subdomains/*"` — not bare hostnames, so the scheme
-    is included. Built in one place so every caller agrees on the format.
+    This is the `TargetSite.provided_uri_pattern` form — what goes in the website data
+    store's *Sites to include*. Google's documented examples are scheme-less
+    (`example.com/docs/*`), and the API reference states outright that the URI pattern
+    must not include the http or https protocol.
+
+    Deliberately *not* the same string as `query_site_pattern_for`. The two belong to
+    different API surfaces with different documented syntax, and one helper serving both
+    is how a scheme ends up somewhere it is not allowed.
     """
     host = normalize_host(domain)
     if not host:
-        raise AgentSearchConfigError(f"cannot build a site pattern from {domain!r}")
+        raise AgentSearchConfigError(f"cannot build a corpus pattern from {domain!r}")
+    return f"{host}/*"
+
+
+def query_site_pattern_for(domain: str) -> str:
+    """The **query-time** `siteSearch` filter pattern for one domain.
+
+    Google's filter examples are full URLs with a wildcard —
+    `siteSearch:"https://example.com/subdomains/*"` — so the scheme is included here and
+    only here. This never configures the data store; see `corpus_pattern_for` for that.
+    """
+    host = normalize_host(domain)
+    if not host:
+        raise AgentSearchConfigError(f"cannot build a site filter pattern from {domain!r}")
     return f"https://{host}/*"
 
 
@@ -197,6 +228,11 @@ def included_patterns_for(registry: DomainRegistry) -> tuple[str, ...]:
     the manufacturer it is actually about. Conflating the two would search every reviewed
     manufacturer's site for every part number.
 
+    These are **corpus** patterns, so they carry no scheme (`kichler.com/*`). The
+    query-time filter form for the same domain is a full URL
+    (`https://kichler.com/*`); the two are different documented syntaxes and must not be
+    swapped.
+
     Reads `licensing_entries`, so a domain enters the corpus only once a human has
     recorded a `DomainReview`. No provider output can add one.
 
@@ -205,7 +241,7 @@ def included_patterns_for(registry: DomainRegistry) -> tuple[str, ...]:
     the run would report "no results" for a domain the operator believed was configured.
     """
     patterns = tuple(
-        site_pattern_for(domain)
+        corpus_pattern_for(domain)
         for entry in registry.licensing_entries
         for domain in entry.domains
     )
@@ -235,7 +271,7 @@ def reviewed_patterns_for_hint(
     entry = registry.entry_for_hint(manufacturer_hint)
     if entry is None or not registry.licenses(entry):
         return ()
-    return tuple(site_pattern_for(domain) for domain in entry.domains)
+    return tuple(query_site_pattern_for(domain) for domain in entry.domains)
 
 
 def build_filter(*, site_pattern: str | None = None, pdf_only: bool = False) -> str:
@@ -580,9 +616,10 @@ __all__ = [
     "AgentSearchLimits",
     "AgentSearchProvider",
     "build_filter",
+    "corpus_pattern_for",
     "included_patterns_for",
     "normalize_results",
+    "query_site_pattern_for",
     "reviewed_patterns_for_hint",
-    "site_pattern_for",
     "with_limits",
 ]

@@ -17,9 +17,10 @@ from .agent_search import (
     AgentSearchLimits,
     AgentSearchProvider,
     build_filter,
+    corpus_pattern_for,
     included_patterns_for,
+    query_site_pattern_for,
     reviewed_patterns_for_hint,
-    site_pattern_for,
 )
 from .domains import (
     DEFAULT_REGISTRY_DIR,
@@ -148,9 +149,10 @@ __all__ = [
     "fetch_url",
     "host_covered_by",
     "host_of",
+    "corpus_pattern_for",
     "included_patterns_for",
+    "query_site_pattern_for",
     "reviewed_patterns_for_hint",
-    "site_pattern_for",
     "load_registry",
     "normalize_host",
     "normalize_manufacturer",

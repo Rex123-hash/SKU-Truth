@@ -28,11 +28,12 @@ from skutruth.discovery import (
     SearchProviderTimeout,
     SearchProviderTransportError,
     build_filter,
+    corpus_pattern_for,
     discover_sources,
     execute_search,
     included_patterns_for,
+    query_site_pattern_for,
     reviewed_patterns_for_hint,
-    site_pattern_for,
 )
 from skutruth.discovery.agent_search import (
     ENV_ENGINE_ID,
@@ -252,9 +253,10 @@ class TestFilters:
             == 'siteSearch:"https://kichler.com/*"'
         )
 
-    def test_site_pattern_for_builds_the_documented_form(self):
-        assert site_pattern_for("kichler.com") == "https://kichler.com/*"
-        assert site_pattern_for("WWW.Kichler.com") == "https://kichler.com/*"
+    def test_query_site_pattern_for_builds_the_documented_filter_form(self):
+        """B. The filter surface documents full URLs, so the scheme stays."""
+        assert query_site_pattern_for("kichler.com") == "https://kichler.com/*"
+        assert query_site_pattern_for("WWW.Kichler.com") == "https://kichler.com/*"
 
     def test_site_and_file_type_combine_with_and(self):
         """B."""
@@ -416,10 +418,7 @@ class TestPerManufacturerFilter:
     def test_a_kichler_query_does_not_search_freuds_domain(self):
         """G, I. The corpus holds both; one row searches one."""
         reg = registry(TWO_MANUFACTURERS)
-        assert set(included_patterns_for(reg)) == {
-            "https://kichler.com/*",
-            "https://freudtools.com/*",
-        }
+        assert set(included_patterns_for(reg)) == {"kichler.com/*", "freudtools.com/*"}
         patterns = reviewed_patterns_for_hint(reg, "Kichler Lighting")
         assert patterns == ("https://kichler.com/*",)
 
@@ -483,10 +482,62 @@ class TestPageSizeBound:
         assert MAX_INCLUDED_PATTERNS == 50
 
 
+class TestCorpusAndFilterPatternsAreDifferentFormats:
+    """A, B, C, D. Two Google API surfaces, two documented syntaxes, two helpers.
+
+    The data store's `TargetSite.provided_uri_pattern` is documented as excluding the
+    http/https protocol; the query-time `siteSearch` filter is documented with full URLs.
+    Reusing one string for both would put a scheme where the docs forbid one — and the
+    failure would only appear at provisioning time, in a console, to a person.
+    """
+
+    def test_the_corpus_pattern_carries_no_scheme(self):
+        """A."""
+        assert corpus_pattern_for("kichler.com") == "kichler.com/*"
+        assert corpus_pattern_for("WWW.Kichler.com") == "kichler.com/*"
+
+    def test_the_query_pattern_carries_the_scheme(self):
+        """B."""
+        assert query_site_pattern_for("kichler.com") == "https://kichler.com/*"
+
+    def test_the_two_representations_are_not_the_same_string(self):
+        assert corpus_pattern_for("kichler.com") != query_site_pattern_for("kichler.com")
+
+    def test_the_corpus_uses_the_corpus_representation(self):
+        """C."""
+        assert included_patterns_for(registry()) == ("kichler.com/*",)
+
+    def test_the_query_filter_uses_the_query_representation(self):
+        """D."""
+        assert reviewed_patterns_for_hint(registry(), "Kichler Lighting") == (
+            "https://kichler.com/*",
+        )
+
+    def test_no_corpus_pattern_carries_a_protocol(self):
+        assert not any(p.startswith("http") for p in included_patterns_for(registry()))
+
+    def test_the_runtime_filter_is_built_from_the_query_representation(self):
+        """G. Registry to filter expression, with nothing hand-written in between."""
+        (pattern,) = reviewed_patterns_for_hint(registry(), "Kichler Lighting")
+        assert build_filter(site_pattern=pattern) == 'siteSearch:"https://kichler.com/*"'
+
+    def test_the_runtime_pdf_filter_is_unchanged(self):
+        """H."""
+        (pattern,) = reviewed_patterns_for_hint(registry(), "Kichler Lighting")
+        assert build_filter(site_pattern=pattern, pdf_only=True) == (
+            'siteSearch:"https://kichler.com/*" AND fileType:".pdf"'
+        )
+
+    def test_an_empty_domain_is_refused_by_both_helpers(self):
+        for helper in (corpus_pattern_for, query_site_pattern_for):
+            with pytest.raises(AgentSearchConfigError):
+                helper("   ")
+
+
 class TestCorpusIsTheReviewedSet:
     def test_only_reviewed_domains_become_url_patterns(self):
         """O, Q. Schneider is in the registry, unreviewed, and stays out."""
-        assert included_patterns_for(registry()) == ("https://kichler.com/*",)
+        assert included_patterns_for(registry()) == ("kichler.com/*",)
 
     def test_an_unreviewed_registry_yields_no_patterns(self):
         text = REVIEWED_TOML.replace(
@@ -773,7 +824,7 @@ class TestReplay:
         # recording, not that a mismatched key quietly missed.
         exploding = AgentSearchProvider(
             CONFIG,
-            site_patterns=included_patterns_for(registry()),
+            site_patterns=reviewed_patterns_for_hint(registry(), "Kichler Lighting"),
             client=_ExplodingClient(),
         )
         replayed = run_discovery(
@@ -879,7 +930,8 @@ def run_discovery(
 ):
     return discover_sources(
         DiscoveryRequest(mpn=mpn, manufacturer_hint=hint),
-        provider=provider or provider_for(results, sites=included_patterns_for(registry())),
+        provider=provider
+        or provider_for(results, sites=reviewed_patterns_for_hint(registry(), hint)),
         registry=registry(),
         cassettes=CassetteStore(tmp_path),
         mode=mode,
@@ -899,7 +951,7 @@ def acquiring_run(body, content_type, *, tmp_path, redirect_to=None):
         DiscoveryRequest(mpn="45297BK", manufacturer_hint="Kichler Lighting"),
         provider=provider_for(
             [result_for("https://www.kichler.com/spec/45297BK.pdf", "45297BK spec")],
-            sites=included_patterns_for(registry()),
+            sites=reviewed_patterns_for_hint(registry(), "Kichler Lighting"),
         ),
         registry=registry(),
         cassettes=CassetteStore(tmp_path / "cassettes"),

@@ -134,10 +134,30 @@ new customers.
   Google's guidance is to disable it in exactly that case. Basic search reads Google's
   existing index instead.
 
+### Two pattern formats: corpus and filter
+
+The corpus and the per-query filter are configured through **different Google API
+surfaces**, and each documents its own syntax. They are built by different helpers so
+neither can be pasted where the other belongs:
+
+| | helper | form | where it goes |
+|---|---|---|---|
+| **data store target** | `corpus_pattern_for()` | `kichler.com/*` | *Sites to include* — `TargetSite.provided_uri_pattern` |
+| **query-time filter** | `query_site_pattern_for()` | `https://kichler.com/*` | `siteSearch:"https://kichler.com/*"` |
+
+The data store pattern carries **no scheme**: the target-site documentation states the
+URI pattern must not include the http or https protocol, and its examples are bare
+(`example.com/docs/*`). The filter pattern **does**: the basic-search filter examples are
+full URLs with a wildcard.
+
+Neither format is proven by the SDK. Constructing a request locally establishes field
+names and types and nothing about what the backend accepts; both formats come from
+Google's published documentation, and no live call has been made.
+
 ### The corpus is the reviewed set
 
-`included_patterns_for()` builds the included URL patterns **only** from registry entries
-carrying a `DomainReview`. A domain becomes searchable after a human reviews it, never
+`included_patterns_for()` builds the included URL patterns — in the scheme-less corpus
+form — **only** from registry entries carrying a `DomainReview`. A domain becomes searchable after a human reviews it, never
 before — so Agent Search cannot be used to decide that a domain is trustworthy, and no
 provider output can add one. `scripts/setup_agent_search.py` prints the resulting
 configuration and creates nothing.
@@ -168,10 +188,10 @@ that a page is about a product.
 
 ### Corpus, and per-row site filter, are different things
 
-| | what it is | how wide |
-|---|---|---|
-| **data store corpus** | what the app may search at all | every reviewed domain, ≤ 50 patterns |
-| **query-time filter** | what one row searches | only *that row's* manufacturer's reviewed domains |
+| | what it is | how wide | pattern form |
+|---|---|---|---|
+| **data store corpus** | what the app may search at all | every reviewed domain, ≤ 50 patterns | `kichler.com/*` |
+| **query-time filter** | what one row searches | only *that row's* manufacturer's reviewed domains | `https://kichler.com/*` |
 
 Conflating them would search every reviewed manufacturer's site for every part number —
 spending calls on other manufacturers and inviting a near-miss host to be considered in

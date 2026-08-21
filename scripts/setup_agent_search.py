@@ -13,6 +13,14 @@ Search cannot be used to establish that a manufacturer owns a domain, because a 
 does not enter the corpus until someone has already established it. With no reviews, this
 prints an empty corpus and says so — which is the correct state today.
 
+## Two pattern formats, and this script prints the data store's
+
+The *Sites to include* value is the data store's `TargetSite.provided_uri_pattern`, whose
+documentation says the pattern must not include the http or https protocol — so it is
+printed scheme-less, `kichler.com/*`. The query-time `siteSearch` filter the runtime
+sends is a different API surface with different documented syntax, a full URL:
+`siteSearch:"https://kichler.com/*"`. Both are shown, labelled, and never interchanged.
+
 ## Basic website search only
 
 Advanced website indexing requires verifying the domains, which we cannot do for
@@ -47,6 +55,7 @@ from skutruth.discovery.agent_search import (  # noqa: E402
     ENV_LOCATION,
     MAX_INCLUDED_PATTERNS,
     included_patterns_for,
+    query_site_pattern_for,
 )
 from skutruth.extraction.config import ENV_PROJECT  # noqa: E402
 
@@ -54,7 +63,20 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REGISTRY = ROOT / "data" / "discovery" / "manufacturer_domains.demo.toml"
 
 
-def render(registry, patterns: tuple[str, ...]) -> str:
+def query_patterns_for(registry) -> tuple[str, ...]:
+    """The runtime `siteSearch` form of the same reviewed domains, for documentation.
+
+    Printed alongside the corpus patterns so an operator can see both representations at
+    once — and never so one can be pasted where the other belongs.
+    """
+    return tuple(
+        query_site_pattern_for(domain)
+        for entry in registry.licensing_entries
+        for domain in entry.domains
+    )
+
+
+def render(registry, patterns: tuple[str, ...], query_patterns: tuple[str, ...]) -> str:
     lines = [
         "AGENT SEARCH PROVISIONING PLAN",
         f"  registry            {registry.name} ({registry.authority.value})",
@@ -82,8 +104,19 @@ def render(registry, patterns: tuple[str, ...]) -> str:
         ]
         return "\n".join(lines)
 
-    lines += ["SITES TO INCLUDE (paste into the website data store):", ""]
+    lines += [
+        "SITES TO INCLUDE (paste into the website data store):",
+        "",
+    ]
     lines += [f"    {pattern}" for pattern in patterns]
+    lines += [
+        "",
+        "  No scheme, deliberately: the data store's URI pattern is documented as",
+        "  excluding the http/https protocol. The query-time filter is a different",
+        "  surface with different syntax, and the runtime will send:",
+        "",
+    ]
+    lines += [f'    siteSearch:"{pattern}"' for pattern in query_patterns]
     lines += [
         "",
         "  Each pattern comes from an entry with a signed DomainReview:",
@@ -130,6 +163,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         registry = load_registry(args.registry)
         patterns = included_patterns_for(registry)
+        query_patterns = query_patterns_for(registry)
     except (MalformedRegistryError, AgentSearchConfigError, OSError) as exc:
         print(f"cannot plan Agent Search setup: {exc}", file=sys.stderr)
         return 2
@@ -144,6 +178,7 @@ def main(argv: list[str] | None = None) -> int:
                     "generative_features": False,
                     "max_included_patterns": MAX_INCLUDED_PATTERNS,
                     "included_patterns": list(patterns),
+                    "query_time_site_patterns": list(query_patterns),
                     "reviewed_entries": [e.key for e in registry.licensing_entries],
                     "unreviewed_entries": [e.key for e in registry.unreviewed_entries],
                 },
@@ -151,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
     else:
-        print(render(registry, patterns))
+        print(render(registry, patterns, query_patterns))
     return 0
 
 
