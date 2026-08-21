@@ -15,11 +15,12 @@
 # who checked it, when, and on what basis. Without one it is locator-grade: it still
 # builds queries, and anything found through it is UNVERIFIED_MANUFACTURER.
 #
-# **One entry is reviewed: `kichler-lighting`.** Everything else below licenses nothing.
-# That is the honest state, not a gap to be papered over. The unreviewed domains were
-# written from general knowledge while building the discovery engine; nobody has verified
-# them against the manufacturers' own publications. They stay because they are useful for
-# locating candidates, and they are marked for exactly what they are.
+# **Two entries are reviewed: `kichler-lighting` and `satco-products`.** Everything else
+# below licenses nothing. That is the honest state, not a gap to be papered over. The
+# unreviewed domains were written from general knowledge while building the discovery
+# engine; nobody has verified them against the manufacturers' own publications. They stay
+# because they are useful for locating candidates, and they are marked for exactly what
+# they are.
 #
 # ## Evidence available for review is not a review
 #
@@ -100,6 +101,17 @@ note = "Appears in the organizer input as `Kichler Lighting (KICLI)`. Reviewed â
 reviewed_at = "2026-08-21"
 reviewed_by = "Amaan Khan"
 basis = "Personally opened the manufacturer site and confirmed kichler.com is Kichler Lighting's own official manufacturer website, not a distributor, reseller, or marketplace. Consulted: https://www.kichler.com/ https://www.kichler.com/why-kichler https://www.kichler.com/customer-care/contact-us"
+
+[[manufacturer]]
+key = "satco-products"
+authority_hints = ["SATCO Products, Inc.", "Satco Prod Inc"]
+domains = ["satco.com"]
+note = "Appears in the organizer input as `Satco Prod Inc (5573)`. Reviewed â€” see the review block below."
+
+[manufacturer.review]
+reviewed_at = "2026-08-21"
+reviewed_by = "Amaan Khan"
+basis = "Personally opened the manufacturer site and confirmed satco.com is SATCO Products, Inc.'s own official manufacturer website, not a distributor, reseller, or marketplace. Consulted: https://www.satco.com/ https://www.satco.com/about https://www.satco.com/support/contact https://www.satco.com/catalog/product/specsheets/62-1875"
 
 [[manufacturer]]
 key = "signify-philips-lighting"

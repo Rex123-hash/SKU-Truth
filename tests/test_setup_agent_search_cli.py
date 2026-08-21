@@ -27,8 +27,8 @@ import setup_agent_search  # noqa: E402
 
 REGISTRY = ROOT / "data" / "discovery" / "manufacturer_domains.demo.toml"
 
-CORPUS_PATTERN = "kichler.com/*"
-QUERY_PATTERN = "https://kichler.com/*"
+CORPUS_PATTERNS = ["kichler.com/*", "satco.com/*"]
+QUERY_PATTERNS = ["https://kichler.com/*", "https://satco.com/*"]
 
 
 @pytest.fixture(scope="module")
@@ -68,33 +68,33 @@ def _sites_to_include(plan: str) -> list[str]:
 class TestSitesToInclude:
     def test_the_data_store_pattern_is_scheme_less(self, plan):
         """E."""
-        assert _sites_to_include(plan) == [CORPUS_PATTERN]
+        assert _sites_to_include(plan) == CORPUS_PATTERNS
 
     def test_the_query_form_is_not_offered_as_the_data_store_value(self, plan):
         """F. It appears in the output, but never under Sites to include."""
-        assert QUERY_PATTERN not in _sites_to_include(plan)
+        assert not (set(QUERY_PATTERNS) & set(_sites_to_include(plan)))
         assert not any(site.startswith("http") for site in _sites_to_include(plan))
 
     def test_the_query_form_is_still_documented_separately(self, plan):
-        assert f'siteSearch:"{QUERY_PATTERN}"' in plan
+        assert all(f'siteSearch:"{pattern}"' in plan for pattern in QUERY_PATTERNS)
 
     def test_the_counts_match_the_registry(self, plan):
-        assert "reviewed entries    1" in plan
+        assert "reviewed entries    2" in plan
         assert "unreviewed entries  8" in plan
-        assert "URL patterns        1 / 50" in plan
+        assert "URL patterns        2 / 50" in plan
 
 
 class TestJsonPlan:
     def test_included_patterns_are_the_corpus_representation(self, plan_json):
         """E."""
-        assert plan_json["included_patterns"] == [CORPUS_PATTERN]
+        assert plan_json["included_patterns"] == CORPUS_PATTERNS
 
     def test_query_patterns_are_reported_separately(self, plan_json):
         """F."""
-        assert plan_json["query_time_site_patterns"] == [QUERY_PATTERN]
+        assert plan_json["query_time_site_patterns"] == QUERY_PATTERNS
 
-    def test_only_kichler_is_reviewed(self, plan_json):
-        assert plan_json["reviewed_entries"] == ["kichler-lighting"]
+    def test_kichler_and_satco_are_reviewed(self, plan_json):
+        assert plan_json["reviewed_entries"] == ["kichler-lighting", "satco-products"]
         assert len(plan_json["unreviewed_entries"]) == 8
 
     def test_advanced_indexing_stays_off(self, plan_json):
