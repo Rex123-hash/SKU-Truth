@@ -11,12 +11,12 @@ import { Logo } from "./Logo";
  */
 const COLUMNS = [
   {
-    heading: "Overview",
+    heading: "Product",
     links: [
-      { label: "Home", href: "/" },
-      { label: "How it works", href: "/#how-it-works" },
-      { label: "Featured journey", href: "/#journey" },
-      { label: "All demo cases", href: "/demo" },
+      { label: "Platform", href: "/platform" },
+      { label: "Solutions", href: "/solutions" },
+      { label: "Analyze Catalog", href: "/workbench" },
+      { label: "Proof", href: "/proof" },
     ],
   },
   {
@@ -28,11 +28,12 @@ const COLUMNS = [
     ],
   },
   {
-    heading: "Proof",
+    heading: "Explore",
     links: [
+      { label: "Resources", href: "/resources" },
+      { label: "Why SKUTruth exists", href: "/company" },
       { label: "Evidence model", href: "/proof#evidence" },
-      { label: "Trust boundaries", href: "/proof#boundaries" },
-      { label: "API contract", href: "/proof#api" },
+      { label: "GitHub", href: "https://github.com/Rex123-hash/SKU-Truth" },
     ],
   },
 ];

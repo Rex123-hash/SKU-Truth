@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 
 import { ButtonLink, Container } from "./primitives";
 import { Logo } from "./Logo";
+import { PRIMARY_NAV } from "@/lib/site";
 
 interface NavItem {
   label: string;
@@ -18,12 +19,7 @@ interface NavItem {
  * no authentication, and putting either in the navigation of a submission would be a
  * claim the repository cannot support.
  */
-const NAV: NavItem[] = [
-  { label: "How it works", href: "/#how-it-works" },
-  { label: "Analyze Catalog", href: "/workbench" },
-  { label: "Demo", href: "/demo" },
-  { label: "Proof", href: "/proof" },
-];
+const NAV: NavItem[] = [...PRIMARY_NAV];
 
 export function AppNavbar() {
   const pathname = usePathname();
@@ -69,7 +65,7 @@ export function AppNavbar() {
             <span className="display-heading text-[22px] tracking-tight text-ink">SKUTruth</span>
           </Link>
 
-          <nav aria-label="Primary" className="hidden lg:block">
+          <nav aria-label="Primary" className="hidden xl:block">
             <ul className="flex items-center gap-1">
               {NAV.map((item) => (
                 <li key={item.label} className="relative">
@@ -77,7 +73,7 @@ export function AppNavbar() {
                     href={item.href}
                     aria-current={isActive(item.href) ? "page" : undefined}
                     className={
-                      "inline-block rounded-full px-3.5 py-2 text-[14.5px] transition-colors " +
+                      "inline-block rounded-full px-2.5 py-2 text-[13.5px] transition-colors " +
                       (isActive(item.href) ? "text-forest" : "text-ink/80 hover:text-forest")
                     }
                   >
@@ -94,13 +90,13 @@ export function AppNavbar() {
             </ul>
           </nav>
 
-          <div className="hidden items-center gap-2.5 lg:flex">
+          <div className="hidden items-center gap-2.5 xl:flex">
             <ButtonLink href="/workbench">Analyze catalog</ButtonLink>
           </div>
 
           <button
             type="button"
-            className="lg:hidden"
+            className="xl:hidden"
             aria-expanded={mobileOpen}
             aria-controls="mobile-nav"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
@@ -112,7 +108,7 @@ export function AppNavbar() {
       </Container>
 
       {mobileOpen ? (
-        <div id="mobile-nav" className="border-t border-line bg-cream lg:hidden">
+        <div id="mobile-nav" className="border-t border-line bg-cream xl:hidden">
           <Container className="py-4">
             <ul className="flex flex-col gap-0.5">
               {NAV.map((item) => (
