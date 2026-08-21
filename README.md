@@ -108,7 +108,7 @@ datasheet it reads cannot be committed.
 | | |
 |---|---|
 | Frozen data contracts | identity, applicability, typed values with lineage, conditions, evidence, conflicts, abstention, coverage, run provenance |
-| Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
+| Unilog input/output | streaming CSV reader, placeholder policy, `Part_Manuf → (name, code)`, authority-aware deterministic manufacturer/brand normalization, runtime-derived 252-column delivery schema with fingerprint, exact-order export |
 | Identity resolution | `EXACT` / `FAMILY_OR_INCOMPLETE_REFERENCE` / `UNKNOWN` / `CONTRADICTORY`, with exact-SKU evidence required for `EXACT` |
 | Source discovery foundation | deterministic queries, reviewed manufacturer-domain authority, exact-reference policy, inspectable ranking, SSRF-bounded PDF acquisition into the artifact store |
 | Live search provider | Agent Search basic website search — caller's query executed verbatim, real publisher URLs, one `siteSearch` filter per reviewed domain (basic search has no `OR`), no model in the loop, bounded calls, typed failures, record/replay. Exercised offline; **no live run yet** |
@@ -125,8 +125,8 @@ datasheet it reads cannot be committed.
 So: verification, adjudication, explicit non-authoritative mapping, and Unilog attribute-slot
 assembly are implemented and run end to end.
 
-**Not yet implemented** — official mappings; manufacturer and brand canonicalisation;
-classpath classification; the five description forms; a batch product workflow; any user
+**Not yet implemented** — official manufacturer/brand LOV mappings; classpath
+classification; the five description forms; a batch product workflow; any user
 interface. Also outstanding inside the parts that do exist: range and logical value
 verification, controlled-vocabulary synonym licensing, UOM and fraction normalisation, and
 HTML artifact ingestion.
@@ -138,9 +138,9 @@ policy, fetcher, and acquisition seam all exist, but nothing has been stored fro
 web, so **the open-web half is a wired seam rather than a working retrieval system**.
 
 Against the organizer input, 291 of the 959 rows with a usable part number and
-manufacturer hint are searchable through configured domains, and **0 may license
-manufacturer evidence**, because no entry has been reviewed. That number moves when a
-person reviews domains, not when more code is written.
+manufacturer hint are searchable through configured domains, and the 56 Kichler rows may
+license manufacturer evidence because that entry carries a human review. That number
+moves when a person reviews domains, not when more code is written.
 
 Several of those wait on organizer reference files that are not in the supplied pack — a
 brand master, the LOV, the UOM standard, the decimal/fraction table, the content
@@ -188,6 +188,7 @@ python scripts/assemble_delivery_record.py --cassette <path>    # and map it int
 python scripts/discover_sources.py --input <organizer csv>      # plan source discovery
 python scripts/discover_sources.py --input <csv> --live         # run the live provider
 python scripts/review_manufacturer_domains.py packet --input <csv>   # prepare a domain review
+python scripts/analyze_normalization.py --input <csv>                # normalization report
 python scripts/setup_agent_search.py                            # what to provision, from reviews
 ```
 

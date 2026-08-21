@@ -7,6 +7,9 @@ raw organizer CSV → safe parse → placeholder cleaning → Part_Manuf parsing
                                                               ↓
                                                        RawProductRow
                                                               ↓
+                          deterministic manufacturer/brand normalization
+                       (injected authorities; unknowns stay review/withhold)
+                                                              ↓
                             DeliverySchema (252 ordered headers, runtime-derived)
                                                               ↓
                                           DeliveryRecord → exact-order CSV export
@@ -61,6 +64,25 @@ we cannot check against the approved list is a guess wearing a rule's clothing. 
 preserved verbatim, and their length is not constrained — 4 and 5 characters is an
 observation about one sample, not a contract.
 
+## Manufacturer and brand normalization foundation
+
+`DeterministicNormalizer` keeps raw `E1_Brand`, `Unilog_Brand`, `DIB_Brand`, and
+`Part_Manuf` signals in every audit result. It emits a canonical proposal, decision,
+reason, authority level, and authority source. No authority level is called official:
+the organizer manufacturer/brand master is still absent.
+
+Canonical rules are injected. Case, whitespace, punctuation, and legal-suffix folding
+may select an existing authorized rule; they never create one. Exact alias collisions
+remain `REVIEW`, unknown manufacturers remain `REVIEW`, malformed/placeholder inputs are
+`WITHHOLD`, and no edit-distance or model match exists. Independent brand fields that
+agree after case/punctuation folding may commit as `DATASET_CONSENSUS`; one brand signal
+alone remains review unless an injected authority covers it.
+
+`reviewed_manufacturer_catalog()` adapts only licensing entries and authority hints from
+the human-reviewed manufacturer-domain registry. Locator hints are excluded. That review
+supports the manufacturer-name/domain binding only; it does not prove an MPN, product
+identity, brand, description, or attribute.
+
 ## The delivery schema is derived at runtime
 
 The 252 header names are **not** checked into this repository. The organizer pack carries
@@ -104,14 +126,16 @@ Only input columns whose delivery header is **byte-identical** are carried acros
 `Mfg_Part_Num`, `Part_Desc`, `E1_Brand`, `Unilog_Brand`, `DIB_Brand`, `Part_Manuf`.
 
 `PART_NUMBER` and `MANUFACTURER_PART_NUMBER` are **not** populated. Their names merely
-*look* like `Mfg_Part_Num`, and two examples do not prove the mapping. `MANUFACTURER_NAME`,
-`BRAND_NAME`, `Classpath`, and every description stay empty — they are later stages.
+*look* like `Mfg_Part_Num`, and two examples do not prove the mapping.
+`MANUFACTURER_NAME` and `BRAND_NAME` remain blank by default. When a caller supplies a
+`RowNormalization`, only `COMMIT` values with delivery-eligible authority are mapped into
+those two exact identity fields. `Classpath` and every description stay empty.
 
 ## Deliberately absent
 
 | Not implemented | Blocked on |
 |---|---|
-| Manufacturer/brand canonicalisation | `UniCat_Manufacturer_and_Brand_List.xlsx` |
+| Organizer-official manufacturer/brand LOV conformance | `UniCat_Manufacturer_and_Brand_List.xlsx` |
 | Classpath classification, LOV value mapping | `Unicat_Lov_v1_0_….xlsx` |
 | UOM normalisation | `Unilog_Master_UOM_Standards_….xlsx` |
 | Decimal↔fraction conversion | `Decimal_Fraction.xlsx` |

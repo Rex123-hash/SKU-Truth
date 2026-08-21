@@ -29,6 +29,7 @@ from typing import IO
 
 from .errors import UnknownDeliveryField
 from .input import RawProductRow
+from .normalization import RowNormalization
 from .schema import DeliverySchema
 
 #: Input columns whose delivery header is byte-identical and whose meaning is therefore
@@ -146,7 +147,12 @@ class DeliveryRecord:
         return f"DeliveryRecord({len(self._values)}/{self.schema.field_count} assigned)"
 
 
-def record_from_raw_row(row: RawProductRow, schema: DeliverySchema) -> DeliveryRecord:
+def record_from_raw_row(
+    row: RawProductRow,
+    schema: DeliverySchema,
+    *,
+    normalization: RowNormalization | None = None,
+) -> DeliveryRecord:
     """Carry across only the input columns whose delivery header is identical.
 
     The *raw* value is passed through, placeholders included: the delivery file's own
@@ -158,6 +164,19 @@ def record_from_raw_row(row: RawProductRow, schema: DeliverySchema) -> DeliveryR
     for field in PASSTHROUGH_FIELDS:
         if schema.has_field(field):
             record.set(field, row.raw_value(field))
+    if normalization is not None:
+        if normalization.row_number != row.row_number:
+            raise ValueError(
+                f"normalization belongs to row {normalization.row_number}, "
+                f"not row {row.row_number}"
+            )
+        identity_values = {
+            "MANUFACTURER_NAME": normalization.manufacturer.delivery_value,
+            "BRAND_NAME": normalization.brand.delivery_value,
+        }
+        for field, value in identity_values.items():
+            if schema.has_field(field) and value is not None:
+                record.set(field, value)
     return record
 
 

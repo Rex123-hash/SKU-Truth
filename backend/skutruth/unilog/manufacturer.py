@@ -4,11 +4,12 @@ The organizer input carries the supplier as one string with a code appended in
 parentheses — `Kichler Lighting (KICLI)`. Splitting that is pure structure, so it is
 done deterministically here and produces a code that needs no matching at all.
 
-**No canonicalisation happens in this module.** `Phillips Lighting` stays
+**No canonicalisation happens in this parser.** `Phillips Lighting` stays
 `Phillips Lighting`; `Black & Decker/dewlt` stays as written. Both look like misspellings
 of real manufacturers, but the approved manufacturer master is not available, and a
 correction we cannot check against the approved list is a guess wearing a rule's clothing.
-Canonicalisation is a later milestone that needs that file.
+The separate normalization layer may select only explicitly authorized canonical rules;
+unknown values remain review candidates rather than being corrected here.
 
 The code is preserved verbatim for the same reason — this sample happens to use 4- and
 5-character uppercase codes, but that is an observation about 1,000 rows, not a contract.
