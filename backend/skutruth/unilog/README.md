@@ -13,6 +13,9 @@ raw organizer CSV → safe parse → placeholder cleaning → Part_Manuf parsing
                          deterministic internal product family
                     (lexical cues; separate scoped taxonomy authority)
                                                               ↓
+                         authority-gated attribute profile + candidates
+                    (explicit slot order; raw and normalized values retained)
+                                                              ↓
                             DeliverySchema (252 ordered headers, runtime-derived)
                                                               ↓
                                           DeliveryRecord → exact-order CSV export
@@ -140,6 +143,18 @@ the source did not establish it. So slots are never compacted, and `AttributeSlo
 separates `is_declared` (has a label) from `has_value`. Dropping blank slots would destroy
 the difference between *not applicable* and *not found*.
 
+`load_organizer_attribute_catalog()` reads every triplet from the local expected-output
+file and may derive an `ORGANIZER_EXAMPLE` profile only when the examples share the same
+ordered labels. That profile is exact-record scoped: its internal `DISHWASHER` family and
+observed classpath are context, not authority for another product. An ETIM reference or
+internal family alone cannot authorize a delivery label.
+
+Attribute candidates retain raw and normalized value/UOM forms, typed value kind,
+decision, reason, authority, and optional evidence locators. Exact known UOM spellings may
+normalize without conversion; unknown units remain unresolved. Mapping follows profile
+slot order, writes labels only from an authorized in-scope profile, and writes VALUE/UOM
+only for committed candidates. No value is derived from `Part_Desc`.
+
 ## Passthrough is conservative
 
 Only input columns whose delivery header is **byte-identical** are carried across:
@@ -159,7 +174,7 @@ human-approved authority. Every description stays empty.
 |---|---|
 | Organizer-official manufacturer/brand LOV conformance | `UniCat_Manufacturer_and_Brand_List.xlsx` |
 | Organizer-wide classpath LOV mapping | `Unicat_Lov_v1_0_….xlsx` |
-| UOM normalisation | `Unilog_Master_UOM_Standards_….xlsx` |
+| Official UOM conformance and conversions | `Unilog_Master_UOM_Standards_….xlsx` |
 | Decimal↔fraction conversion | `Decimal_Fraction.xlsx` |
 | Title / description construction | `UNILOG_INTERNAL_CONTENT_GUIDELINES.docx` |
 | Field-level accuracy scoring | the 200-row labelled file |
@@ -171,8 +186,9 @@ implemented as rules.** Two rows is not enough to elevate a pattern into a contr
 the guideline document that would confirm them is not in the pack.
 
 Likewise, the 15 attribute labels shared by both examples are **not** hard-coded as a
-dishwasher template. This package reads slot labels off records; it does not define
-category semantics. The LOV is the authoritative source for that when it arrives.
+dishwasher template. They are derived at runtime as a scoped organizer-example profile
+for exact reconstruction and analysis only. They do not define category semantics; the
+LOV is the authoritative source for that when it arrives.
 
 ## Organizer files stay local
 

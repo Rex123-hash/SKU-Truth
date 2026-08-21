@@ -25,13 +25,16 @@ from __future__ import annotations
 import csv
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import IO
+from typing import IO, TYPE_CHECKING
 
 from .classification import ClassificationProposal
 from .errors import UnknownDeliveryField
 from .input import RawProductRow
 from .normalization import RowNormalization
 from .schema import DeliverySchema
+
+if TYPE_CHECKING:
+    from .attributes import AttributeMapping
 
 #: Input columns whose delivery header is byte-identical and whose meaning is therefore
 #: not in question. Deliberately excludes PART_NUMBER and MANUFACTURER_PART_NUMBER: their
@@ -138,6 +141,24 @@ class DeliveryRecord:
         """Slots carrying a label — the classpath template's actual attribute list."""
         return tuple(s for s in self.attribute_slots() if s.is_declared)
 
+    def apply_attribute_mapping(self, mapping: AttributeMapping) -> int:
+        """Write an authority-gated mapping without changing schema or slot order.
+
+        An unauthorized or out-of-scope profile exposes no delivery slots, so it writes
+        nothing. Authorized profiles always write their labels in declared profile
+        order; only committed candidate values supply VALUE/UOM cells.
+        """
+        slots = mapping.delivery_slots()
+        declared = {spec.index for spec in self.schema.attribute_slots}
+        unknown = tuple(slot.index for slot in slots if slot.index not in declared)
+        if unknown:
+            raise UnknownDeliveryField(
+                f"attribute profile references slots outside the delivery schema: {unknown}"
+            )
+        for slot in slots:
+            self.set_attribute(slot.index, slot.label, slot.value, slot.uom)
+        return len(slots)
+
     # -- export --------------------------------------------------------------
 
     def to_row(self) -> list[str]:
@@ -154,6 +175,7 @@ def record_from_raw_row(
     *,
     normalization: RowNormalization | None = None,
     classification: ClassificationProposal | None = None,
+    attributes: AttributeMapping | None = None,
 ) -> DeliveryRecord:
     """Carry across only the input columns whose delivery header is identical.
 
@@ -188,6 +210,13 @@ def record_from_raw_row(
         for field, value in classification.delivery.delivery_values:
             if schema.has_field(field):
                 record.set(field, value)
+    if attributes is not None:
+        if row.mfg_part_num != attributes.record_key:
+            raise ValueError(
+                f"attribute mapping belongs to {attributes.record_key!r}, "
+                f"not {row.mfg_part_num!r}"
+            )
+        record.apply_attribute_mapping(attributes)
     return record
 
 
