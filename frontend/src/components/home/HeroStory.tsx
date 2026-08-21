@@ -41,9 +41,9 @@ export function HeroStory() {
 
             <Rise delay={0.18}>
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <ButtonLink href="/demo">Launch demo</ButtonLink>
-                <ButtonLink href="#how-it-works" variant="secondary" withArrow={false}>
-                  See how it works
+                <ButtonLink href="/workbench">Analyze catalog</ButtonLink>
+                <ButtonLink href="/demo" variant="secondary" withArrow={false}>
+                  See real demo
                 </ButtonLink>
               </div>
             </Rise>

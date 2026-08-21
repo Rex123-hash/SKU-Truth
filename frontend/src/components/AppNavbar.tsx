@@ -20,6 +20,7 @@ interface NavItem {
  */
 const NAV: NavItem[] = [
   { label: "How it works", href: "/#how-it-works" },
+  { label: "Analyze Catalog", href: "/workbench" },
   { label: "Demo", href: "/demo" },
   { label: "Proof", href: "/proof" },
 ];
@@ -94,7 +95,7 @@ export function AppNavbar() {
           </nav>
 
           <div className="hidden items-center gap-2.5 lg:flex">
-            <ButtonLink href="/demo">Launch demo</ButtonLink>
+            <ButtonLink href="/workbench">Analyze catalog</ButtonLink>
           </div>
 
           <button
@@ -127,8 +128,8 @@ export function AppNavbar() {
               ))}
             </ul>
             <div className="mt-4 flex flex-col gap-2.5">
-              <ButtonLink href="/demo" className="w-full" onClick={() => setMobileOpen(false)}>
-                Launch demo
+              <ButtonLink href="/workbench" className="w-full" onClick={() => setMobileOpen(false)}>
+                Analyze catalog
               </ButtonLink>
             </div>
           </Container>

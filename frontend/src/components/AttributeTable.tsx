@@ -17,13 +17,13 @@ import { EvidenceDrawer, type DrawerAttribute } from "./EvidenceDrawer";
  *
  * On a narrow screen each row becomes a card; the markup is the same either way.
  */
-export function AttributeTable({ attributes }: { attributes: AttributesView }) {
+export function AttributeTable({ attributes, view = "all" }: { attributes: AttributesView; view?: "all" | "verified" | "withheld" }) {
   const [open, setOpen] = useState<DrawerAttribute | null>(null);
 
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section>
+      <div className={view === "all" ? "grid gap-6 lg:grid-cols-2" : "grid gap-6"}>
+        {view !== "withheld" ? <section>
           <header className="flex items-baseline gap-2.5">
             <h3 className="display-heading text-[21px] text-ink">Verified facts</h3>
             <span className="rounded-full border border-sage bg-sage-soft px-2.5 py-0.5 text-[12px] font-medium text-forest">
@@ -43,9 +43,9 @@ export function AttributeTable({ attributes }: { attributes: AttributesView }) {
               />
             ))}
           </ul>
-        </section>
+        </section> : null}
 
-        <section>
+        {view !== "verified" ? <section>
           <header className="flex items-baseline gap-2.5">
             <h3 className="display-heading text-[21px] text-ink">Withheld proposals</h3>
             <span className="rounded-full border border-amber-soft bg-amber-wash px-2.5 py-0.5 text-[12px] font-medium text-[#8a6410]">
@@ -65,7 +65,7 @@ export function AttributeTable({ attributes }: { attributes: AttributesView }) {
               />
             ))}
           </ul>
-        </section>
+        </section> : null}
       </div>
 
       <EvidenceDrawer entry={open} onClose={() => setOpen(null)} />

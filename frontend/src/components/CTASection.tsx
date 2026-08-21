@@ -9,8 +9,8 @@ import { Rise } from "./motion";
 export function CTASection({
   title = "Messy data in. Verified truth out.",
   body = "Open the demo and follow one organizer row all the way to a verified manufacturer fact — and to the two that stopped.",
-  primary = { href: "/demo", label: "Launch demo" },
-  secondary = { href: "/demo/kichler", label: "Explore the Kichler journey" },
+  primary = { href: "/workbench", label: "Analyze catalog" },
+  secondary = { href: "/demo", label: "See real demo" },
 }: {
   title?: string;
   body?: string;
