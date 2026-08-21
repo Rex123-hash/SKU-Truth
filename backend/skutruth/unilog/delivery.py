@@ -27,6 +27,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import IO
 
+from .classification import ClassificationProposal
 from .errors import UnknownDeliveryField
 from .input import RawProductRow
 from .normalization import RowNormalization
@@ -152,6 +153,7 @@ def record_from_raw_row(
     schema: DeliverySchema,
     *,
     normalization: RowNormalization | None = None,
+    classification: ClassificationProposal | None = None,
 ) -> DeliveryRecord:
     """Carry across only the input columns whose delivery header is identical.
 
@@ -176,6 +178,15 @@ def record_from_raw_row(
         }
         for field, value in identity_values.items():
             if schema.has_field(field) and value is not None:
+                record.set(field, value)
+    if classification is not None:
+        if classification.row_number != row.row_number:
+            raise ValueError(
+                f"classification belongs to row {classification.row_number}, "
+                f"not row {row.row_number}"
+            )
+        for field, value in classification.delivery.delivery_values:
+            if schema.has_field(field):
                 record.set(field, value)
     return record
 

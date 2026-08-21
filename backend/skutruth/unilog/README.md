@@ -10,13 +10,17 @@ raw organizer CSV → safe parse → placeholder cleaning → Part_Manuf parsing
                           deterministic manufacturer/brand normalization
                        (injected authorities; unknowns stay review/withhold)
                                                               ↓
+                         deterministic internal product family
+                    (lexical cues; separate scoped taxonomy authority)
+                                                              ↓
                             DeliverySchema (252 ordered headers, runtime-derived)
                                                               ↓
                                           DeliveryRecord → exact-order CSV export
 ```
 
-**No AI, no fuzzy matching, no classification, no content generation.** Every one of
-those needs an organizer reference file we do not have; see [Deliberately absent](#deliberately-absent).
+**No AI, fuzzy matching, or content generation.** Internal family classification uses
+inspectable lexical rules. Organizer delivery classification remains authority-gated;
+see [Deliberately absent](#deliberately-absent).
 
 ## Raw and cleaned are both kept
 
@@ -83,6 +87,22 @@ the human-reviewed manufacturer-domain registry. Locator hints are excluded. Tha
 supports the manufacturer-name/domain binding only; it does not prove an MPN, product
 identity, brand, description, or attribute.
 
+## Internal family is not delivery classpath
+
+`DeterministicProductClassifier` assigns coarse SKUTruth routing families from exact
+tokens and phrases in `Part_Desc`. Manufacturer and brand values travel as context but
+are never sufficient classification evidence. Unrelated family overlaps become
+`REVIEW`; no cue becomes `UNKNOWN`/`WITHHOLD`. The only precedence rules are documented
+product hierarchies: `DISHWASHER` over general `APPLIANCE`, and a named accessory such as
+`saw blade` over the `saw` it fits.
+
+These are internal analytical families, not Unilog values. The organizer output has
+`Dept`, `Class`, `Fine`, `Classpath`, and `UNSPSC`, while the input supplies none of them.
+The two output rows are represented as exact six-passthrough-field example rules. Their
+classification values may be replayed only onto those exact rows; another dishwasher
+does not inherit them. ETIM remains an internal reference and cannot populate organizer
+delivery classification.
+
 ## The delivery schema is derived at runtime
 
 The 252 header names are **not** checked into this repository. The organizer pack carries
@@ -129,14 +149,16 @@ Only input columns whose delivery header is **byte-identical** are carried acros
 *look* like `Mfg_Part_Num`, and two examples do not prove the mapping.
 `MANUFACTURER_NAME` and `BRAND_NAME` remain blank by default. When a caller supplies a
 `RowNormalization`, only `COMMIT` values with delivery-eligible authority are mapped into
-those two exact identity fields. `Classpath` and every description stay empty.
+those two exact identity fields. Classification fields remain blank unless a supplied
+`ClassificationProposal` carries record-scoped organizer-example, organizer-LOV, or
+human-approved authority. Every description stays empty.
 
 ## Deliberately absent
 
 | Not implemented | Blocked on |
 |---|---|
 | Organizer-official manufacturer/brand LOV conformance | `UniCat_Manufacturer_and_Brand_List.xlsx` |
-| Classpath classification, LOV value mapping | `Unicat_Lov_v1_0_….xlsx` |
+| Organizer-wide classpath LOV mapping | `Unicat_Lov_v1_0_….xlsx` |
 | UOM normalisation | `Unilog_Master_UOM_Standards_….xlsx` |
 | Decimal↔fraction conversion | `Decimal_Fraction.xlsx` |
 | Title / description construction | `UNILOG_INTERNAL_CONTENT_GUIDELINES.docx` |

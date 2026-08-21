@@ -1,9 +1,29 @@
 """Unilog organizer adapter: raw input in, delivery contract out.
 
-Deterministic only. No model, no fuzzy matching, no classification, no content
-generation — see ./README.md for why each of those is deliberately absent.
+Deterministic only. No model, fuzzy matching, or content generation. Internal lexical
+families are explicitly separate from organizer-authorized delivery classification.
 """
 
+from .classification import (
+    DEFAULT_FAMILY_RULES,
+    DELIVERY_CLASSIFICATION_FIELDS,
+    ClassificationAuthority,
+    ClassificationDecision,
+    ClassificationEvidence,
+    ClassificationProposal,
+    ClassificationReason,
+    CuePattern,
+    DeliveryClassificationProposal,
+    DeliveryClassificationValues,
+    DeterministicProductClassifier,
+    InternalProductFamily,
+    LexicalFamilyRule,
+    OrganizerExampleCatalog,
+    OrganizerExampleRule,
+    load_organizer_example_catalog,
+    organizer_example_rule,
+    tokenize,
+)
 from .conformance import (
     ConformanceCode,
     ConformanceIssue,
@@ -59,6 +79,8 @@ from .schema import AttributeSlotSpec, DeliverySchema
 
 __all__ = [
     "BARE_HYPHEN_FIELDS",
+    "DEFAULT_FAMILY_RULES",
+    "DELIVERY_CLASSIFICATION_FIELDS",
     "DOCUMENTED_PLACEHOLDERS",
     "PASSTHROUGH_FIELDS",
     "REQUIRED_COLUMNS",
@@ -68,15 +90,26 @@ __all__ = [
     "AuthoritySource",
     "CanonicalCatalog",
     "CanonicalRule",
+    "ClassificationAuthority",
+    "ClassificationDecision",
+    "ClassificationEvidence",
+    "ClassificationProposal",
+    "ClassificationReason",
     "ConformanceCode",
     "ConformanceIssue",
     "ConformanceReport",
+    "CuePattern",
     "DeliveryRecord",
     "DeliverySchema",
     "DeliverySchemaError",
+    "DeliveryClassificationProposal",
+    "DeliveryClassificationValues",
+    "DeterministicProductClassifier",
     "DeterministicNormalizer",
     "DuplicateColumn",
     "InputSchemaError",
+    "InternalProductFamily",
+    "LexicalFamilyRule",
     "MalformedRowError",
     "ManufacturerParse",
     "MissingRequiredColumn",
@@ -84,6 +117,8 @@ __all__ = [
     "NormalizationReason",
     "NormalizationResult",
     "NormalizationSubject",
+    "OrganizerExampleCatalog",
+    "OrganizerExampleRule",
     "ParsedManufacturer",
     "RawProductRow",
     "RawSignal",
@@ -94,11 +129,14 @@ __all__ = [
     "check_schema",
     "clean",
     "is_placeholder",
+    "load_organizer_example_catalog",
+    "organizer_example_rule",
     "parse_part_manuf",
     "read_rows",
     "read_unilog_input",
     "record_from_raw_row",
     "reviewed_manufacturer_catalog",
+    "tokenize",
     "validate_input_header",
     "write_delivery_csv",
 ]
