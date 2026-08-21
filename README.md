@@ -174,6 +174,24 @@ hashing, and cache keys are deterministic code.
 Third-party material stays out of the repository: manufacturer PDFs, runtime cassettes, and
 the organizer data pack are all gitignored, and tests never depend on them.
 
+## Running the demo API
+
+```bash
+python -m uvicorn skutruth.api.asgi:app --app-dir backend --port 8000
+```
+
+That is the whole setup. The default mode, `DEMO_REPLAY`, makes **zero external network
+calls** and needs no cloud credentials, no environment variables, and no organizer data
+pack — so the demo still works when Google, Vertex, or a manufacturer site does not.
+`GET /api/health`, `GET /api/demo/products`, `GET /api/demo/products/{mpn}`,
+`POST /api/analyze`, `GET /api/schema`; interactive docs at `/docs`.
+
+The three demo cases are real runs, not mock-ups: Kichler `45297BK` reaching seven
+verified manufacturer facts, SATCO `62-1875` blocked at acquisition by an HTTP 429, and
+Feit `SHOP/4X2/840/V1` refusing to treat a hyphenated locator as the slashed organizer
+reference. Every stage says whether it was re-derived now or observed once in a live run.
+See [`backend/skutruth/api/README.md`](backend/skutruth/api/README.md).
+
 ## Development
 
 ```bash
@@ -191,6 +209,8 @@ python scripts/review_manufacturer_domains.py packet --input <csv>   # prepare a
 python scripts/analyze_normalization.py --input <csv>                # normalization report
 python scripts/analyze_classification.py --input <csv> --delivery-format <csv>
 python scripts/setup_agent_search.py                            # what to provision, from reviews
+python scripts/build_demo_cases.py                              # regenerate the demo record
+python scripts/build_demo_cases.py --check                      # and check it against the evidence
 ```
 
 Live search runs on the project's existing GCP setup: `SKUTRUTH_GCP_PROJECT`,

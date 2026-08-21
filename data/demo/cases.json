@@ -1,0 +1,799 @@
+{
+  "version": "skutruth-demo-cases@v1",
+  "generated_at": "2026-08-21T18:21:27+00:00",
+  "note": "Derived from real recorded evidence by scripts/build_demo_cases.py. Values and typed states only; no source document, page HTML, or cassette body is reproduced here. Stages marked RECORDED_OBSERVATION were observed in a live run and are not replayable.",
+  "metrics": {
+    "organizer_rows": 1000,
+    "delivery_columns": 252,
+    "attribute_triplets": 50,
+    "organizer_examples_populated": 2,
+    "demo_cases": 3,
+    "kichler_proposals": 10,
+    "kichler_source_bound": 10,
+    "kichler_verified": 7,
+    "kichler_withheld": 3
+  },
+  "cases": [
+    {
+      "case_id": "kichler-45297bk",
+      "headline": "Complete path: official source, exact SKU, ten model proposals, seven mechanically verified manufacturer facts, three refused.",
+      "outcome": "VERIFIED_MANUFACTURER_FACTS",
+      "product": {
+        "row_number": 371,
+        "mpn": "45297BK",
+        "raw_description": "45297BK Kichler Wall Lt",
+        "raw_manufacturer": "Kichler Lighting (KICLI)",
+        "raw_brand_signals": []
+      },
+      "normalization": {
+        "manufacturer": "Kichler Lighting",
+        "manufacturer_decision": "COMMIT",
+        "manufacturer_reason": "EXACT_CANONICAL",
+        "manufacturer_authority": "HUMAN_APPROVED",
+        "brand": null,
+        "brand_decision": "WITHHOLD",
+        "brand_reason": "PLACEHOLDER"
+      },
+      "classification": {
+        "family": "LIGHTING",
+        "decision": "COMMIT",
+        "reason": "STRONG_LEXICAL_CUE",
+        "cues": [
+          "wall lt"
+        ],
+        "delivery_classpath": null,
+        "delivery_decision": "WITHHOLD"
+      },
+      "source": {
+        "discovery_status": "SUCCESS",
+        "results_returned": 9,
+        "exact_candidates": 1,
+        "authority": "APPROVED_MANUFACTURER",
+        "relevance": "EXACT",
+        "source_kind": "PRODUCT_PAGE",
+        "discovery_url": "https://www.kichler.com/products/indoor-lighting/bath-and-vanity-lights/3-light-bath-fixtures/alton-vanity-light-45297bk",
+        "final_url": "https://www.kichler.com/products/indoor-lighting/bath-and-vanity-lights/3-light-bath-fixtures/alton-vanity-light-45297bk",
+        "artifact_kind": "HTML",
+        "artifact_sha256": "70939c1f17f53cbeb1d7a938a3adacf01a5a18ccc02965319a882cfb26125acf",
+        "blocker": null,
+        "blocker_detail": ""
+      },
+      "identity": {
+        "decision": "EXACT",
+        "identity_scope": "EXACT_SKU",
+        "covers_mpn": "45297BK",
+        "reason": "EXACT_PRODUCT_MPN"
+      },
+      "ai": {
+        "ran": true,
+        "model": "gemini-2.5-flash",
+        "profile_id": "lighting-html-local-demo",
+        "proposal_count": 10,
+        "source_bound_count": 10,
+        "rejected_count": 0,
+        "replayed": true,
+        "not_run_reason": ""
+      },
+      "attributes": {
+        "proposed": [
+          {
+            "source_key": "lighting.light_count_descriptor",
+            "label": "Light count descriptor",
+            "proposed_value": "3-Light",
+            "proposed_uom": "",
+            "value_kind": "TEXT",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/0/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "3-Light"
+            }
+          },
+          {
+            "source_key": "lighting.diffuser_description",
+            "label": "Diffuser description",
+            "proposed_value": "Clear Seeded Glass",
+            "proposed_uom": "",
+            "value_kind": "TEXT",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/1/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "Clear Seeded Glass"
+            }
+          },
+          {
+            "source_key": "lighting.overall_depth",
+            "label": "Overall depth",
+            "proposed_value": "7.5",
+            "proposed_uom": "",
+            "value_kind": "NUMBER",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/2/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "7.5"
+            }
+          },
+          {
+            "source_key": "lighting.overall_height",
+            "label": "Overall height",
+            "proposed_value": "8",
+            "proposed_uom": "",
+            "value_kind": "NUMBER",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/3/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "8"
+            }
+          },
+          {
+            "source_key": "lighting.overall_width",
+            "label": "Overall width",
+            "proposed_value": "24",
+            "proposed_uom": "",
+            "value_kind": "NUMBER",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/4/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "24"
+            }
+          },
+          {
+            "source_key": "lighting.finish_name",
+            "label": "Finish name",
+            "proposed_value": "Black",
+            "proposed_uom": "",
+            "value_kind": "ENUM",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/5/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "Black"
+            }
+          },
+          {
+            "source_key": "lighting.installation_orientation",
+            "label": "Installation orientation",
+            "proposed_value": "Installation Up or Down",
+            "proposed_uom": "",
+            "value_kind": "ENUM",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 259,
+              "start_offset": 662,
+              "end_offset": 685,
+              "excerpt": "Installation Up or Down"
+            }
+          },
+          {
+            "source_key": "lighting.shade_dimensions",
+            "label": "Shade dimensions",
+            "proposed_value": "4.25 DIA X 6.50",
+            "proposed_uom": "",
+            "value_kind": "TEXT",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 271,
+              "start_offset": 766,
+              "end_offset": 799,
+              "excerpt": "Shade Dimensions: 4.25 DIA X 6.50"
+            }
+          },
+          {
+            "source_key": "lighting.socket_configuration",
+            "label": "Socket configuration",
+            "proposed_value": "3 E26 (Medium)",
+            "proposed_uom": "",
+            "value_kind": "TEXT",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 281,
+              "start_offset": 842,
+              "end_offset": 864,
+              "excerpt": "Socket: 3 E26 (Medium)"
+            }
+          },
+          {
+            "source_key": "lighting.lamp_wattage",
+            "label": "Lamp wattage",
+            "proposed_value": "100",
+            "proposed_uom": "W",
+            "value_kind": "NUMBER",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 282,
+              "start_offset": 865,
+              "end_offset": 879,
+              "excerpt": "Wattage: 100 W"
+            }
+          }
+        ],
+        "verified": [
+          {
+            "source_key": "lighting.overall_depth",
+            "label": "Overall depth",
+            "value": "7.5",
+            "uom": null,
+            "source_label": "Depth",
+            "source_value": "7.5",
+            "source_uom": "",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/2/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "7.5"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          },
+          {
+            "source_key": "lighting.overall_height",
+            "label": "Overall height",
+            "value": "8",
+            "uom": null,
+            "source_label": "Height",
+            "source_value": "8",
+            "source_uom": "",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/3/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "8"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          },
+          {
+            "source_key": "lighting.overall_width",
+            "label": "Overall width",
+            "value": "24",
+            "uom": null,
+            "source_label": "Width",
+            "source_value": "24",
+            "source_uom": "",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/4/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "24"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          },
+          {
+            "source_key": "lighting.finish_name",
+            "label": "Finish name",
+            "value": "Black",
+            "uom": null,
+            "source_label": "finish",
+            "source_value": "Black",
+            "source_uom": "",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/5/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "Black"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          },
+          {
+            "source_key": "lighting.shade_dimensions",
+            "label": "Shade dimensions",
+            "value": "4.25 DIA X 6.50",
+            "uom": null,
+            "source_label": "Shade Dimensions",
+            "source_value": "4.25 DIA X 6.50",
+            "source_uom": "",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 271,
+              "start_offset": 766,
+              "end_offset": 799,
+              "excerpt": "4.25 DIA X 6.50"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          },
+          {
+            "source_key": "lighting.socket_configuration",
+            "label": "Socket configuration",
+            "value": "3 E26 (Medium)",
+            "uom": null,
+            "source_label": "Socket",
+            "source_value": "3 E26 (Medium)",
+            "source_uom": "",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 281,
+              "start_offset": 842,
+              "end_offset": 864,
+              "excerpt": "3 E26 (Medium)"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          },
+          {
+            "source_key": "lighting.lamp_wattage",
+            "label": "Lamp wattage",
+            "value": "100",
+            "uom": null,
+            "source_label": "Wattage",
+            "source_value": "100",
+            "source_uom": "W",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 282,
+              "start_offset": 865,
+              "end_offset": 879,
+              "excerpt": "100"
+            },
+            "status": "VERIFIED",
+            "reason": "FACT_VERIFIED",
+            "authority": "MANUFACTURER_EVIDENCE",
+            "decision": "COMMIT",
+            "unilog_mapping_status": "UNAUTHORIZED",
+            "delivery_eligible": false
+          }
+        ],
+        "withheld": [
+          {
+            "source_key": "lighting.light_count_descriptor",
+            "label": "Light count descriptor",
+            "proposed_value": "3-Light",
+            "proposed_uom": "",
+            "source_label": "Attribute",
+            "source_value": "3-Light",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/0/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "3-Light"
+            },
+            "status": "UNVERIFIED",
+            "reason": "SOURCE_PROPERTY_NOT_AUTHORIZED",
+            "detail": "'Attribute' is not an exact reviewed property alias for this key"
+          },
+          {
+            "source_key": "lighting.diffuser_description",
+            "label": "Diffuser description",
+            "proposed_value": "Clear Seeded Glass",
+            "proposed_uom": "",
+            "source_label": "Attribute",
+            "source_value": "Clear Seeded Glass",
+            "locator": {
+              "kind": "HTML_JSONLD",
+              "jsonld_block_index": 0,
+              "json_pointer": "/additionalProperty/1/value",
+              "element_index": null,
+              "start_offset": null,
+              "end_offset": null,
+              "excerpt": "Clear Seeded Glass"
+            },
+            "status": "UNVERIFIED",
+            "reason": "SOURCE_PROPERTY_NOT_AUTHORIZED",
+            "detail": "'Attribute' is not an exact reviewed property alias for this key"
+          },
+          {
+            "source_key": "lighting.installation_orientation",
+            "label": "Installation orientation",
+            "proposed_value": "Installation Up or Down",
+            "proposed_uom": "",
+            "source_label": "",
+            "source_value": "",
+            "locator": {
+              "kind": "HTML_TEXT",
+              "jsonld_block_index": null,
+              "json_pointer": null,
+              "element_index": 259,
+              "start_offset": 662,
+              "end_offset": 685,
+              "excerpt": ""
+            },
+            "status": "UNVERIFIED",
+            "reason": "EXPECTED_LABEL_MISSING",
+            "detail": "fragment does not begin with an exact reviewed label and colon"
+          }
+        ]
+      },
+      "delivery": {
+        "mapped_count": 0,
+        "mapping_status": "UNAUTHORIZED",
+        "unauthorized_reason": "these are verified manufacturer facts under a local demo profile; no official Unilog lighting attribute vocabulary authorises them as delivery values"
+      },
+      "timeline": [
+        {
+          "stage": "NORMALIZATION",
+          "status": "SUCCESS",
+          "reason": "EXACT_CANONICAL",
+          "detail": "resolved to Kichler Lighting",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "CLASSIFICATION",
+          "status": "SUCCESS",
+          "reason": "STRONG_LEXICAL_CUE",
+          "detail": "internal family LIGHTING",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "DISCOVERY",
+          "status": "SUCCESS",
+          "reason": "EXACT",
+          "detail": "9 results from the reviewed domain; 1 exact, the rest demoted",
+          "evidence": "STORED_CASSETTE"
+        },
+        {
+          "stage": "ACQUISITION",
+          "status": "SUCCESS",
+          "reason": "ARTIFACT_STORED",
+          "detail": "HTML stored under 70939c1f17f5",
+          "evidence": "STORED_ARTIFACT"
+        },
+        {
+          "stage": "IDENTITY",
+          "status": "SUCCESS",
+          "reason": "EXACT_PRODUCT_MPN",
+          "detail": "the stored document proves it covers this exact SKU",
+          "evidence": "STORED_ARTIFACT"
+        },
+        {
+          "stage": "AI_PROPOSAL",
+          "status": "SUCCESS",
+          "reason": "SOURCE_BOUND",
+          "detail": "10 proposals, 10 bound to a locator, 0 rejected",
+          "evidence": "STORED_CASSETTE"
+        },
+        {
+          "stage": "VERIFICATION",
+          "status": "SUCCESS",
+          "reason": "FACT_VERIFIED",
+          "detail": "7 verified, 3 withheld",
+          "evidence": "STORED_ARTIFACT"
+        },
+        {
+          "stage": "DELIVERY_MAPPING",
+          "status": "WITHHELD",
+          "reason": "UNAUTHORIZED",
+          "detail": "no official Unilog vocabulary authorises these lighting values",
+          "evidence": "DETERMINISTIC"
+        }
+      ]
+    },
+    {
+      "case_id": "satco-62-1875",
+      "headline": "Trusted source found, fetch refused with HTTP 429. Nothing downstream ran, and nothing was guessed.",
+      "outcome": "BLOCKED_AT_ACQUISITION",
+      "product": {
+        "row_number": 408,
+        "mpn": "62-1875",
+        "raw_description": "62-1875 10\" Led Ceiling Lt Bn",
+        "raw_manufacturer": "Satco Prod Inc (5573)",
+        "raw_brand_signals": []
+      },
+      "normalization": {
+        "manufacturer": "SATCO Products, Inc.",
+        "manufacturer_decision": "COMMIT",
+        "manufacturer_reason": "EXACT_ALIAS",
+        "manufacturer_authority": "HUMAN_APPROVED",
+        "brand": null,
+        "brand_decision": "WITHHOLD",
+        "brand_reason": "PLACEHOLDER"
+      },
+      "classification": {
+        "family": "LIGHTING",
+        "decision": "COMMIT",
+        "reason": "STRONG_LEXICAL_CUE",
+        "cues": [
+          "ceiling lt",
+          "led + lt"
+        ],
+        "delivery_classpath": null,
+        "delivery_decision": "WITHHOLD"
+      },
+      "source": {
+        "discovery_status": "SUCCESS",
+        "results_returned": 10,
+        "exact_candidates": 2,
+        "authority": "APPROVED_MANUFACTURER",
+        "relevance": "EXACT",
+        "source_kind": "CATALOG",
+        "discovery_url": "https://www.satco.com/catalog/product/specsheets/62-1875",
+        "final_url": null,
+        "artifact_kind": null,
+        "artifact_sha256": null,
+        "blocker": "SOURCE_RATE_LIMITED",
+        "blocker_detail": "the manufacturer site answered the acquisition request with HTTP 429; no document was stored, so no later stage ran"
+      },
+      "identity": {
+        "decision": "NOT_RUN",
+        "identity_scope": null,
+        "covers_mpn": null,
+        "reason": "NO_ARTIFACT"
+      },
+      "ai": {
+        "ran": false,
+        "model": null,
+        "profile_id": null,
+        "proposal_count": 0,
+        "source_bound_count": 0,
+        "rejected_count": 0,
+        "replayed": false,
+        "not_run_reason": "no artifact was stored, so there was nothing to read"
+      },
+      "attributes": {
+        "proposed": [],
+        "verified": [],
+        "withheld": []
+      },
+      "delivery": {
+        "mapped_count": 0,
+        "mapping_status": "UNAUTHORIZED",
+        "unauthorized_reason": "no verified manufacturer fact exists for this row"
+      },
+      "timeline": [
+        {
+          "stage": "NORMALIZATION",
+          "status": "SUCCESS",
+          "reason": "EXACT_ALIAS",
+          "detail": "resolved to SATCO Products, Inc.",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "CLASSIFICATION",
+          "status": "SUCCESS",
+          "reason": "STRONG_LEXICAL_CUE",
+          "detail": "internal family LIGHTING",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "DISCOVERY",
+          "status": "SUCCESS",
+          "reason": "EXACT",
+          "detail": "10 results from the reviewed domain; 2 exact, including the hyphenated reference",
+          "evidence": "STORED_CASSETTE"
+        },
+        {
+          "stage": "ACQUISITION",
+          "status": "BLOCKED",
+          "reason": "SOURCE_RATE_LIMITED",
+          "detail": "the manufacturer site answered the acquisition request with HTTP 429; no document was stored, so no later stage ran",
+          "evidence": "RECORDED_OBSERVATION"
+        },
+        {
+          "stage": "IDENTITY",
+          "status": "NOT_RUN",
+          "reason": "NO_ARTIFACT",
+          "detail": "the stage has no input because acquisition was blocked",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "AI_PROPOSAL",
+          "status": "NOT_RUN",
+          "reason": "NO_ARTIFACT",
+          "detail": "the stage has no input because acquisition was blocked",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "VERIFICATION",
+          "status": "NOT_RUN",
+          "reason": "NO_ARTIFACT",
+          "detail": "the stage has no input because acquisition was blocked",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "DELIVERY_MAPPING",
+          "status": "NOT_RUN",
+          "reason": "NO_VERIFIED_FACT",
+          "detail": "nothing was verified, so nothing could be mapped",
+          "evidence": "DETERMINISTIC"
+        }
+      ]
+    },
+    {
+      "case_id": "feit-shop-4x2-840-v1",
+      "headline": "Official sources found, but the site spells the reference with hyphens. Slash is not hyphen, so no exact match was claimed.",
+      "outcome": "NO_EXACT_REFERENCE",
+      "product": {
+        "row_number": 447,
+        "mpn": "SHOP/4X2/840/V1",
+        "raw_description": "4' Feit Shop Light 4500L 40k",
+        "raw_manufacturer": "Feit Electric (3468)",
+        "raw_brand_signals": [
+          "Feit Electric"
+        ]
+      },
+      "normalization": {
+        "manufacturer": "Feit Electric Company, Inc.",
+        "manufacturer_decision": "COMMIT",
+        "manufacturer_reason": "EXACT_ALIAS",
+        "manufacturer_authority": "HUMAN_APPROVED",
+        "brand": "Feit Electric",
+        "brand_decision": "REVIEW",
+        "brand_reason": "SINGLE_BRAND_SOURCE"
+      },
+      "classification": {
+        "family": "LIGHTING",
+        "decision": "COMMIT",
+        "reason": "STRONG_LEXICAL_CUE",
+        "cues": [
+          "shop light"
+        ],
+        "delivery_classpath": null,
+        "delivery_decision": "WITHHOLD"
+      },
+      "source": {
+        "discovery_status": "REVIEW",
+        "results_returned": 0,
+        "exact_candidates": 0,
+        "authority": "APPROVED_MANUFACTURER",
+        "relevance": "ABSENT",
+        "source_kind": null,
+        "discovery_url": null,
+        "final_url": null,
+        "artifact_kind": null,
+        "artifact_sha256": null,
+        "blocker": "NO_EXACT_SOURCE",
+        "blocker_detail": "Agent Search returned official feit.com product pages under APPROVED_MANUFACTURER authority; the locator spells the reference shop-4x2-840-v1 while the organizer row spells it SHOP/4X2/840/V1, and the relevance policy does not treat a slash and a hyphen as the same character"
+      },
+      "identity": {
+        "decision": "NOT_RUN",
+        "identity_scope": null,
+        "covers_mpn": null,
+        "reason": "NO_EXACT_SOURCE"
+      },
+      "ai": {
+        "ran": false,
+        "model": null,
+        "profile_id": null,
+        "proposal_count": 0,
+        "source_bound_count": 0,
+        "rejected_count": 0,
+        "replayed": false,
+        "not_run_reason": "no exact reference was established, so no document was acquired to read"
+      },
+      "attributes": {
+        "proposed": [],
+        "verified": [],
+        "withheld": []
+      },
+      "delivery": {
+        "mapped_count": 0,
+        "mapping_status": "UNAUTHORIZED",
+        "unauthorized_reason": "no verified manufacturer fact exists for this row"
+      },
+      "timeline": [
+        {
+          "stage": "NORMALIZATION",
+          "status": "SUCCESS",
+          "reason": "EXACT_ALIAS",
+          "detail": "resolved to Feit Electric Company, Inc.",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "CLASSIFICATION",
+          "status": "SUCCESS",
+          "reason": "STRONG_LEXICAL_CUE",
+          "detail": "internal family LIGHTING",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "DISCOVERY",
+          "status": "REVIEW",
+          "reason": "NO_EXACT_SOURCE",
+          "detail": "Agent Search returned official feit.com product pages under APPROVED_MANUFACTURER authority; the locator spells the reference shop-4x2-840-v1 while the organizer row spells it SHOP/4X2/840/V1, and the relevance policy does not treat a slash and a hyphen as the same character",
+          "evidence": "RECORDED_OBSERVATION"
+        },
+        {
+          "stage": "ACQUISITION",
+          "status": "NOT_RUN",
+          "reason": "NO_EXACT_SOURCE",
+          "detail": "acquisition needs an exact reference, which was never established",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "IDENTITY",
+          "status": "NOT_RUN",
+          "reason": "NO_EXACT_SOURCE",
+          "detail": "acquisition needs an exact reference, which was never established",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "AI_PROPOSAL",
+          "status": "NOT_RUN",
+          "reason": "NO_EXACT_SOURCE",
+          "detail": "acquisition needs an exact reference, which was never established",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "VERIFICATION",
+          "status": "NOT_RUN",
+          "reason": "NO_EXACT_SOURCE",
+          "detail": "acquisition needs an exact reference, which was never established",
+          "evidence": "DETERMINISTIC"
+        },
+        {
+          "stage": "DELIVERY_MAPPING",
+          "status": "NOT_RUN",
+          "reason": "NO_VERIFIED_FACT",
+          "detail": "nothing was verified, so nothing could be mapped",
+          "evidence": "DETERMINISTIC"
+        }
+      ]
+    }
+  ]
+}
