@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 
 import { AppNavbar } from "@/components/AppNavbar";
+import { CursorOrb } from "@/components/CursorOrb";
 import { SiteFooter } from "@/components/SiteFooter";
 import { MotionProvider } from "@/components/motion";
 import "./globals.css";
@@ -47,8 +48,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <MotionProvider>
+          <CursorOrb />
           <AppNavbar />
-          <main id="main">{children}</main>
+          <main id="main" className="premium-page">{children}</main>
           <SiteFooter />
         </MotionProvider>
       </body>

@@ -50,6 +50,8 @@ export function UploadScene({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,.8fr)]">
       <section
+        data-cursor={dragging ? "grabbing" : "upload"}
+        aria-busy={busy}
         className={
           "card-surface relative overflow-hidden border-2 border-dashed p-6 transition-colors sm:p-10 " +
           (dragging ? "border-olive bg-sage-soft/60" : "border-line")

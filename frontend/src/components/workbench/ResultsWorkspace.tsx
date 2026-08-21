@@ -34,14 +34,14 @@ export function ResultsWorkspace({ active, row, results }: { active?: AnalyzedPr
   return (
     <section className="space-y-5" aria-live="polite">
       <div className="card-surface overflow-hidden">
-        <header className="border-b border-line-soft bg-forest px-5 py-5 text-cream sm:px-7">
+        <header className="dark-section border-b border-[var(--border-dark-soft)] px-5 py-5 sm:px-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-[10.5px] font-semibold uppercase tracking-[.14em] text-cream/65">Pipeline result</p>
+              <p className="text-[11.5px] font-semibold uppercase tracking-[.14em] text-[var(--status-success)]">Pipeline result</p>
               <h2 className="display-heading mt-1.5 break-all text-[29px]">{detail.product.mpn}</h2>
-              <p className="mt-1.5 text-[13.5px] text-cream/75">{(detail.normalization.manufacturer ?? detail.product.raw_manufacturer) || "Manufacturer withheld"} · {detail.classification.family ?? "Classification withheld"}</p>
+              <p className="mt-1.5 text-[14px] text-[var(--text-on-dark-secondary)]">{(detail.normalization.manufacturer ?? detail.product.raw_manufacturer) || "Manufacturer withheld"} · {detail.classification.family ?? "Classification withheld"}</p>
             </div>
-            <div className="flex flex-wrap gap-2"><span className="rounded-full border border-cream/25 px-3 py-1 text-[11px]">{detail.mode}</span>{detail.timeline.some((entry) => entry.evidence === "RECORDED_OBSERVATION") ? <span className="rounded-full border border-amber-soft bg-amber-wash px-3 py-1 text-[11px] font-semibold text-[#73530d]">Recorded observation</span> : null}</div>
+            <div className="flex flex-wrap gap-2"><span className="rounded-full border border-[var(--border-dark)] bg-forest-deep/45 px-3 py-1.5 text-[12px] font-semibold text-cream">{detail.mode}</span>{detail.timeline.some((entry) => entry.evidence === "RECORDED_OBSERVATION") ? <span className="rounded-full border border-amber-soft bg-amber-wash px-3 py-1.5 text-[12px] font-semibold text-[#73530d]">Recorded observation</span> : null}</div>
           </div>
         </header>
 

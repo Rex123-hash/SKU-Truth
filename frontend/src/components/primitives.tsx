@@ -87,7 +87,7 @@ export function Button({
 export function Eyebrow({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full border border-line bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-green ${className}`}
+      className={`eyebrow inline-flex items-center gap-2 rounded-full border border-line bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-green ${className}`}
     >
       <span className="h-1.5 w-1.5 rounded-full bg-olive" aria-hidden="true" />
       {children}
@@ -118,8 +118,8 @@ export function SectionHeading({
         </span>
       ) : null}
       <div>
-        <h2 className="display-heading text-[26px] text-ink sm:text-[30px]">{title}</h2>
-        {subtitle ? <p className="mt-1.5 text-[15px] text-muted">{subtitle}</p> : null}
+        <h2 className="display-heading text-[clamp(1.9rem,3vw,2.7rem)] text-ink">{title}</h2>
+        {subtitle ? <p className="mt-2 max-w-[75ch] text-[16px] leading-relaxed text-muted sm:text-[17px]">{subtitle}</p> : null}
       </div>
     </div>
   );

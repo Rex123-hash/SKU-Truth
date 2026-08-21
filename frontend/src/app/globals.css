@@ -34,6 +34,15 @@
 
   --shadow-soft: 0 1px 2px rgb(23 32 25 / 0.04), 0 8px 24px -12px rgb(23 32 25 / 0.10);
   --shadow-lift: 0 2px 4px rgb(23 32 25 / 0.05), 0 18px 38px -16px rgb(23 32 25 / 0.16);
+
+  --text-on-dark-primary: #fffaf0;
+  --text-on-dark-secondary: #dfe6d8;
+  --surface-dark-raised: #204d35;
+  --surface-dark-soft: #1b472f;
+  --border-dark: #668369;
+  --border-dark-soft: #466a50;
+  --status-warning: #f2c15b;
+  --status-success: #b9cdaa;
 }
 
 @layer base {
@@ -95,6 +104,126 @@
     box-shadow: var(--shadow-soft);
   }
 
+  /* Inner marketing pages share one restrained icon treatment. The default is
+     deliberately quiet; the glow is earned by hovering or keyboard-focusing the
+     containing control/card, so utility glyphs never look like pasted-on portraits. */
+  .premium-page .lucide {
+    filter: drop-shadow(0 1px 1px rgb(23 63 42 / 0.12));
+    transform-origin: center;
+    transition:
+      filter 240ms ease,
+      transform 240ms ease,
+      color 240ms ease;
+  }
+
+  .premium-page .lucide:hover,
+  .premium-page :where(a, button, article, li):is(:hover, :focus-within) .lucide {
+    filter:
+      drop-shadow(0 0 5px rgb(231 166 43 / 0.26))
+      drop-shadow(0 2px 5px rgb(23 63 42 / 0.2));
+    transform: translateY(-1px) scale(1.045);
+  }
+
+  .premium-icon-frame {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid rgb(165 185 149 / 0.72);
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 0.78), transparent 48%),
+      var(--color-sage-soft);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.86),
+      0 5px 14px -9px rgb(23 63 42 / 0.65);
+    transition:
+      border-color 240ms ease,
+      box-shadow 240ms ease,
+      transform 240ms ease;
+  }
+
+  .premium-icon-frame::after {
+    content: "";
+    position: absolute;
+    inset: -45%;
+    z-index: 0;
+    background: linear-gradient(115deg, transparent 36%, rgb(255 255 255 / 0.76) 50%, transparent 64%);
+    transform: translateX(-75%) rotate(8deg);
+    transition: transform 520ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    pointer-events: none;
+  }
+
+  .premium-icon-frame > .lucide {
+    position: relative;
+    z-index: 1;
+  }
+
+  .premium-icon-frame:hover,
+  .premium-page :where(a, button, article, li):is(:hover, :focus-within) .premium-icon-frame {
+    border-color: rgb(231 166 43 / 0.62);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.92),
+      0 0 0 3px rgb(242 193 91 / 0.1),
+      0 9px 22px -10px rgb(23 63 42 / 0.55),
+      0 0 18px rgb(231 166 43 / 0.12);
+    transform: translateY(-2px);
+  }
+
+  .premium-icon-frame:hover::after,
+  .premium-page :where(a, button, article, li):is(:hover, :focus-within) .premium-icon-frame::after {
+    transform: translateX(75%) rotate(8deg);
+  }
+
+  .dark-section {
+    background: var(--color-forest);
+    color: var(--text-on-dark-primary);
+  }
+
+  .dark-section .display-heading {
+    color: var(--text-on-dark-primary) !important;
+  }
+
+  .dark-section .text-muted {
+    color: var(--text-on-dark-secondary) !important;
+  }
+
+  .dark-section .eyebrow {
+    border-color: var(--border-dark) !important;
+    background: rgb(255 250 240 / 0.08) !important;
+    color: var(--text-on-dark-primary) !important;
+  }
+
+  .dark-card {
+    border: 1px solid var(--border-dark-soft);
+    background: var(--surface-dark-soft);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+    transition:
+      border-color 220ms ease,
+      background-color 220ms ease,
+      transform 220ms ease;
+  }
+
+  .dark-card:hover,
+  .dark-card:focus-within {
+    border-color: var(--border-dark);
+    background: var(--surface-dark-raised);
+    transform: translateY(-2px);
+  }
+
+  .metric-card {
+    border: 1px solid var(--color-line);
+    background: var(--color-card);
+    border-radius: 14px;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.8),
+      var(--shadow-soft);
+  }
+
+  .dark-section .reason-code {
+    border-color: var(--border-dark) !important;
+    background: rgb(15 44 29 / 0.72) !important;
+    color: var(--status-warning) !important;
+  }
+
   /* Faint warm paper grain. Without it the large cream fields read as flat #F7F1E7. */
   .paper-grain::before {
     content: "";
@@ -119,5 +248,79 @@
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+/* CSS-first adaptive cursor system. Native text selection, resize handles, and
+   browser controls keep their semantic cursors; custom SVGs only enhance the
+   ordinary desktop pointer states and always include a native fallback. */
+@media (hover: hover) and (pointer: fine) {
+  body {
+    cursor: url("/cursors/cursor-default.svg?v=2") 3 2, default;
+  }
+
+  :where(a[href], button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary, select, label[for], input[type="checkbox"], input[type="radio"], input[type="file"], [data-cursor="inspect"]) {
+    cursor: url("/cursors/cursor-pointer.svg?v=2") 9 2, pointer;
+  }
+
+  :where(input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="url"], input[type="tel"], input[type="password"], input[type="number"], textarea, [contenteditable="true"]) {
+    cursor: text;
+  }
+
+  :where([draggable="true"], [data-cursor="grab"], [data-cursor="upload"]) {
+    cursor: url("/cursors/cursor-grab.svg?v=2") 11 10, grab;
+  }
+
+  :where([data-cursor="grabbing"], [draggable="true"]:active) {
+    cursor: url("/cursors/cursor-grabbing.svg?v=2") 11 11, grabbing;
+  }
+
+  :where(button:disabled, input:disabled, select:disabled, [aria-disabled="true"], [data-cursor="disabled"]) {
+    cursor: url("/cursors/cursor-disabled.svg?v=2") 12 12, not-allowed;
+  }
+
+  :where([aria-busy="true"], [data-cursor="loading"]) {
+    cursor: url("/cursors/cursor-loading.svg?v=2") 3 2, progress;
+  }
+}
+
+.cursor-orb {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9999;
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity 120ms ease;
+}
+
+.cursor-orb[data-visible="true"] {
+  opacity: 1;
+}
+
+.cursor-orb-dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--color-forest-deep);
+  border-radius: 999px;
+  background: radial-gradient(circle at 34% 30%, #fff2bd 0 12%, var(--color-amber-soft) 28%, var(--color-amber) 74%);
+  box-shadow:
+    inset 0 0 0 2px rgb(255 250 240 / 0.3),
+    0 0 0 2px rgb(231 166 43 / 0.12),
+    0 2px 5px rgb(15 44 29 / 0.26);
+  transition: transform 150ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.cursor-orb[data-pressed="true"] .cursor-orb-dot {
+  transform: scale(1.65);
+}
+
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .cursor-orb {
+    display: none;
   }
 }

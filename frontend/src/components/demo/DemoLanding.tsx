@@ -81,13 +81,13 @@ export function DemoLanding() {
         ) : null}
 
         {loading && !data && !error ? (
-          <div className="mt-8 grid gap-5 md:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {CASE_ORDER.map((slug) => (
               <Skeleton key={slug} className="h-[470px]" />
             ))}
           </div>
         ) : data ? (
-          <Stagger step={0.09} className="mt-8 grid gap-5 md:grid-cols-3">
+          <Stagger step={0.09} className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {CASE_ORDER.map((slug) => (
               <StaggerItem key={slug} className="h-full">
                 <DemoCaseCard slug={slug} card={cardFor(CASES[slug].caseId)} />

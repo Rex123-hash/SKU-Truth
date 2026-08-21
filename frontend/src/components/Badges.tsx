@@ -13,11 +13,11 @@ import { EVIDENCE_LABEL, EVIDENCE_TOOLTIP, STATUS_LABEL } from "@/lib/vocab";
  * stopped on purpose", distinct from success green and from a genuine failure.
  */
 const STATUS_STYLE: Record<StageStatus, { className: string; Icon: typeof CheckCircle2 }> = {
-  SUCCESS: { className: "border-sage bg-sage-soft text-forest", Icon: CheckCircle2 },
-  REVIEW: { className: "border-amber-soft bg-amber-wash text-[#8a6410]", Icon: AlertTriangle },
-  WITHHELD: { className: "border-amber-soft bg-amber-wash text-[#8a6410]", Icon: XCircle },
-  BLOCKED: { className: "border-amber-soft bg-amber-wash text-[#8a6410]", Icon: AlertTriangle },
-  NOT_RUN: { className: "border-line bg-cream-soft text-muted", Icon: CircleDashed },
+  SUCCESS: { className: "border-[#7f9c71] bg-sage-soft text-forest", Icon: CheckCircle2 },
+  REVIEW: { className: "border-[#c98a18] bg-amber-wash text-[#73530d]", Icon: AlertTriangle },
+  WITHHELD: { className: "border-[#c98a18] bg-amber-wash text-[#73530d]", Icon: XCircle },
+  BLOCKED: { className: "border-[#c98a18] bg-amber-wash text-[#73530d]", Icon: AlertTriangle },
+  NOT_RUN: { className: "border-[#b9b09f] bg-cream-soft text-[#555e57]", Icon: CircleDashed },
 };
 
 export function StageBadge({ status, label }: { status: StageStatus; label?: string }) {
@@ -25,7 +25,7 @@ export function StageBadge({ status, label }: { status: StageStatus; label?: str
   return (
     <span
       className={
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium " +
+        "status-badge inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold " +
         className
       }
     >
@@ -41,10 +41,10 @@ export function StageBadge({ status, label }: { status: StageStatus; label?: str
  * an operator's written-down observation look like something the server re-derived.
  */
 const BASIS_STYLE: Record<EvidenceBasis, string> = {
-  DETERMINISTIC: "border-line bg-cream-soft text-muted",
-  STORED_CASSETTE: "border-line bg-cream-soft text-muted",
-  STORED_ARTIFACT: "border-sage bg-sage-soft text-forest",
-  RECORDED_OBSERVATION: "border-dashed border-amber bg-amber-wash text-[#8a6410]",
+  DETERMINISTIC: "border-[#b9b09f] bg-cream-soft text-[#555e57]",
+  STORED_CASSETTE: "border-[#b9b09f] bg-cream-soft text-[#555e57]",
+  STORED_ARTIFACT: "border-[#7f9c71] bg-sage-soft text-forest",
+  RECORDED_OBSERVATION: "border-dashed border-[#c98a18] bg-amber-wash text-[#73530d]",
 };
 
 export function TrustBasisBadge({
@@ -58,7 +58,7 @@ export function TrustBasisBadge({
     <span
       title={interactive ? undefined : EVIDENCE_TOOLTIP[basis]}
       className={
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium " +
+        "status-badge inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold " +
         BASIS_STYLE[basis]
       }
     >
@@ -113,7 +113,7 @@ export function ReasonCode({ code, className = "" }: { code: string; className?:
   return (
     <code
       className={
-        "inline-block max-w-full break-all rounded-md border border-line-soft bg-cream px-1.5 py-0.5 font-mono text-[11.5px] text-green " +
+        "reason-code inline-block max-w-full break-all rounded-md border border-line bg-cream-soft px-2 py-1 font-mono text-[12px] font-medium text-green " +
         className
       }
     >

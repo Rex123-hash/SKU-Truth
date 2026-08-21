@@ -28,7 +28,7 @@ const BOUNDARIES = [
 
 export function TrustBoundaries() {
   return (
-    <section className="bg-forest py-14 sm:py-20">
+    <section className="dark-section py-16 sm:py-22">
       <Container>
         <Rise className="max-w-[600px]">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sage">
@@ -44,7 +44,7 @@ export function TrustBoundaries() {
         <Stagger step={0.09} className="mt-11 grid gap-4 lg:grid-cols-3">
           {BOUNDARIES.map((boundary) => (
             <StaggerItem key={boundary.left} className="h-full">
-              <div className="flex h-full flex-col rounded-[16px] border border-cream/12 bg-cream/[0.04] p-6">
+              <div className="dark-card flex h-full flex-col rounded-[16px] p-6">
                 <p className="text-[16px] font-medium text-cream">{boundary.left}</p>
                 <p
                   aria-label="is not the same as"
@@ -53,7 +53,7 @@ export function TrustBoundaries() {
                   ≠
                 </p>
                 <p className="text-[16px] font-medium text-cream">{boundary.right}</p>
-                <p className="mt-5 text-[13.5px] leading-relaxed text-cream/65">{boundary.body}</p>
+                <p className="mt-5 text-[14.5px] leading-relaxed text-[var(--text-on-dark-secondary)]">{boundary.body}</p>
               </div>
             </StaggerItem>
           ))}

@@ -5,6 +5,7 @@ import { useApi } from "@/lib/useApi";
 import type { SchemaResponse } from "@/lib/types";
 
 import { ApiUnavailable, Skeleton } from "@/components/ApiState";
+import { MetricCard } from "@/components/MetricCard";
 import { Tooltip } from "@/components/Badges";
 import { Container } from "@/components/primitives";
 import { Rise, Stagger, StaggerItem } from "@/components/motion";
@@ -80,17 +81,12 @@ export function PipelineOverview() {
         <Stagger step={0.06} className="mt-9 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {cards.map((card) => (
             <StaggerItem key={card.label}>
-              <div className="card-surface h-full p-5">
-                {card.value === null && loading ? (
-                  <Skeleton className="h-[42px] w-20" />
-                ) : (
-                  <p className="display-heading text-[36px] leading-none text-forest">
-                    {card.value ?? "—"}
-                  </p>
-                )}
-                <p className="mt-3 text-[14px] font-medium text-ink">{card.label}</p>
-                <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">{card.note}</p>
-              </div>
+              <MetricCard
+                eyebrow="Current repository"
+                value={card.value === null && loading ? <Skeleton className="h-[36px] w-20" /> : (card.value ?? "—")}
+                label={card.label}
+                detail={card.note}
+              />
             </StaggerItem>
           ))}
         </Stagger>

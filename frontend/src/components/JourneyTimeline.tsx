@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import type { TimelineEntry } from "@/lib/types";
 import { STAGE_BLURB, STAGE_LABEL, STATUS_LABEL } from "@/lib/vocab";
 import { ReasonCode, StageBadge, Tooltip, TrustBasisBadge } from "./Badges";
+import { MetricCard } from "./MetricCard";
 
 /**
  * The eight stages, in order, with the state each actually reached.
@@ -44,7 +45,7 @@ export function JourneyTimeline({ timeline }: { timeline: TimelineEntry[] }) {
                 aria-hidden="true"
                 className={"h-2.5 w-2.5 rounded-full border " + DOT_STYLE[entry.status]}
               />
-              <span className="font-mono text-[11px] text-muted">
+              <span className="font-mono text-[11.5px] text-muted">
                 {String(index + 1).padStart(2, "0")}
               </span>
             </div>
@@ -57,7 +58,7 @@ export function JourneyTimeline({ timeline }: { timeline: TimelineEntry[] }) {
               {STAGE_LABEL[entry.stage]}
             </h3>
 
-            <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted">
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
               {entry.detail || STAGE_BLURB[entry.stage]}
             </p>
 
@@ -116,42 +117,22 @@ export function JourneyCounts({
 
   return (
     <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {items.map((item) => (
-        <div key={item.label} className="rounded-[14px] border border-line bg-card p-5">
-          <p
-            className={
-              "display-heading text-[34px] " +
-              (item.tone === "green"
-                ? "text-forest"
-                : item.tone === "amber"
-                  ? "text-[#8a6410]"
-                  : "text-ink")
-            }
-          >
-            {item.value}
-          </p>
-          <p className="mt-1 text-[13px] text-muted">{item.label}</p>
-        </div>
-      ))}
+      {items.map((item) => <MetricCard key={item.label} eyebrow="Journey count" value={item.value} label={item.label} variant={item.tone === "green" ? "verified" : item.tone === "amber" ? "blocked" : "light"} />)}
 
-      <div className="rounded-[14px] border border-dashed border-line bg-cream-soft/60 p-5">
-        <p className="display-heading text-[34px] text-muted">{mapped}</p>
-        <p className="mt-1 text-[13px] text-muted">Delivery-mapped</p>
-        {/* Zero here is a boundary, not a breakage, so the explanation sits one hover
-            away rather than shouting a paragraph of caveat next to the number. */}
-        <div className="mt-2">
+      <MetricCard eyebrow="Delivery boundary" value={mapped} label="Delivery-mapped" variant="warning" detail={
+        <div>
           <Tooltip
             label={
               unauthorizedReason ||
               "Manufacturer evidence was verified, but no organizer-authorised lighting vocabulary exists to map it into."
             }
           >
-            <span className="inline-flex items-center gap-1.5 text-[11.5px] font-medium uppercase tracking-[0.08em] text-[#8a6410] underline decoration-dotted underline-offset-4">
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-[#73530d] underline decoration-dotted underline-offset-4">
               {mappingStatus}
             </span>
           </Tooltip>
         </div>
-      </div>
+      } />
     </div>
   );
 }

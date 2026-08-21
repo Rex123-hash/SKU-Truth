@@ -176,7 +176,7 @@ export function EvidenceComparison({ detail }: { detail: ProductDetail }) {
               tone="neutral"
             >
               <FieldLine label={active.label} value={active.proposedValue} uom={active.proposedUom} />
-              <p className="mt-4 text-[12.5px] leading-relaxed text-muted">
+              <p className="mt-4 text-[13.5px] leading-relaxed text-muted">
                 A model proposal, bound to a location in the stored document. Not yet a fact.
               </p>
             </Panel>
@@ -202,7 +202,7 @@ export function EvidenceComparison({ detail }: { detail: ProductDetail }) {
                   No labelled property was found at this location.
                 </p>
               )}
-              <p className="mt-4 text-[12.5px] leading-relaxed text-muted">
+              <p className="mt-4 text-[13.5px] leading-relaxed text-muted">
                 {LOCATOR_KIND_LABEL[active.locatorKind] ?? active.locatorKind}
                 {active.locatorHint ? " · " + active.locatorHint : ""}
               </p>
@@ -295,7 +295,7 @@ function Panel({
 
   return (
     <div className={"rounded-[14px] border p-5 " + toneClass}>
-      <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-olive">
+      <p className="inline-flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-olive">
         {icon}
         {eyebrow}
       </p>
@@ -307,7 +307,7 @@ function Panel({
 function FieldLine({ label, value, uom }: { label: string; value: string; uom: string }) {
   return (
     <div>
-      <p className="text-[12.5px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
+      <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-muted">{label}</p>
       <p className="display-heading mt-1.5 break-words text-[26px] text-ink">
         {value}
         {/* A unit is only ever printed when the payload actually carries one. */}

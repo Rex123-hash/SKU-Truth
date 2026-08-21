@@ -48,10 +48,10 @@ export function DemoCaseSection() {
         {data ? (
           <Stagger
             step={0.09}
-            className="mt-9 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0"
+            className="mt-9 flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4 lg:grid lg:grid-cols-3 lg:overflow-visible lg:pb-0"
           >
             {CASE_ORDER.map((slug) => (
-              <StaggerItem key={slug} className="w-[84vw] shrink-0 snap-center md:w-auto md:shrink">
+              <StaggerItem key={slug} className="w-[84vw] shrink-0 snap-center lg:w-auto lg:shrink">
                 <DemoCaseCard slug={slug} card={cardFor(CASES[slug].caseId)} />
               </StaggerItem>
             ))}

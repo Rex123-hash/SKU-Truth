@@ -20,11 +20,11 @@ export function CTASection({
   return (
     <Container className="pb-16 pt-4">
       <Rise>
-        <div className="relative overflow-hidden rounded-[20px] bg-forest px-7 py-10 sm:px-12 sm:py-12">
+        <div className="dark-section relative overflow-hidden rounded-[20px] px-7 py-10 sm:px-12 sm:py-12">
           <div className="relative z-10 flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-[520px]">
               <h2 className="display-heading text-[28px] text-cream sm:text-[34px]">{title}</h2>
-              <p className="mt-3.5 text-[15.5px] leading-relaxed text-cream/75">{body}</p>
+              <p className="mt-3.5 text-[16px] leading-relaxed text-[var(--text-on-dark-secondary)]">{body}</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 lg:pr-[200px]">

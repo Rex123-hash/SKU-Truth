@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Braces, Database, Eye, ShieldCheck } from "lucide-react";
 
 import { CTASection } from "@/components/CTASection";
+import { MetricCard } from "@/components/MetricCard";
 import { Rise, Stagger, StaggerItem } from "@/components/motion";
 import { ButtonLink, Container, Eyebrow, SectionHeading } from "@/components/primitives";
 
@@ -77,10 +78,7 @@ export default function ProofPage() {
               ["3", "manufacturer cases"],
             ].map(([value, label]) => (
               <StaggerItem key={label}>
-                <div className="card-surface p-5">
-                  <p className="display-heading text-[34px] text-forest">{value}</p>
-                  <p className="mt-1.5 text-[13px] text-muted">{label}</p>
-                </div>
+                <MetricCard eyebrow="Repository fact" value={value} label={label} />
               </StaggerItem>
             ))}
           </Stagger>
@@ -110,17 +108,17 @@ export default function ProofPage() {
         </Stagger>
       </Container>
 
-      <section id="boundaries" className="scroll-mt-24 bg-forest py-14 sm:py-18">
+      <section id="boundaries" className="dark-section scroll-mt-24 py-16 sm:py-22">
         <Container>
           <SectionHeading
             index={2}
             title={<span className="text-cream">The three lines SKUTruth will not cross</span>}
-            subtitle={<span className="text-cream/65">Each side can be true without proving the other.</span>}
+            subtitle={<span className="text-[var(--text-on-dark-secondary)]">Each side can be true without proving the other.</span>}
           />
           <Stagger step={0.08} className="mt-8 grid gap-4 lg:grid-cols-3">
             {BOUNDARIES.map(([left, right]) => (
               <StaggerItem key={left} className="h-full">
-                <div className="h-full rounded-[16px] border border-cream/15 bg-cream/[0.04] p-6">
+                <div className="dark-card h-full rounded-[16px] p-6">
                   <p className="text-[16px] font-medium text-cream">{left}</p>
                   <p className="my-3 text-[22px] text-amber" aria-label="is not the same as">≠</p>
                   <p className="text-[16px] font-medium text-cream">{right}</p>

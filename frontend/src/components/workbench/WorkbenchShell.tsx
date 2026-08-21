@@ -5,6 +5,7 @@ import { Database, FileCheck2, Plus, Rows3, ShieldCheck } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Container, Eyebrow } from "@/components/primitives";
+import { MetricCard } from "@/components/MetricCard";
 import { analyzeRow, SkuTruthApiError } from "@/lib/api";
 import {
   BATCH_ANALYSIS_LIMIT,
@@ -125,10 +126,10 @@ export function WorkbenchShell() {
 
   return (
     <>
-      <section className="relative overflow-hidden border-b border-line bg-forest py-9 text-cream sm:py-11">
+      <section className="dark-section relative overflow-hidden border-b border-[var(--border-dark-soft)] py-9 sm:py-11">
         <Container>
           <div className="flex items-center justify-between gap-6">
-            <div><Eyebrow className="border-cream/20 bg-cream/10 text-cream">Product workspace</Eyebrow><h1 className="display-heading mt-4 text-[37px] sm:text-[46px]">Catalog Workbench</h1><p className="mt-3 max-w-[650px] text-[15px] leading-relaxed text-cream/72">Bring organizer data into the real SKUTruth pipeline. What can be verified is shown; what cannot is visibly withheld.</p></div>
+            <div><Eyebrow className="border-[var(--border-dark)] bg-cream/10 text-cream">Product workspace</Eyebrow><h1 className="display-heading mt-4 text-[37px] sm:text-[46px]">Catalog Workbench</h1><p className="mt-3 max-w-[650px] text-[16px] leading-relaxed text-[var(--text-on-dark-secondary)]">Bring organizer data into the real SKUTruth pipeline. What can be verified is shown; what cannot is visibly withheld.</p></div>
             <Image src="/art/crate-sku.png" alt="" aria-hidden="true" width={620} height={620} className="hidden w-[150px] opacity-80 sm:block" />
           </div>
         </Container>
@@ -145,7 +146,7 @@ export function WorkbenchShell() {
 
         {hasCatalog ? <div className="space-y-7">
           <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {[[Rows3, rows.length, "Rows"], [FileCheck2, counts.ready, "Ready"], [Database, counts.review, "Review"], [Database, counts.invalid, "Invalid"], [ShieldCheck, counts.replay, "Replay evidence"]].map(([Icon, value, label]) => { const IconComponent = Icon as typeof Rows3; return <div key={String(label)} className="card-surface p-4"><IconComponent className="h-4 w-4 text-olive" /><strong className="display-heading mt-2 block text-[26px] text-forest">{String(value)}</strong><span className="text-[11.5px] text-muted">{String(label)}</span></div>; })}
+            {[[Rows3, rows.length, "Rows"], [FileCheck2, counts.ready, "Ready"], [Database, counts.review, "Review"], [Database, counts.invalid, "Invalid"], [ShieldCheck, counts.replay, "Replay evidence"]].map(([Icon, value, label]) => { const IconComponent = Icon as typeof Rows3; return <MetricCard key={String(label)} eyebrow="Catalog" value={String(value)} label={String(label)} className="p-4" detail={<IconComponent className="h-4 w-4 text-olive" />} />; })}
           </section>
           {message ? <p role="status" className="rounded-[10px] border border-amber-soft bg-amber-wash px-4 py-3 text-[13px] text-[#73530d]">{message}</p> : null}
           <CatalogGrid rows={rows} selected={selected} results={results} analyzing={analyzing} onToggle={toggle} onToggleAll={toggleAll} onAnalyze={analyze} onOpen={setActiveRowId} />

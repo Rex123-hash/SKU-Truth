@@ -30,7 +30,7 @@ export function AttributeTable({ attributes, view = "all" }: { attributes: Attri
               {attributes.verified.length}
             </span>
           </header>
-          <p className="mt-1.5 text-[13.5px] text-muted">
+          <p className="mt-1.5 text-[14.5px] text-muted">
             Each one re-derived from the stored manufacturer document.
           </p>
 
@@ -52,7 +52,7 @@ export function AttributeTable({ attributes, view = "all" }: { attributes: Attri
               {attributes.withheld.length}
             </span>
           </header>
-          <p className="mt-1.5 text-[13.5px] text-muted">
+          <p className="mt-1.5 text-[14.5px] text-muted">
             Bound to a location, and still not established as facts.
           </p>
 
@@ -84,11 +84,12 @@ export function VerifiedRow({
     <li>
       <button
         type="button"
+        data-cursor="inspect"
         onClick={onOpen}
         className="group flex w-full items-center justify-between gap-4 rounded-[12px] border border-line bg-card px-4 py-3.5 text-left transition-colors hover:border-sage hover:bg-cream-soft/60"
       >
         <span className="min-w-0">
-          <span className="block text-[13px] text-muted">{attribute.label}</span>
+          <span className="block text-[14px] text-muted">{attribute.label}</span>
           <span className="mt-0.5 block truncate text-[16px] font-medium text-ink">
             {attribute.value}
             {/* The unit prints only when the verified payload carries one. The Kichler
@@ -100,7 +101,7 @@ export function VerifiedRow({
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          <span className="hidden text-[12px] text-muted sm:inline">
+          <span className="hidden text-[12.5px] text-muted sm:inline">
             {attribute.source_label}
           </span>
           <ChevronRight
@@ -124,18 +125,19 @@ export function WithheldRow({
     <li>
       <button
         type="button"
+        data-cursor="inspect"
         onClick={onOpen}
         className="group flex w-full items-start justify-between gap-4 rounded-[12px] border border-dashed border-amber-soft bg-amber-wash/50 px-4 py-3.5 text-left transition-colors hover:bg-amber-wash"
       >
         <span className="min-w-0">
-          <span className="block text-[13px] text-muted">{attribute.label}</span>
+          <span className="block text-[14px] text-muted">{attribute.label}</span>
           <span className="mt-0.5 block truncate text-[16px] font-medium text-ink line-through decoration-[#8a6410]/40">
             {attribute.proposed_value}
           </span>
           <span className="mt-2 block">
             <ReasonCode code={attribute.reason} />
           </span>
-          <span className="mt-1.5 block text-[12.5px] leading-relaxed text-muted">
+          <span className="mt-1.5 block text-[13.5px] leading-relaxed text-muted">
             {reasonSentence(attribute.reason) ?? attribute.detail}
           </span>
         </span>
