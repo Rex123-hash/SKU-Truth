@@ -1,14 +1,18 @@
-# Document ingestion
+# Source artifact ingestion
 
-Turns document bytes into a versioned, page-addressable source artifact.
+Turns already-fetched bytes into an explicit, versioned source representation.
 
 ```
 PDF bytes → validate/limit → SHA-256 → artifact id → page-preserving extraction → page map
+HTML bytes → validate/limit → SHA-256 → artifact id → deterministic read model
 ```
+
+PDF and HTML stay distinct through `ArtifactKind`. HTML has no synthetic page number and
+never enters the PDF page-map contract.
 
 ## What ingestion proves — and what it does not
 
-> **INGESTION PROVES:** these page contents were extracted from this exact artifact.
+> **INGESTION PROVES:** this derived representation came from these exact original bytes.
 >
 > **INGESTION DOES NOT PROVE:** this text supports a proposed SKU attribute.
 
@@ -22,12 +26,13 @@ plausible-sounding system quietly stops being trustworthy.
 support, nowhere near a sufficient one, and it is deliberately not called
 verification.
 
-## Two hashes, two purposes
+## Original and derived hashes
 
 | Hash | Over | Changes when |
 |---|---|---|
 | `IngestedArtifact.sha256` | the **original bytes** | the document changes |
 | `IngestedPage.text_sha256` | the page's `raw_text` | the *extraction* changes |
+| `HtmlArtifact.content_sha256` | canonical JSON for the HTML read model | parsing changes |
 
 The artifact hash is evidence identity: a citation points at a byte sequence, and that
 sequence has to be identifiable independent of whatever parser read it. Text is never
@@ -42,9 +47,25 @@ would make the same document ingested twice into two different pieces of evidenc
 
 ## Exact bytes are preserved
 
-`original.pdf` is written byte-for-byte and re-hashed after writing. Nothing is
-re-saved through the parser, recompressed, or linearised. The evidence artifact is the
-original byte sequence, and anything else would be a different document.
+`original.pdf` or `original.html` is written byte-for-byte and re-hashed after writing.
+Nothing is re-saved through a parser. The evidence artifact is the original byte sequence,
+and anything else would be a different source.
+
+## HTML snapshots
+
+HTML ingestion parses returned bytes only. It uses the non-executing standard-library
+parser and performs no fetches, JavaScript execution, image loading, iframe following, or
+CSS/subresource resolution. A 5 MB HTML-specific cap sits below the fetcher's decompressed
+body cap; empty, non-UTF-8, wrong-MIME, and PDF-signature bodies are refused.
+
+`HtmlArtifactContent` preserves document title, canonical metadata, standard description
+and OpenGraph fields, normalized visible text in source order, and independent JSON-LD
+blocks. Invalid JSON-LD is retained with a local parse error while valid blocks and visible
+text remain usable. None of these fields is automatically a verified product fact.
+
+Visible text fragments use character offsets plus deterministic element indexes.
+Structured fragments use JSON-LD block indexes and JSON pointers. These locators are the
+future HTML verification seam; the current PDF verifier remains page-based and unchanged.
 
 ## Page numbering
 
@@ -119,6 +140,12 @@ Rejection thresholds, never truncation points. A document over a limit raises
     original.pdf      the exact bytes
     page-map.json     per-page hashes and character counts
     pages/0001.txt    raw page text
+
+or, for HTML:
+
+    metadata.json
+    original.html      exact response bytes
+    html-content.json  integrity-checked deterministic read model
 ```
 
 | Directory | Contents | Committed |
@@ -152,11 +179,10 @@ always land in the same place rather than creating a second artifact identity.
 
 ## Security boundary
 
-This layer will accept PDF bytes handed to it and enforce hard caps. It will **never**
-fetch a URL, execute embedded JavaScript, extract embedded attachments, or OCR
-silently. Discovery decides *this URL looks useful*; ingestion decides *these exact
-bytes are the evidence artifact*, and keeping them apart is what stops a landing page
-from becoming the thing a citation points at.
+This layer accepts bounded PDF or HTML bytes handed to it. It will **never** fetch a URL,
+execute embedded JavaScript, resolve HTML subresources, extract embedded PDF attachments,
+or OCR silently. Discovery decides *this URL looks useful*; safe fetch determines actual
+MIME; ingestion preserves *these exact bytes*. Evidence verification still comes later.
 
 ### Extracted text is untrusted data
 

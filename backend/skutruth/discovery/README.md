@@ -57,16 +57,12 @@ Each pair is genuinely different, and each confusion is a real failure mode:
   which product it describes. Discovery hands over bytes; identity resolution decides what
   they are about, and mechanical verification decides what they support.
 
-## Scope of this milestone
+## Supported acquisition representations
 
-**PDF acquisition only.** An official HTML product page is discovered, ranked, fetched,
-and hashed — and then recorded as `NOT_INGESTABLE_YET` rather than forced into an artifact
-store whose every invariant (page map, per-page hashes, per-page text) is defined for a
-paginated document. Writing an HTML page in there as a one-page PDF-shaped record would be
-a small lie told in exactly the place the system's provenance rests on.
-
-That is a scope statement, not a quality judgement, and it is deliberate: half a safe HTML
-pipeline is worse than none.
+Safe fetch determines actual MIME after redirects. Eligible PDFs enter the existing
+page-addressable artifact representation; eligible HTML enters an immutable raw snapshot
+plus deterministic visible-text, metadata, and JSON-LD read model. HTML is never called a
+PDF or assigned page 1. Neither representation establishes identity scope or attributes.
 
 ## Manual official-source intake
 
@@ -80,8 +76,7 @@ not change what the locator is allowed to prove:
   note and the entered MPN do not count as relevance evidence;
 * `fetch.py` applies the same scheme, DNS, address, redirect, MIME, signature, and size
   policy, and authority is classified again on the final redirect host;
-* only an eligible PDF can enter `ArtifactStore`; HTML remains an official locator with
-  `NOT_INGESTABLE_YET` status;
+* eligible PDF and HTML bytes enter distinct `ArtifactStore` representations;
 * stored provenance is `OPERATOR_SUPPLIED`, never Agent Search, and the URL establishes
   neither artifact identity scope nor product coverage.
 
@@ -500,12 +495,9 @@ artifact that arrived from a host with no standing does not get to name a manufa
 
 ## The seam into the existing pipeline
 
-`ingest/limits.py` already said it, before there was a fetcher: *"Discovery hands over
-bytes; ingestion never reaches the network."* That contract is honoured exactly — nothing
-here re-implements PDF parsing, hashing, or page mapping. `discovered_artifacts()` returns
-ordinary `IngestedArtifact` values, the same type identity, extraction, and verification
-already consume, so wiring discovery to the rest of the system means passing them on
-rather than copying files.
+Discovery hands over bytes; ingestion never reaches the network. `discovered_artifacts()`
+returns explicit PDF `IngestedArtifact` or HTML `HtmlArtifact` values. Consumers must
+dispatch on artifact kind; the page-based verifier does not treat HTML as a PDF.
 
 Identical bytes at two URLs are one artifact. A document published twice is one document,
 and counting it twice would let a mirror manufacture agreement.
@@ -529,7 +521,8 @@ and counting it twice would let a mirror manufacture agreement.
 * Agent Search reads Google's index, so coverage depends on what Google has indexed and on
   the publisher's own indexing policy. A manufacturer PDF Google has not indexed is not
   findable this way.
-* HTML pages are discovered and hashed but not ingested (above).
+* HTML snapshots are ingested, but HTML identity resolution, mechanical verification,
+  and attribute extraction are not implemented yet.
 * DNS is not pinned (above).
 * `Part_Manuf` is not always a manufacturer. Several of the organizer input's largest
   suppliers are buying groups and distributors, so no manufacturer domain exists to find.

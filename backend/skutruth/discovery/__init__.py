@@ -5,7 +5,9 @@ A search result locates a candidate. It is never evidence. See ./README.md.
 
 from .acquire import (
     AcquiredArtifact,
+    acquire_html,
     acquire_pdf,
+    acquire_resource,
     discovered_artifacts,
     source_metadata_for,
 )
@@ -151,7 +153,9 @@ __all__ = [
     "SourceCandidate",
     "SourceKind",
     "UnsafeUrlError",
+    "acquire_html",
     "acquire_pdf",
+    "acquire_resource",
     "acquire_candidate",
     "candidate_host",
     "build_filter",

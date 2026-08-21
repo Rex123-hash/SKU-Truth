@@ -84,10 +84,25 @@ def report_for(result: ManualSourceResult, store: ArtifactStore | None = None) -
         artifact = {
             "sha256": stored.sha256,
             "artifact_id": stored.artifact_id,
+            "artifact_kind": stored.artifact_kind.value,
             "media_type": stored.media_type,
             "byte_size": stored.byte_size,
-            "page_count": stored.page_count,
-            "text_status": stored.text_status.value,
+            "page_count": getattr(stored, "page_count", None),
+            "text_status": (
+                stored.text_status.value if hasattr(stored, "text_status") else None
+            ),
+            "html_title": (
+                stored.content.title if hasattr(stored, "content") else None
+            ),
+            "html_canonical_url": (
+                stored.content.canonical_url if hasattr(stored, "content") else None
+            ),
+            "html_text_fragments": (
+                len(stored.content.text_fragments) if hasattr(stored, "content") else None
+            ),
+            "html_jsonld_blocks": (
+                len(stored.content.jsonld_blocks) if hasattr(stored, "content") else None
+            ),
             "discovery_method": stored.source.discovery_method.value,
             "discovery_url": stored.source.discovery_url,
             "final_artifact_url": stored.source.final_artifact_url,
@@ -163,11 +178,25 @@ def render(report: dict) -> str:
         lines.extend(
             (
                 f"artifact SHA-256         {artifact['sha256']}",
-                f"artifact pages          {artifact['page_count']}",
-                f"artifact text status    {artifact['text_status']}",
+                f"artifact kind           {artifact['artifact_kind']}",
                 f"artifact identity scope {artifact['identity_scope'] or 'unset'}",
             )
         )
+        if artifact["artifact_kind"] == "PDF":
+            lines.extend(
+                (
+                    f"artifact pages          {artifact['page_count']}",
+                    f"artifact text status    {artifact['text_status']}",
+                )
+            )
+        else:
+            lines.extend(
+                (
+                    f"HTML title              {artifact['html_title'] or 'unset'}",
+                    f"HTML text fragments     {artifact['html_text_fragments']}",
+                    f"HTML JSON-LD blocks     {artifact['html_jsonld_blocks']}",
+                )
+            )
     return "\n".join(lines)
 
 

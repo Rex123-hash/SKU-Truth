@@ -227,14 +227,15 @@ class TestDiagnosis:
         assert "DISCOVERY_PROVENANCE_UNDECLARED" in result.candidates[0].rejections
         assert not result.acquired
 
-    def test_an_eligible_html_page_is_html_only(self, tmp_path):
+    def test_an_eligible_html_page_is_acquired(self, tmp_path):
         result = acquiring_run(
             b"<html>spec</html>",
             "text/html",
             method=DiscoveryMethod.GOOGLE_SEARCH_GROUNDING,
             tmp_path=tmp_path,
         )
-        assert diagnose(result) is SearchOutcome.HTML_ONLY
+        assert diagnose(result) is SearchOutcome.ACQUIRED
+        assert result.acquired[0].content_type == "text/html"
 
     def test_a_pdf_from_a_reviewed_domain_is_acquired(self, tmp_path):
         """Grounding declares a truthful method, so this path now completes."""

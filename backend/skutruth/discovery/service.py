@@ -44,7 +44,7 @@ from skutruth.ingest.storage import ArtifactStore
 from skutruth.replay.errors import ReplayError
 from skutruth.replay.store import CassetteStore
 
-from .acquire import AcquiredArtifact, acquire_pdf
+from .acquire import AcquiredArtifact, acquire_resource
 from .domains import DomainRegistry
 from .errors import FetchError, RejectionReason
 from .fetch import FetchedResource, FetchPolicy, Resolver, fetch_url, system_resolver
@@ -206,7 +206,7 @@ def _acquire_one(
     )
 
     try:
-        acquired = acquire_pdf(
+        acquired = acquire_resource(
             fetched,
             resource,
             store=store,
@@ -214,8 +214,8 @@ def _acquire_one(
             publisher=publisher,
         )
     except FetchError as exc:
-        # An official HTML page lands here as NOT_INGESTABLE_YET. It stays accepted:
-        # the source is real and eligible, and only this milestone's scope stops short.
+        # Kept for older/unsupported representations that are real locators but do not
+        # yet have an artifact model. Supported PDF and HTML responses are acquired.
         status = (
             CandidateStatus.ACCEPTED_NOT_ACQUIRED
             if exc.reason is RejectionReason.NOT_INGESTABLE_YET
@@ -253,7 +253,7 @@ def acquire_candidate(
     transport: httpx.BaseTransport | None = None,
     resolver: Resolver = system_resolver,
 ) -> tuple[SourceCandidate, AcquiredArtifact | None, int]:
-    """Use the existing fetch, redirect-authority, PDF, and artifact-store gates.
+    """Use the existing fetch, redirect-authority, MIME, and artifact-store gates.
 
     Search discovery and operator-supplied locators converge here. The caller supplies
     truthful locator provenance; every trust decision after that is shared.

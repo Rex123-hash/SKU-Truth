@@ -4,10 +4,15 @@ Layout, one directory per artifact, named by its hash:
 
     <root>/<sha256>/
         metadata.json     artifact record, minus page text
-        original.pdf      the exact bytes that produced the hash
+        original.pdf      the exact PDF bytes that produced the hash
         page-map.json     per-page hashes and character counts
         pages/0001.txt    raw page text, one file per page
         pages/0002.txt
+
+    HTML snapshots use the same content-addressed directory with a distinct layout:
+
+        original.html     the exact response bytes that produced the hash
+        html-content.json deterministic parsed read model
 
 Two roots, exactly as with replay cassettes:
 
@@ -40,7 +45,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from .errors import ArtifactNotFoundError, CorruptArtifactError
 from .hashing import is_valid_sha256, sha256_bytes, sha256_text
-from .models import IngestedArtifact, IngestedPage
+from .html import HtmlArtifact, HtmlArtifactContent
+from .models import ArtifactKind, IngestedArtifact, IngestedPage
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -52,11 +58,16 @@ DEFAULT_FIXTURE_DIR = _REPO_ROOT / "data" / "artifacts" / "fixtures"
 
 METADATA_FILE = "metadata.json"
 ORIGINAL_FILE = "original.pdf"
+ORIGINAL_HTML_FILE = "original.html"
+HTML_CONTENT_FILE = "html-content.json"
 PAGE_MAP_FILE = "page-map.json"
 PAGES_DIR = "pages"
 
 #: Bumped if the on-disk layout changes.
 STORAGE_VERSION = "artifact-store@v1"
+HTML_STORAGE_VERSION = "artifact-store-html@v1"
+
+StoredArtifact = IngestedArtifact | HtmlArtifact
 
 
 class PageMapEntry(BaseModel):
@@ -111,11 +122,17 @@ class ArtifactStore:
         )
 
     def original_path(self, sha256: str) -> Path:
-        return self.path_for(sha256) / ORIGINAL_FILE
+        directory = self.path_for(sha256)
+        metadata_path = directory / METADATA_FILE
+        if metadata_path.is_file():
+            metadata = _read_json(metadata_path, sha256, METADATA_FILE)
+            if isinstance(metadata, dict) and metadata.get("artifact_kind") == ArtifactKind.HTML:
+                return directory / ORIGINAL_HTML_FILE
+        return directory / ORIGINAL_FILE
 
     # -- writing ------------------------------------------------------------
 
-    def save(self, artifact: IngestedArtifact, original_bytes: bytes) -> Path:
+    def save(self, artifact: StoredArtifact, original_bytes: bytes) -> Path:
         """Store an artifact and the exact bytes it was derived from.
 
         Idempotent by construction: the directory is the content hash, so ingesting
@@ -138,6 +155,20 @@ class ArtifactStore:
                 artifact.sha256, f"supplied bytes hash to {actual}, not the artifact's digest"
             )
 
+        if self.exists(artifact.sha256):
+            existing_kind = self._stored_kind(artifact.sha256)
+            if existing_kind is not artifact.artifact_kind:
+                raise CorruptArtifactError(
+                    artifact.sha256,
+                    f"content hash already stores {existing_kind.value}, refusing "
+                    f"{artifact.artifact_kind.value} overwrite",
+                )
+
+        if isinstance(artifact, HtmlArtifact):
+            return self._save_html(artifact, original_bytes)
+        return self._save_pdf(artifact, original_bytes)
+
+    def _save_pdf(self, artifact: IngestedArtifact, original_bytes: bytes) -> Path:
         directory = self.path_for(artifact.sha256)
         pages_dir = directory / PAGES_DIR
         pages_dir.mkdir(parents=True, exist_ok=True)
@@ -180,9 +211,32 @@ class ArtifactStore:
         )
         return directory
 
+    def _save_html(self, artifact: HtmlArtifact, original_bytes: bytes) -> Path:
+        directory = self.path_for(artifact.sha256)
+        directory.mkdir(parents=True, exist_ok=True)
+        _atomic_write_bytes(directory / ORIGINAL_HTML_FILE, original_bytes)
+        stored = (directory / ORIGINAL_HTML_FILE).read_bytes()
+        if sha256_bytes(stored) != artifact.sha256:  # pragma: no cover - filesystem fault
+            raise CorruptArtifactError(
+                artifact.sha256, "stored original.html does not hash to the artifact digest"
+            )
+
+        content = artifact.content.model_dump(mode="json")
+        _atomic_write_text(
+            directory / HTML_CONTENT_FILE,
+            json.dumps(content, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        )
+        metadata = artifact.model_dump(mode="json", exclude={"content"})
+        metadata["storage_version"] = HTML_STORAGE_VERSION
+        _atomic_write_text(
+            directory / METADATA_FILE,
+            json.dumps(metadata, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        )
+        return directory
+
     # -- reading ------------------------------------------------------------
 
-    def load(self, sha256: str, *, verify_original: bool = True) -> IngestedArtifact:
+    def load(self, sha256: str, *, verify_original: bool = True) -> StoredArtifact:
         """Load a stored artifact, validating everything before returning it.
 
         Checks the original's hash, the page map's completeness, and every page file
@@ -200,7 +254,7 @@ class ArtifactStore:
         metadata = _read_json(directory / METADATA_FILE, sha256, "metadata.json")
         if not isinstance(metadata, dict):
             raise CorruptArtifactError(sha256, "metadata.json is not an object")
-        metadata.pop("storage_version", None)
+        storage_version = metadata.pop("storage_version", None)
 
         recorded_sha = metadata.get("sha256")
         if recorded_sha != sha256:
@@ -208,6 +262,31 @@ class ArtifactStore:
                 sha256, f"metadata records sha256 {recorded_sha!r}, but it is stored under {sha256}"
             )
 
+        try:
+            kind = ArtifactKind(metadata.get("artifact_kind", ArtifactKind.PDF))
+        except ValueError as exc:
+            raise CorruptArtifactError(
+                sha256, "metadata names an unknown artifact kind"
+            ) from exc
+        if kind is ArtifactKind.HTML:
+            if storage_version != HTML_STORAGE_VERSION:
+                raise CorruptArtifactError(
+                    sha256,
+                    f"HTML storage version {storage_version!r} is not {HTML_STORAGE_VERSION!r}",
+                )
+            return self._load_html(
+                directory, sha256, metadata, verify_original=verify_original
+            )
+        return self._load_pdf(directory, sha256, metadata, verify_original=verify_original)
+
+    def _load_pdf(
+        self,
+        directory: Path,
+        sha256: str,
+        metadata: dict,
+        *,
+        verify_original: bool,
+    ) -> IngestedArtifact:
         original = directory / ORIGINAL_FILE
         if not original.is_file():
             raise CorruptArtifactError(sha256, "original.pdf is missing")
@@ -247,6 +326,41 @@ class ArtifactStore:
         except ValidationError as exc:
             raise CorruptArtifactError(sha256, f"artifact failed validation: {exc}") from exc
 
+    def _load_html(
+        self,
+        directory: Path,
+        sha256: str,
+        metadata: dict,
+        *,
+        verify_original: bool,
+    ) -> HtmlArtifact:
+        original = directory / ORIGINAL_HTML_FILE
+        if not original.is_file():
+            raise CorruptArtifactError(sha256, "original.html is missing")
+        if verify_original:
+            actual = sha256_bytes(original.read_bytes())
+            if actual != sha256:
+                raise CorruptArtifactError(
+                    sha256, f"original.html hashes to {actual}; the stored bytes have changed"
+                )
+
+        content_raw = _read_json(directory / HTML_CONTENT_FILE, sha256, HTML_CONTENT_FILE)
+        try:
+            content = HtmlArtifactContent.model_validate(content_raw)
+            metadata["content"] = content.model_dump(mode="json")
+            return HtmlArtifact.model_validate(metadata)
+        except ValidationError as exc:
+            raise CorruptArtifactError(sha256, f"HTML artifact failed validation: {exc}") from exc
+
+    def _stored_kind(self, sha256: str) -> ArtifactKind:
+        metadata = _read_json(self.path_for(sha256) / METADATA_FILE, sha256, METADATA_FILE)
+        if not isinstance(metadata, dict):
+            raise CorruptArtifactError(sha256, "metadata.json is not an object")
+        try:
+            return ArtifactKind(metadata.get("artifact_kind", ArtifactKind.PDF))
+        except ValueError as exc:
+            raise CorruptArtifactError(sha256, "metadata names an unknown artifact kind") from exc
+
     def load_original_bytes(self, sha256: str) -> bytes:
         """The exact stored bytes, re-verified against the hash before returning."""
         path = self.original_path(sha256)
@@ -255,7 +369,7 @@ class ArtifactStore:
         data = path.read_bytes()
         actual = sha256_bytes(data)
         if actual != sha256:
-            raise CorruptArtifactError(sha256, f"original.pdf hashes to {actual}")
+            raise CorruptArtifactError(sha256, f"{path.name} hashes to {actual}")
         return data
 
     def delete(self, sha256: str) -> None:

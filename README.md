@@ -129,7 +129,7 @@ assembly are implemented and run end to end.
 classpath LOV mapping; the five description forms; a batch product workflow; any user
 interface. Also outstanding inside the parts that do exist: range and logical value
 verification, controlled-vocabulary synonym licensing, UOM and fraction normalisation, and
-HTML artifact ingestion.
+HTML identity/attribute extraction beyond the safe snapshot foundation.
 
 Two of those are worth separating from the rest. Every mapping rule in the repository is
 hand-written, so **no output is claimed to conform to Unilog's published rules**. And no

@@ -276,17 +276,33 @@ class TestTheWholePath:
         assert len(artifacts.hashes()) == 1
         assert result.summary.artifacts_ingested == 1
 
-    def test_an_official_html_page_is_accepted_but_not_ingested(self, stores):
-        """The documented scope edge of this milestone, not a quality judgement."""
+    def test_an_official_html_page_is_ingested_as_html_not_pdf(self, stores):
         result = run(
             stores,
             results=[{"url": f"https://se.com/product/{MPN}/", "title": MPN, "rank": 1}],
         )
         candidate = result.candidates[0]
-        assert candidate.status is CandidateStatus.ACCEPTED_NOT_ACQUIRED
-        assert RejectionReason.NOT_INGESTABLE_YET.value in candidate.rejections
-        assert candidate.artifact_sha256 is None
+        assert candidate.status is CandidateStatus.ACQUIRED
+        assert candidate.rejections == ()
         assert candidate.content_type == "text/html"
+        stored = stores[1].load(candidate.artifact_sha256)
+        assert stored.artifact_kind.value == "HTML"
+        assert not hasattr(stored, "pages")
+
+    def test_agent_search_html_provenance_survives_without_identity_inference(self, stores):
+        class SiteRestrictedProvider(FakeSearchProvider):
+            discovery_method = DiscoveryMethod.SITE_RESTRICTED_SEARCH
+
+        result = run(
+            stores,
+            provider=SiteRestrictedProvider(
+                [{"url": f"https://se.com/product/{MPN}/", "title": MPN, "rank": 1}]
+            ),
+        )
+        stored = stores[1].load(result.acquired[0].artifact_sha256)
+        assert stored.source.discovery_method is DiscoveryMethod.SITE_RESTRICTED_SEARCH
+        assert stored.source.identity_scope is None
+        assert stored.source.covers_mpn is None
 
     def test_fetch_budget_is_enforced(self, stores):
         """AE."""

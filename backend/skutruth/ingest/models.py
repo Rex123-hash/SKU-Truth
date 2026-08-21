@@ -28,6 +28,25 @@ from .text import TEXT_NORMALIZATION_FORM
 INGESTION_VERSION = "pdf-ingest@v1"
 
 
+class ArtifactKind(StrEnum):
+    """Trusted representation of stored source bytes, never inferred from a filename."""
+
+    PDF = "PDF"
+    HTML = "HTML"
+
+
+class SourceFragmentKind(StrEnum):
+    """Address spaces used by source representations.
+
+    The frozen verifier currently consumes only PDF pages. The HTML values are the
+    additive seam a later verifier can adopt without pretending a web document has pages.
+    """
+
+    PDF_PAGE = "PDF_PAGE"
+    HTML_TEXT = "HTML_TEXT"
+    HTML_JSONLD = "HTML_JSONLD"
+
+
 class ExtractionStatus(StrEnum):
     """What text extraction achieved for a page or a document."""
 
@@ -134,6 +153,7 @@ class IngestedArtifact(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    artifact_kind: ArtifactKind = ArtifactKind.PDF
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$", description="Over the original bytes")
     media_type: str = "application/pdf"
     byte_size: int = Field(ge=1)
@@ -152,6 +172,14 @@ class IngestedArtifact(BaseModel):
     @property
     def artifact_id(self) -> str:
         return artifact_id(self.sha256)
+
+    @model_validator(mode="after")
+    def _is_explicitly_a_pdf(self) -> IngestedArtifact:
+        if self.artifact_kind is not ArtifactKind.PDF:
+            raise ValueError("IngestedArtifact is the PDF representation")
+        if self.media_type != "application/pdf":
+            raise ValueError("PDF artifacts must use media_type 'application/pdf'")
+        return self
 
     @model_validator(mode="after")
     def _page_map_is_complete(self) -> IngestedArtifact:

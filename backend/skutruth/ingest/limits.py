@@ -14,7 +14,7 @@ a mis-pointed download.
 
 What this layer will do:
 
-* accept PDF bytes handed to it, and nothing else;
+* accept bounded PDF bytes here; HTML applies its own lower limits in `html.py`;
 * enforce hard size, page-count, and per-page-text caps;
 * refuse encrypted documents rather than attempt an empty-password decrypt;
 * extract text, and only text.

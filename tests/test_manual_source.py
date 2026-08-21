@@ -277,7 +277,7 @@ def test_manual_provenance_survives_into_artifact_metadata(tmp_path):
     assert stored.source.covers_mpn is None
 
 
-def test_official_html_locator_is_reported_but_not_ingested(tmp_path):
+def test_official_html_locator_is_ingested_with_manual_provenance(tmp_path):
     url = f"https://www.kichler.com/test-only/products/{MPN}"
 
     def html(request: httpx.Request) -> httpx.Response:
@@ -295,11 +295,22 @@ def test_official_html_locator_is_reported_but_not_ingested(tmp_path):
         transport=httpx.MockTransport(html),
         resolver=public_resolver,
     )
-    assert result.candidate.status is CandidateStatus.ACCEPTED_NOT_ACQUIRED
+    assert result.candidate.status is CandidateStatus.ACQUIRED
     assert result.candidate.content_type == "text/html"
-    assert RejectionReason.NOT_INGESTABLE_YET.value in result.candidate.rejections
-    assert result.artifact_sha256 is None
-    assert store.hashes() == ()
+    assert result.candidate.rejections == ()
+    stored = store.load(result.artifact_sha256)
+    assert stored.artifact_kind.value == "HTML"
+    assert stored.sha256 == result.artifact_sha256
+    assert stored.byte_size == len(b"<html><body>synthetic fixture</body></html>")
+    assert stored.media_type == "text/html"
+    assert stored.final_authority == SourceAuthority.APPROVED_MANUFACTURER.value
+    assert stored.source.publisher == MANUFACTURER
+    assert stored.source.discovery_url == url
+    assert stored.source.final_artifact_url == url
+    assert stored.source.retrieved_at is not None
+    assert stored.source.discovery_method is DiscoveryMethod.OPERATOR_SUPPLIED
+    assert stored.source.identity_scope is None
+    assert stored.source.covers_mpn is None
 
 
 def test_dry_run_performs_no_dns_http_or_acquisition(monkeypatch):

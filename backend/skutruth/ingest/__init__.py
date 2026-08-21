@@ -1,7 +1,7 @@
-"""Versioned PDF artifact ingestion.
+"""Versioned PDF and HTML source artifact ingestion.
 
-Turns document bytes into a hashed, page-addressable source artifact. See ./README.md
-for what that proves — and, more importantly, what it does not.
+Turns supplied bytes into explicit hashed representations without reaching the network.
+See ./README.md for what that proves — and, more importantly, what it does not.
 """
 
 from .citation_checks import (
@@ -21,6 +21,23 @@ from .errors import (
     UnsupportedDocumentError,
 )
 from .hashing import artifact_id, is_valid_sha256, sha256_bytes, sha256_text
+from .html import (
+    DEFAULT_HTML_LIMITS,
+    HTML_INGESTION_VERSION,
+    HTML_MEDIA_TYPES,
+    HTML_PARSER_NAME,
+    HTML_PARSER_VERSION,
+    MAX_HTML_BYTES,
+    HtmlArtifact,
+    HtmlArtifactContent,
+    HtmlEvidenceLocator,
+    HtmlIngestionLimits,
+    HtmlJsonLdBlock,
+    HtmlMetadata,
+    HtmlTextFragment,
+    html_content_sha256,
+    ingest_html_bytes,
+)
 from .limits import (
     ACCEPTED_MEDIA_TYPE,
     DEFAULT_LIMITS,
@@ -32,10 +49,12 @@ from .limits import (
 from .locate import TextMatch, find_text, page_contains
 from .models import (
     INGESTION_VERSION,
+    ArtifactKind,
     DocumentTextStatus,
     ExtractionStatus,
     IngestedArtifact,
     IngestedPage,
+    SourceFragmentKind,
     SourceMetadata,
     to_source_artifact,
 )
@@ -43,8 +62,10 @@ from .pdf import PARSER_NAME, ingest_pdf, ingest_pdf_bytes
 from .storage import (
     DEFAULT_FIXTURE_DIR,
     DEFAULT_RUNTIME_DIR,
+    HTML_STORAGE_VERSION,
     STORAGE_VERSION,
     ArtifactStore,
+    StoredArtifact,
     fixture_store,
     ingest_and_store,
     runtime_store,
@@ -62,10 +83,17 @@ from .text import TEXT_NORMALIZATION_FORM, build_search_text, normalize_quote
 __all__ = [
     "ACCEPTED_MEDIA_TYPE",
     "DEFAULT_FIXTURE_DIR",
+    "DEFAULT_HTML_LIMITS",
     "DEFAULT_LIMITS",
     "DEFAULT_RUNTIME_DIR",
     "INGESTION_VERSION",
+    "HTML_INGESTION_VERSION",
+    "HTML_MEDIA_TYPES",
+    "HTML_PARSER_NAME",
+    "HTML_PARSER_VERSION",
+    "HTML_STORAGE_VERSION",
     "MAX_FILE_BYTES",
+    "MAX_HTML_BYTES",
     "MAX_PAGE_COUNT",
     "MAX_PAGE_TEXT_CHARS",
     "PARSER_NAME",
@@ -73,6 +101,7 @@ __all__ = [
     "TABLE_EXTRACTION_VERSION",
     "TEXT_NORMALIZATION_FORM",
     "ArtifactCheckOutcome",
+    "ArtifactKind",
     "ArtifactNotFoundError",
     "ArtifactStore",
     "ArtifactStoreError",
@@ -85,6 +114,13 @@ __all__ = [
     "ExtractedCell",
     "ExtractedTable",
     "ExtractionStatus",
+    "HtmlArtifact",
+    "HtmlArtifactContent",
+    "HtmlEvidenceLocator",
+    "HtmlIngestionLimits",
+    "HtmlJsonLdBlock",
+    "HtmlMetadata",
+    "HtmlTextFragment",
     "IngestedArtifact",
     "IngestedPage",
     "IngestionError",
@@ -92,6 +128,8 @@ __all__ = [
     "MalformedDocumentError",
     "PageTableExtraction",
     "SourceMetadata",
+    "SourceFragmentKind",
+    "StoredArtifact",
     "TableExtractionStatus",
     "TextMatch",
     "UnsupportedDocumentError",
@@ -102,9 +140,11 @@ __all__ = [
     "find_text",
     "fixture_store",
     "ingest_and_store",
+    "ingest_html_bytes",
     "ingest_pdf",
     "ingest_pdf_bytes",
     "is_valid_sha256",
+    "html_content_sha256",
     "normalize_quote",
     "page_contains",
     "runtime_store",
