@@ -43,6 +43,31 @@ document parser → evidence facts → identity resolver
 | `ExactReferenceFact` | reference X exists as an exact manufacturer product |
 | `VariationAxisFact` | X also varies along axis A |
 
+## Stored HTML identity is resolved separately from search relevance
+
+`identity.html` is an additive parser-to-fact adapter for a stored `HtmlArtifact`.
+Search `EXACT` is not one of its inputs: search relevance licenses acquisition, while
+artifact identity is decided only from the hashed page representation. The adapter also
+requires the artifact's stored final authority to be `APPROVED_MANUFACTURER` and its
+publisher context to match the requested brand.
+
+The conservative exact rule requires a deterministically primary Product JSON-LD object
+whose direct `mpn` matches the target under the frozen `canonical_mpn`. A matching direct
+`sku`, visible-text occurrence, document title, and canonical URL are retained only as
+corroboration. None can grant `EXACT_SKU` alone; Offer SKUs and nested recommendation or
+accessory Products are never promoted to page identity.
+
+Conflicting peer Product MPNs produce `REVIEW`. Missing structure, malformed JSON-LD,
+publisher/authority failure, sibling MPNs, and title/text/URL-only matches produce
+`WITHHOLD`. The exact path creates an `ExactReferenceFact` with its JSON pointer retained
+in the derived HTML resolution record, then calls the unchanged generic resolver. The
+record carries `identity_scope=EXACT_SKU` and `covers_mpn` without mutating
+`metadata.json`, `original.html`, or `html-content.json`.
+
+This does not claim every HTML page is resolvable or that JSON-LD is inherently correct.
+It claims only that this narrow, manufacturer-authoritative Product structure is strong
+enough to supply one typed identity fact under explicit ambiguity checks.
+
 Construction lives in the *evidence*, not the resolver: how a completed reference is
 spelled is a property of a publisher's numbering scheme. A template carrying a
 placeholder this version cannot apply is rejected (`MalformedConstructionRule`) rather

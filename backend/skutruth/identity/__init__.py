@@ -18,6 +18,15 @@ from .evidence import (
     brands_match,
     canonical_brand,
 )
+from .html import (
+    HtmlIdentityDecision,
+    HtmlIdentityObservation,
+    HtmlIdentityObservationKind,
+    HtmlIdentityReason,
+    HtmlIdentityResolution,
+    HtmlIdentityWarning,
+    resolve_html_product_identity,
+)
 from .models import (
     DecisionStep,
     DiscriminatorSelection,
@@ -36,6 +45,12 @@ __all__ = [
     "IdentityError",
     "IdentityEvidence",
     "IdentityResolution",
+    "HtmlIdentityDecision",
+    "HtmlIdentityObservation",
+    "HtmlIdentityObservationKind",
+    "HtmlIdentityReason",
+    "HtmlIdentityResolution",
+    "HtmlIdentityWarning",
     "MalformedConstructionRule",
     "ReferenceCompletionFact",
     "TraceEntry",
@@ -44,5 +59,6 @@ __all__ = [
     "canonical_brand",
     "identity_prediction_fields",
     "resolve_identity",
+    "resolve_html_product_identity",
     "to_case_prediction",
 ]
