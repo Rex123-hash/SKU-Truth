@@ -24,6 +24,7 @@ from skutruth.discovery import (
     classify_candidate,
     classify_kind,
     classify_relevance,
+    contains_exact_reference,
     host_covered_by,
     load_registry,
     normalize_host,
@@ -184,6 +185,77 @@ class TestAuthority:
 
 
 class TestMpnRelevance:
+    def test_punctuation_bearing_exact_reference_in_satco_locator(self):
+        found = result(
+            "https://www.satco.com/products/62-1875",
+            title='62-1875 LED GLAMOUR BN 10" FLUSH - SATCO',
+        )
+        assert classify_relevance(found, mpn="62-1875") is MpnRelevance.EXACT
+
+    @pytest.mark.parametrize(
+        "found",
+        [
+            result("https://satco.com/products/x", title="62-1875 LED GLAMOUR"),
+            result("https://satco.com/products/62-1875"),
+            result("https://satco.com/products/62-1875", title="SATCO - 62-1875"),
+            result("https://satco.com/specsheets/62-1875"),
+            result("https://satco.com/products?sku=62-1875"),
+        ],
+    )
+    def test_punctuation_bearing_reference_in_title_path_or_query_value_is_exact(self, found):
+        assert classify_relevance(found, mpn="62-1875") is MpnRelevance.EXACT
+
+    @pytest.mark.parametrize(
+        "near_reference",
+        ["62-18750", "162-1875", "62-1875A", "X62-1875", "62-1975", "621875", "62 1875"],
+    )
+    def test_near_punctuation_bearing_references_are_not_exact(self, near_reference):
+        found = result(f"https://satco.com/products/{near_reference}", title=near_reference)
+        assert classify_relevance(found, mpn="62-1875") is not MpnRelevance.EXACT
+
+    def test_exact_reference_matching_is_case_insensitive(self):
+        found = result("https://maker.example/products/ab-12cd", title="Part Ab-12cD")
+        assert classify_relevance(found, mpn="AB-12CD") is MpnRelevance.EXACT
+
+    @pytest.mark.parametrize(
+        ("target", "literal", "different"),
+        [
+            ("AB/12", "AB/12", "AB-12"),
+            ("AB_12", "AB_12", "AB-12"),
+            ("AB.12", "AB.12", "AB-12"),
+        ],
+    )
+    def test_punctuation_is_preserved_for_other_reference_shapes(self, target, literal, different):
+        assert contains_exact_reference(f"Part {literal}", target) is True
+        assert contains_exact_reference(f"Part {different}", target) is False
+
+    def test_an_encoded_literal_is_decoded_once(self):
+        encoded = result("https://satco.com/products/%36%32%2D%31%38%37%35")
+        encoded_twice = result("https://satco.com/products/%2536%2532%252D%2531%2538%2537%2535")
+        assert classify_relevance(encoded, mpn="62-1875") is MpnRelevance.EXACT
+        assert classify_relevance(encoded_twice, mpn="62-1875") is not MpnRelevance.EXACT
+
+    def test_an_encoded_slash_is_literal_but_a_path_separator_is_not(self):
+        encoded = classify_relevance(result("https://maker.example/p/AB%2F12"), mpn="AB/12")
+        separated = classify_relevance(result("https://maker.example/p/AB/12"), mpn="AB/12")
+        assert encoded is MpnRelevance.EXACT
+        assert separated is not MpnRelevance.EXACT
+
+    def test_a_reference_in_the_hostname_alone_is_not_exact(self):
+        found = result("https://62-1875.example/about", title="About us")
+        assert classify_relevance(found, mpn="62-1875") is MpnRelevance.ABSENT
+
+    def test_provider_query_metadata_is_not_relevance_evidence(self):
+        found = SearchResult(
+            url="https://satco.com/about",
+            title="About SATCO",
+            snippet="",
+            rank=1,
+            query="62-1875",
+            provider="fake",
+        )
+        assert classify_relevance(found, mpn="62-1875") is MpnRelevance.ABSENT
+
     def test_exact_reference_in_the_url(self):
         assert classify_relevance(result(f"https://se.com/p/{MPN}/"), mpn=MPN) is MpnRelevance.EXACT
 
@@ -194,6 +266,13 @@ class TestMpnRelevance:
     def test_case_and_separators_do_not_defeat_an_exact_match(self):
         found = result("https://se.com/product/lc1d18p7-datasheet.pdf")
         assert classify_relevance(found, mpn=MPN) is MpnRelevance.EXACT
+
+    def test_existing_kichler_alphanumeric_reference_remains_exact(self):
+        found = result(
+            "https://www.kichler.com/products/lighting/indoor-lighting/vanity/45297BK",
+            title="45297BK Vanity Light",
+        )
+        assert classify_relevance(found, mpn="45297BK") is MpnRelevance.EXACT
 
     def test_a_family_stem_is_not_its_own_child(self):
         """V. LC1D18 must never stand in for LC1D18P7."""

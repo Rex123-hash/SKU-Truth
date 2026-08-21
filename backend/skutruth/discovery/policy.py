@@ -4,8 +4,8 @@ Three deterministic questions, none of which a language model is asked:
 
 * **authority** — does the manufacturer publish from this host? Answered by the reviewed
   registry, never by the page's own claims.
-* **relevance** — does this candidate name the exact reference? Answered by token
-  comparison against the frozen `canonical_mpn`.
+* **relevance** — does this candidate name the exact reference? Answered by literal,
+  boundary-aware locator matching against the frozen `canonical_mpn`.
 * **kind** — datasheet, product page, catalogue? A weak hint for ranking only.
 
 ## Relevance can only demote
@@ -78,13 +78,52 @@ def candidate_host(result: SearchResult) -> str:
 
 
 def _tokens(*parts: str) -> set[str]:
-    """Uppercase alphanumeric tokens from URL and title text."""
+    """Uppercase alphanumeric tokens from already-decoded locator text."""
     found: set[str] = set()
     for part in parts:
         if not part:
             continue
-        found.update(t.upper() for t in _TOKEN.findall(unquote(part)))
+        found.update(t.upper() for t in _TOKEN.findall(part))
     return found
+
+
+def contains_exact_reference(source_text: str, target_mpn: str) -> bool:
+    """Whether *source_text* contains the literal canonical reference.
+
+    Case is insignificant, as it is in :func:`canonical_mpn`, but punctuation is not.
+    Alphanumeric boundaries keep a plausible larger reference such as ``62-1875A`` or
+    ``162-1875`` from granting exact relevance for ``62-1875``.
+    """
+    target = canonical_mpn(target_mpn)
+    if not source_text or not target:
+        return False
+    pattern = rf"(?<![A-Za-z0-9]){re.escape(target)}(?![A-Za-z0-9])"
+    return re.search(pattern, source_text, flags=re.IGNORECASE) is not None
+
+
+def _relevance_texts(result: SearchResult) -> tuple[str, ...]:
+    """Title and once-decoded URL locator components, never URL authority text.
+
+    Path segments are split before decoding so an unescaped slash remains structure;
+    an MPN containing a slash must be percent-encoded inside one segment to be literal.
+    Query keys are metadata rather than values, and therefore cannot grant relevance.
+    """
+    texts = [result.title] if result.title else []
+    try:
+        parsed = urlsplit(result.url)
+    except ValueError:
+        return tuple(texts)
+
+    texts.extend(unquote(segment) for segment in parsed.path.split("/") if segment)
+    for field in parsed.query.split("&"):
+        if not field:
+            continue
+        _, separator, value = field.partition("=")
+        if separator and value:
+            texts.append(unquote(value))
+    if parsed.fragment:
+        texts.append(unquote(parsed.fragment))
+    return tuple(texts)
 
 
 def classify_authority(
@@ -141,7 +180,13 @@ def classify_relevance(result: SearchResult, *, mpn: str) -> MpnRelevance:
     if not target:
         return MpnRelevance.ABSENT
 
-    tokens = _tokens(result.url, result.title)
+    texts = _relevance_texts(result)
+    if any(contains_exact_reference(text, target) for text in texts):
+        return MpnRelevance.EXACT
+
+    # Preserve the existing demotion-only family/sibling policy. Tokens no longer see
+    # the URL hostname, which is authority metadata and cannot establish relevance.
+    tokens = _tokens(*texts)
     if target in tokens:
         return MpnRelevance.EXACT
 
@@ -234,6 +279,7 @@ __all__ = [
     "classify_authority",
     "classify_kind",
     "classify_relevance",
+    "contains_exact_reference",
     "host_of",
     "rejection_reasons",
 ]

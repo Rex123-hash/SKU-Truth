@@ -88,6 +88,7 @@ from .policy import (
     classify_authority,
     classify_kind,
     classify_relevance,
+    contains_exact_reference,
     host_of,
 )
 from .provider import (
@@ -164,6 +165,7 @@ __all__ = [
     "classify_candidate",
     "classify_kind",
     "classify_relevance",
+    "contains_exact_reference",
     "discover_sources",
     "discovered_artifacts",
     "execute_search",
