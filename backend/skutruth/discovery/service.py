@@ -166,7 +166,7 @@ def _acquire_one(
 ) -> tuple[SourceCandidate, AcquiredArtifact | None, int]:
     """Fetch and ingest one eligible candidate. Returns the updated candidate.
 
-    Eligibility was decided from the URL a search engine named. The bytes may arrive from
+    Eligibility was decided from the locator URL. The bytes may arrive from
     somewhere else entirely, so publisher authority is decided again here — against the
     host the download actually came from.
     """
@@ -241,6 +241,36 @@ def _acquire_one(
     )
 
 
+def acquire_candidate(
+    candidate: SourceCandidate,
+    *,
+    store: ArtifactStore,
+    registry: DomainRegistry,
+    manufacturer_hint: str | None,
+    publisher: str | None,
+    discovery_method: DiscoveryMethod | None,
+    policy: FetchPolicy | None = None,
+    transport: httpx.BaseTransport | None = None,
+    resolver: Resolver = system_resolver,
+) -> tuple[SourceCandidate, AcquiredArtifact | None, int]:
+    """Use the existing fetch, redirect-authority, PDF, and artifact-store gates.
+
+    Search discovery and operator-supplied locators converge here. The caller supplies
+    truthful locator provenance; every trust decision after that is shared.
+    """
+    return _acquire_one(
+        candidate,
+        store=store,
+        registry=registry,
+        manufacturer_hint=manufacturer_hint,
+        publisher=publisher,
+        discovery_method=discovery_method,
+        policy=policy or FetchPolicy(),
+        transport=transport,
+        resolver=resolver,
+    )
+
+
 def discover_sources(
     request: DiscoveryRequest,
     *,
@@ -303,7 +333,7 @@ def discover_sources(
             continue
 
         attempts += 1
-        updated, acquired, byte_size = _acquire_one(
+        updated, acquired, byte_size = acquire_candidate(
             candidate,
             store=artifacts,
             registry=registry,
@@ -347,4 +377,10 @@ def discover_sources(
     )
 
 
-__all__ = ["DiscoveryBudget", "ReplayError", "classify_candidate", "discover_sources"]
+__all__ = [
+    "DiscoveryBudget",
+    "ReplayError",
+    "acquire_candidate",
+    "classify_candidate",
+    "discover_sources",
+]

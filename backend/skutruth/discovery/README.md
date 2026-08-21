@@ -68,6 +68,35 @@ a small lie told in exactly the place the system's provenance rests on.
 That is a scope statement, not a quality judgement, and it is deliberate: half a safe HTML
 pipeline is worse than none.
 
+## Manual official-source intake
+
+When search cannot supply a usable locator, an operator may provide one with
+`scripts/ingest_manual_source.py`. This changes only where the locator came from. It does
+not change what the locator is allowed to prove:
+
+* the manufacturer must already resolve to an existing registry entry whose domain is
+  licensed by the registry's normal `DomainReview` rules;
+* the exact organizer MPN must appear in the URL's accepted locator fields; the operator's
+  note and the entered MPN do not count as relevance evidence;
+* `fetch.py` applies the same scheme, DNS, address, redirect, MIME, signature, and size
+  policy, and authority is classified again on the final redirect host;
+* only an eligible PDF can enter `ArtifactStore`; HTML remains an official locator with
+  `NOT_INGESTABLE_YET` status;
+* stored provenance is `OPERATOR_SUPPLIED`, never Agent Search, and the URL establishes
+  neither artifact identity scope nor product coverage.
+
+The default mode is a zero-network dry run:
+
+```text
+python scripts/ingest_manual_source.py \
+  --input <organizer csv> --mpn <exact organizer MPN> --url <official URL>
+```
+
+Add `--mode LIVE` to perform the shared acquisition path. Manual intake does not call
+Agent Search and does not manufacture a search cassette. HTTP acquisition itself has no
+record/replay adapter, so deterministic tests use an in-memory transport rather than a
+fictional search response.
+
 ## The live path, and the four different things it can achieve
 
 ```

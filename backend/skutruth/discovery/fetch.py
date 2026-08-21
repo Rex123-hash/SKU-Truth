@@ -147,11 +147,13 @@ def _check_address(raw: str, *, host: str) -> None:
             )
 
 
-def validate_url(url: str, *, resolver: Resolver = system_resolver) -> str:
-    """Check scheme, host, and every resolved address. Returns the normalized host.
+def validate_url_structure(url: str) -> str:
+    """Check URL syntax and address literals without DNS or an HTTP connection.
 
-    Raises `FetchError` with a typed reason rather than returning a boolean, so a caller
-    cannot forget to look at the answer.
+    This is the network-free subset of :func:`validate_url`. Named hosts still require
+    DNS validation immediately before a fetch; IP literals can be checked completely
+    here. Keeping the shared structural checks in one function prevents dry-run tooling
+    from growing a second, weaker URL policy.
     """
     try:
         parts = urlsplit(url)
@@ -176,7 +178,25 @@ def validate_url(url: str, *, resolver: Resolver = system_resolver) -> str:
     if host == "localhost" or host.endswith(".localhost"):
         raise _refuse(RejectionReason.BLOCKED_HOST, "localhost is not fetchable")
 
-    # An IP literal is checked directly; a name is resolved and every answer checked.
+    # An IP literal can be checked without DNS. Named hosts are completed by
+    # `validate_url`, immediately before every connection and redirect hop.
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        _check_address(host, host=host)
+
+    return host
+
+
+def validate_url(url: str, *, resolver: Resolver = system_resolver) -> str:
+    """Check scheme, host, and every resolved address. Returns the normalized host.
+
+    Raises `FetchError` with a typed reason rather than returning a boolean, so a caller
+    cannot forget to look at the answer.
+    """
+    host = validate_url_structure(url)
     try:
         ipaddress.ip_address(host)
     except ValueError:
@@ -190,9 +210,6 @@ def validate_url(url: str, *, resolver: Resolver = system_resolver) -> str:
             ) from None
         for address in addresses:
             _check_address(address, host=host)
-    else:
-        _check_address(host, host=host)
-
     return host
 
 
@@ -314,4 +331,5 @@ __all__ = [
     "fetch_url",
     "system_resolver",
     "validate_url",
+    "validate_url_structure",
 ]

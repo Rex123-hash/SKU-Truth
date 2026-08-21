@@ -57,6 +57,17 @@ from .fetch import (
     FetchPolicy,
     fetch_url,
     validate_url,
+    validate_url_structure,
+)
+from .manual import (
+    MANUAL_SOURCE_PROVIDER,
+    MANUAL_SOURCE_QUERY,
+    ManualLocatorKind,
+    ManualSourceInput,
+    ManualSourceMode,
+    ManualSourceResult,
+    ingest_manual_source,
+    plan_manual_source,
 )
 from .models import (
     DISCOVERY_VERSION,
@@ -86,13 +97,15 @@ from .provider import (
 )
 from .query import QueryBudget, build_queries
 from .ranking import rank_candidates, ranking_key, ranking_reasons
-from .service import DiscoveryBudget, classify_candidate, discover_sources
+from .service import DiscoveryBudget, acquire_candidate, classify_candidate, discover_sources
 
 __all__ = [
     "ACQUISITION_VERSION",
     "DEFAULT_REGISTRY_DIR",
     "DISCOVERY_VERSION",
     "HTML_CONTENT_TYPES",
+    "MANUAL_SOURCE_PROVIDER",
+    "MANUAL_SOURCE_QUERY",
     "PDF_CONTENT_TYPES",
     "PROVIDER_NAME",
     "PROVIDER_VERSION",
@@ -111,6 +124,10 @@ __all__ = [
     "FetchedResource",
     "MalformedRegistryError",
     "MalformedSearchResponseError",
+    "ManualLocatorKind",
+    "ManualSourceInput",
+    "ManualSourceMode",
+    "ManualSourceResult",
     "ManufacturerEntry",
     "MissingSearchCredentialsError",
     "MpnRelevance",
@@ -135,6 +152,7 @@ __all__ = [
     "SourceKind",
     "UnsafeUrlError",
     "acquire_pdf",
+    "acquire_candidate",
     "candidate_host",
     "build_filter",
     "build_queries",
@@ -151,15 +169,18 @@ __all__ = [
     "host_of",
     "corpus_pattern_for",
     "included_patterns_for",
+    "ingest_manual_source",
     "query_site_pattern_for",
     "reviewed_patterns_for_hint",
     "load_registry",
     "normalize_host",
     "normalize_manufacturer",
     "parse_registry",
+    "plan_manual_source",
     "rank_candidates",
     "ranking_key",
     "ranking_reasons",
     "source_metadata_for",
     "validate_url",
+    "validate_url_structure",
 ]
