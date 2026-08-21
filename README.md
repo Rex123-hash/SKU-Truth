@@ -115,7 +115,7 @@ datasheet it reads cannot be committed.
 | Human domain review workflow | review packets from organizer input, and an explicit `confirm` command that cannot default a reviewer from git config, the OS username, or the environment |
 | Artifact ingestion | byte and page hashing, page-preserving text, content-addressed store that validates and never repairs |
 | Table extraction | ruled-table structure as an additive fallback; pypdf text stays canonical |
-| Gemini structured extraction | Vertex, schema-constrained, gated on exact identity, always through record/replay |
+| Gemini structured extraction | Vertex, schema-constrained, gated on exact identity, always through record/replay; PDF/ETIM proposals plus a narrow stored-HTML local lighting proposal path |
 | Record and replay | LIVE / REPLAY, fail-closed replay, versioned cassette keys |
 | Deterministic validation | ETIM units, picklists, ranges, condition completeness; exact-decimal unit conversion |
 | Mechanical verification | the section above |

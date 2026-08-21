@@ -32,3 +32,7 @@ class MalformedModelResponseError(ExtractionError):
 
 class ArtifactMismatchError(ExtractionError):
     """The supplied bytes are not the artifact whose hash the request names."""
+
+
+class HtmlSourcePayloadTooLargeError(ExtractionError):
+    """The parsed HTML projection exceeds this narrow model call's hard bound."""

@@ -99,3 +99,26 @@ No `ProductAttribute`, no `GoldenRecord`, no acceptance decision. And specifical
 Both output levels are kept: `RawModelExtraction` is exactly what the model returned,
 unedited even when wrong, because a bad proposal is evidence about the model and deleting
 it would make the stage look better than it is.
+
+## Narrow stored-HTML proposal path
+
+`extract_html_attribute_candidates` is an additive local/demo/internal lighting path. It
+requires a derived `HtmlIdentityResolution` with `EXACT`, `EXACT_SKU`, and canonical
+`covers_mpn` agreement before constructing a model request. It sends a deterministic,
+64-KiB-bounded projection of selected stored visible-text fragments and Product JSON-LD
+leaf values—not raw HTML and never a fresh fetch. The projection is canonical JSON carried
+as a supported `text/plain` inline Part; `application/json` is reserved for Gemini's
+structured response declaration because Vertex rejects it as an inline input MIME.
+
+Gemini may propose only the ten generic source keys in `HTML_ATTRIBUTE_PROFILE`. Every
+proposal must cite either exact stored HTML text offsets or a JSON-LD block and JSON
+pointer. Deterministic code resolves that locator, checks the exact excerpt, preserves the
+model/source `raw_value` and `raw_uom`, and then uses the existing TEXT / NUMBER / RANGE /
+ENUM / BOOLEAN parsers. Invalid locators and mismatched values are rejected without
+repair; unknown UOMs remain unresolved.
+
+Exact locator binding is not factual verification. A surviving value is wrapped around
+the existing `AttributeCandidate` with `authority=MODEL_PROPOSAL` and `decision=REVIEW`,
+so it is never delivery eligible. The frozen PDF verifier remains unchanged. A later,
+representation-aware verifier can consume the retained `HtmlEvidenceLocator`; only after
+verification and adjudication could vocabulary-authorized Unilog mapping occur.
