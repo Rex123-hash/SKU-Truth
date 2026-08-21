@@ -284,17 +284,19 @@
   }
 }
 
+/* Inspection aura. Deliberately not an object: no border, no hard edge, no solid
+   centre. A warm radial falloff that trails the pointer and blooms under pressure. */
 .cursor-orb {
   position: fixed;
   left: 0;
   top: 0;
   z-index: 9999;
-  width: 14px;
-  height: 14px;
+  width: 26px;
+  height: 26px;
   opacity: 0;
   pointer-events: none;
   will-change: transform;
-  transition: opacity 120ms ease;
+  transition: opacity 180ms ease;
 }
 
 .cursor-orb[data-visible="true"] {
@@ -305,18 +307,26 @@
   display: block;
   width: 100%;
   height: 100%;
-  border: 1px solid var(--color-forest-deep);
+  border: 0;
   border-radius: 999px;
-  background: radial-gradient(circle at 34% 30%, #fff2bd 0 12%, var(--color-amber-soft) 28%, var(--color-amber) 74%);
-  box-shadow:
-    inset 0 0 0 2px rgb(255 250 240 / 0.3),
-    0 0 0 2px rgb(231 166 43 / 0.12),
-    0 2px 5px rgb(15 44 29 / 0.26);
-  transition: transform 150ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  background: radial-gradient(
+    circle,
+    rgb(250 225 165 / 0.28) 0%,
+    rgb(214 148 30 / 0.22) 35%,
+    rgb(214 148 30 / 0.1) 58%,
+    rgb(214 148 30 / 0) 78%
+  );
+  opacity: 0.94;
+  transition:
+    transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* Soft pressure bloom: ~26px rest -> ~41px pressed, atmosphere slightly denser.
+   Scale and opacity only, so it reads as a bloom rather than a ring or a flash. */
 .cursor-orb[data-pressed="true"] .cursor-orb-dot {
-  transform: scale(1.65);
+  transform: scale(1.58);
+  opacity: 1;
 }
 
 @media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {

@@ -18,10 +18,12 @@ export function CursorOrb() {
     let frame = 0;
     let releaseTimer = 0;
 
+    // The aura trails the pointer. The pointer itself stays exact; only this
+    // atmospheric layer interpolates, so movement reads as considered, not laggy.
     const render = () => {
-      currentX += (targetX - currentX) * 0.72;
-      currentY += (targetY - currentY) * 0.72;
-      orb.style.transform = "translate3d(" + (currentX - 7) + "px," + (currentY - 7) + "px,0)";
+      currentX += (targetX - currentX) * 0.26;
+      currentY += (targetY - currentY) * 0.26;
+      orb.style.transform = "translate3d(" + (currentX - 13) + "px," + (currentY - 13) + "px,0)";
       frame = requestAnimationFrame(render);
     };
     const move = (event: PointerEvent) => {
@@ -36,7 +38,7 @@ export function CursorOrb() {
       orb.dataset.pressed = "true";
     };
     const up = () => {
-      releaseTimer = window.setTimeout(() => { orb.dataset.pressed = "false"; }, 140);
+      releaseTimer = window.setTimeout(() => { orb.dataset.pressed = "false"; }, 110);
     };
     const hide = () => { orb.dataset.visible = "false"; };
 
