@@ -27,8 +27,12 @@ import setup_agent_search  # noqa: E402
 
 REGISTRY = ROOT / "data" / "discovery" / "manufacturer_domains.demo.toml"
 
-CORPUS_PATTERNS = ["kichler.com/*", "satco.com/*"]
-QUERY_PATTERNS = ["https://kichler.com/*", "https://satco.com/*"]
+CORPUS_PATTERNS = ["feit.com/*", "kichler.com/*", "satco.com/*"]
+QUERY_PATTERNS = [
+    "https://feit.com/*",
+    "https://kichler.com/*",
+    "https://satco.com/*",
+]
 
 
 @pytest.fixture(scope="module")
@@ -79,9 +83,9 @@ class TestSitesToInclude:
         assert all(f'siteSearch:"{pattern}"' in plan for pattern in QUERY_PATTERNS)
 
     def test_the_counts_match_the_registry(self, plan):
-        assert "reviewed entries    2" in plan
+        assert "reviewed entries    3" in plan
         assert "unreviewed entries  8" in plan
-        assert "URL patterns        2 / 50" in plan
+        assert "URL patterns        3 / 50" in plan
 
 
 class TestJsonPlan:
@@ -93,8 +97,12 @@ class TestJsonPlan:
         """F."""
         assert plan_json["query_time_site_patterns"] == QUERY_PATTERNS
 
-    def test_kichler_and_satco_are_reviewed(self, plan_json):
-        assert plan_json["reviewed_entries"] == ["kichler-lighting", "satco-products"]
+    def test_kichler_satco_and_feit_are_reviewed(self, plan_json):
+        assert plan_json["reviewed_entries"] == [
+            "feit-electric",
+            "kichler-lighting",
+            "satco-products",
+        ]
         assert len(plan_json["unreviewed_entries"]) == 8
 
     def test_advanced_indexing_stays_off(self, plan_json):

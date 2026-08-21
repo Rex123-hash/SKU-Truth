@@ -185,6 +185,51 @@ class TestAuthority:
 
 
 class TestMpnRelevance:
+    @pytest.mark.parametrize(
+        "found",
+        [
+            result("https://feit.com/product", title="SHOP/4X2/840/V1"),
+            result(
+                "https://feit.com/product",
+                title="Feit SHOP/4X2/840/V1 Shop Light",
+            ),
+            result("https://feit.com/product?sku=SHOP%2F4X2%2F840%2FV1"),
+        ],
+    )
+    def test_slash_bearing_feit_reference_is_exact_in_literal_locator_text(self, found):
+        assert classify_relevance(found, mpn="SHOP/4X2/840/V1") is MpnRelevance.EXACT
+
+    @pytest.mark.parametrize(
+        "near_reference",
+        [
+            "SHOP/4X2/840/V2",
+            "SHOP/4X2/840",
+            "XSHOP/4X2/840/V1",
+            "SHOP/4X2/840/V1A",
+            "SHOP-4X2-840-V1",
+            "SHOP_4X2_840_V1",
+        ],
+    )
+    def test_near_slash_bearing_feit_references_are_not_exact(self, near_reference):
+        found = result("https://feit.com/product", title=near_reference)
+        assert classify_relevance(found, mpn="SHOP/4X2/840/V1") is not MpnRelevance.EXACT
+
+    def test_unescaped_slash_path_and_hyphenated_pdf_filename_are_not_exact(self):
+        unescaped = result("https://feit.com/p/SHOP/4X2/840/V1")
+        filename = result(
+            "https://appshopfy.feit.com/storage/files/pdfs/"
+            "SHOP-4X2-840-V1_SpecSheet.pdf"
+        )
+
+        assert (
+            classify_relevance(unescaped, mpn="SHOP/4X2/840/V1")
+            is not MpnRelevance.EXACT
+        )
+        assert (
+            classify_relevance(filename, mpn="SHOP/4X2/840/V1")
+            is not MpnRelevance.EXACT
+        )
+
     def test_punctuation_bearing_exact_reference_in_satco_locator(self):
         found = result(
             "https://www.satco.com/products/62-1875",

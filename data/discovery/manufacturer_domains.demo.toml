@@ -15,7 +15,8 @@
 # who checked it, when, and on what basis. Without one it is locator-grade: it still
 # builds queries, and anything found through it is UNVERIFIED_MANUFACTURER.
 #
-# **Two entries are reviewed: `kichler-lighting` and `satco-products`.** Everything else
+# **Three entries are reviewed: `kichler-lighting`, `satco-products`, and
+# `feit-electric`.** Everything else
 # below licenses nothing. That is the honest state, not a gap to be papered over. The
 # unreviewed domains were written from general knowledge while building the discovery
 # engine; nobody has verified them against the manufacturers' own publications. They stay
@@ -112,6 +113,18 @@ note = "Appears in the organizer input as `Satco Prod Inc (5573)`. Reviewed — 
 reviewed_at = "2026-08-21"
 reviewed_by = "Amaan Khan"
 basis = "Personally opened the manufacturer site and confirmed satco.com is SATCO Products, Inc.'s own official manufacturer website, not a distributor, reseller, or marketplace. Consulted: https://www.satco.com/ https://www.satco.com/about https://www.satco.com/support/contact https://www.satco.com/catalog/product/specsheets/62-1875"
+
+[[manufacturer]]
+key = "feit-electric"
+authority_hints = ["Feit Electric Company, Inc.", "Feit Electric"]
+domains = ["feit.com"]
+note = "Appears in the organizer input as `Feit Electric (3468)`. Reviewed manufacturer/domain authority only; the consulted specification sheet does not pre-authorize attributes."
+
+[manufacturer.review]
+reviewed_at = "2026-08-21"
+reviewed_by = "Amaan Khan"
+basis = "Personally opened the manufacturer site and confirmed feit.com is Feit Electric Company, Inc.'s own official manufacturer website, not a distributor, reseller, or marketplace. Consulted: https://www.feit.com/ https://www.feit.com/pages/about-us https://www.feit.com/pages/contact-us https://appshopfy.feit.com/storage/files/pdfs/SHOP-4X2-840-V1_SpecSheet.pdf"
+note = "The Feit-hosted specification sheet was consulted only as manufacturer-owned review material; this review establishes manufacturer/domain authority and does not establish product attributes, artifact identity, extraction correctness, Unilog vocabulary authority, or delivery eligibility."
 
 [[manufacturer]]
 key = "signify-philips-lighting"
