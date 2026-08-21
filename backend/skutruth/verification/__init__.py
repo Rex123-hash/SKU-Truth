@@ -6,6 +6,19 @@ Locating a quote is not verifying a claim. See ./README.md.
 from .adapters import claim_from_candidate, claims_from_run
 from .errors import ArtifactBindingError, VerificationError
 from .eval_adapter import citation_from_outcome
+from .html_attributes import (
+    HTML_ATTRIBUTE_VERIFICATION_PROFILE,
+    HtmlAttributeVerificationOutcome,
+    HtmlAttributeVerificationProfile,
+    HtmlAttributeVerificationReason,
+    HtmlAttributeVerificationRule,
+    HtmlAttributeVerificationStatus,
+    HtmlPropertyIdRule,
+    HtmlUnilogMappingStatus,
+    HtmlVerificationProfileAuthority,
+    VerifiedHtmlAttributeFact,
+    verify_html_attribute_candidate,
+)
 from .matching import contains_phrase
 from .models import (
     ConditionOutcome,
@@ -36,6 +49,15 @@ __all__ = [
     "ConditionOutcome",
     "EvidenceMode",
     "EvidenceUnit",
+    "HTML_ATTRIBUTE_VERIFICATION_PROFILE",
+    "HtmlAttributeVerificationOutcome",
+    "HtmlAttributeVerificationProfile",
+    "HtmlAttributeVerificationReason",
+    "HtmlAttributeVerificationRule",
+    "HtmlAttributeVerificationStatus",
+    "HtmlPropertyIdRule",
+    "HtmlUnilogMappingStatus",
+    "HtmlVerificationProfileAuthority",
     "LocatedUnit",
     "ProductClaim",
     "Quantity",
@@ -46,6 +68,7 @@ __all__ = [
     "VerificationError",
     "VerificationFailure",
     "VerificationOutcome",
+    "VerifiedHtmlAttributeFact",
     "artifact_scope_binding",
     "artifact_scope_supports_exact",
     "contains_phrase",
@@ -57,5 +80,6 @@ __all__ = [
     "parse_quantities",
     "quantity_supports",
     "verify_claim",
+    "verify_html_attribute_candidate",
     "verify_table_claim",
 ]

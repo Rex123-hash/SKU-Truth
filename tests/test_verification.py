@@ -717,7 +717,9 @@ class TestVocabularyIndependence:
         import skutruth.verification as pkg
 
         for path in Path(pkg.__file__).parent.glob("*.py"):
-            if path.name in {"adapters.py", "__init__.py"}:
+            # Representation adapters may know the proposal shape they adapt.  The
+            # generic/PDF engine modules remain vocabulary- and extraction-independent.
+            if path.name in {"adapters.py", "html_attributes.py", "__init__.py"}:
                 continue
             imports = [
                 line.strip()

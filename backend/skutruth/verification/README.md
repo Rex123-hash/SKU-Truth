@@ -172,7 +172,8 @@ is the conversion authority. Reading a publisher's typography is a different job
 
 `ProductClaim` reuses the frozen `AttributeValue` and `ConditionSet` but knows nothing
 about ETIM classes — `key` is opaque. The engine modules import nothing from
-`skutruth.extraction`; only `adapters.py` does, and a test enforces it.
+`skutruth.extraction`; only representation adapters (`adapters.py` and
+`html_attributes.py`) do, and a test enforces it.
 
 That seam matters now that the competition-facing vocabulary is Unilog. A Unilog
 LOV-backed claim will verify through exactly the same engine.
@@ -202,6 +203,29 @@ and reporting the whole thing as supported is precisely the failure this layer e
 prevent. Alternatives of one `50/60 Hz` enumeration are not two assertions and are
 handled by the quantity layer; a claim written that way needs *every* alternative
 supported, because it asserts the rating holds at both.
+
+## Additive HTML attribute adapter
+
+`html_attributes.py` leaves the PDF engine above unchanged. It consumes an already
+source-bound HTML proposal and independently checks whether the cited structure states the
+configured attribute/value relationship. The distinction is deliberate:
+
+1. extraction locator validation proves that a JSON pointer or visible-text fragment
+   exists in the stored artifact;
+2. HTML factual verification requires the exact local source-key rule, enclosing Product
+   `additionalProperty` identity or exact text label, candidate value, and any claimed UOM
+   to agree within that same source structure.
+
+The profile is `LOCAL_DEMO_INTERNAL`. There is no fuzzy label matching and no model call.
+Generic JSON-LD properties such as `name="Attribute"` license no specific concept merely
+because their value looks suggestive. Structured conflicts become `REVIEW`; wrong labels,
+values, product nodes, UOMs, authority, or identity fail closed with typed reasons.
+
+A verified outcome may create a separate `VerifiedHtmlAttributeFact` carrying
+`MANUFACTURER_EVIDENCE` and an internal `COMMIT`. It does not mutate the model proposal,
+does not claim `AttributeCandidate.is_delivery_eligible`, and is explicitly
+`UNAUTHORIZED` for Unilog mapping. Manufacturer fact verification and organizer vocabulary
+authority remain separate gates.
 
 ## Reproducing a real run
 

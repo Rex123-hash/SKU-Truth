@@ -118,7 +118,7 @@ datasheet it reads cannot be committed.
 | Gemini structured extraction | Vertex, schema-constrained, gated on exact identity, always through record/replay; PDF/ETIM proposals plus a narrow stored-HTML local lighting proposal path |
 | Record and replay | LIVE / REPLAY, fail-closed replay, versioned cassette keys |
 | Deterministic validation | ETIM units, picklists, ranges, condition completeness; exact-decimal unit conversion |
-| Mechanical verification | the section above |
+| Mechanical verification | frozen PDF text/table verifier plus an additive exact-rule HTML attribute adapter; verified HTML facts still have no Unilog lighting mapping authority |
 | Adjudication and mapping | typed commit / withhold / review / unmapped decisions, explicit injected mapping rules with recorded authority, condition-preserving policies, conflict handling, attribute-slot assembly with provenance retained |
 | Evaluation framework | manifests, scoring, reporting |
 
