@@ -25,7 +25,7 @@ Python 3.12 · FastAPI · Next.js 15 · Gemini via Vertex AI
 
 ---
 
-## <img src="docs/readme/icons/verification.svg" width="22" align="absmiddle" alt="" /> Verified project status
+## <img src="docs/readme/icons/verification.svg" width="27" align="absmiddle" alt="" />Verified project status
 
 Every number here was recomputed from this repository while writing this file. Nothing is
 carried over from an earlier draft.
@@ -43,7 +43,7 @@ Reproduce them: `python -m pytest`, `npm test --prefix frontend`,
 
 ---
 
-## <img src="docs/readme/icons/catalog.svg" width="22" align="absmiddle" alt="" /> What SKUTruth is
+## <img src="docs/readme/icons/catalog.svg" width="27" align="absmiddle" alt="" />What SKUTruth is
 
 A distributor row looks like this:
 
@@ -72,9 +72,7 @@ Everything else is withheld with a reason a person can act on.
 
 ---
 
-<a id="60-second-judge-path"></a>
-
-## <img src="docs/readme/icons/roadmap.svg" width="22" align="absmiddle" alt="" /> 60-second judge path
+## <img src="docs/readme/icons/roadmap.svg" width="27" align="absmiddle" alt="" />60-second judge path
 
 The fastest way to see the thing that makes SKUTruth different.
 
@@ -99,7 +97,7 @@ Three organizer rows. Three completely different honest outcomes.
 
 ---
 
-## <img src="docs/readme/icons/dataset.svg" width="22" align="absmiddle" alt="" /> Built on the organizer's real catalog
+## <img src="docs/readme/icons/dataset.svg" width="27" align="absmiddle" alt="" />Built on the organizer's real catalog
 
 ![Breadth and depth from the organizer catalog](docs/readme/dataset.svg)
 
@@ -171,7 +169,7 @@ the ordered header names — detects the organizer quietly changing the format.
 
 ---
 
-## <img src="docs/readme/icons/verification.svg" width="22" align="absmiddle" alt="" /> Why this is hard
+## <img src="docs/readme/icons/verification.svg" width="27" align="absmiddle" alt="" />Why this is hard
 
 ![Three things that look alike and are not](docs/readme/trust-boundaries.svg)
 
@@ -199,9 +197,7 @@ column.
 
 ---
 
-<a id="the-product"></a>
-
-## <img src="docs/readme/icons/catalog.svg" width="22" align="absmiddle" alt="" /> The product
+## <img src="docs/readme/icons/catalog.svg" width="27" align="absmiddle" alt="" />The product
 
 <table>
 <tr>
@@ -232,7 +228,7 @@ column.
 
 ---
 
-## <img src="docs/readme/icons/workbench.svg" width="22" align="absmiddle" alt="" /> The Catalog Workbench
+## <img src="docs/readme/icons/workbench.svg" width="27" align="absmiddle" alt="" />The Catalog Workbench
 
 ![The Catalog Workbench state machine](docs/readme/workbench-flow.svg)
 
@@ -313,7 +309,7 @@ domain, because a client that could would be choosing what the server fetches.
 
 ---
 
-## <img src="docs/readme/icons/pipeline.svg" width="22" align="absmiddle" alt="" /> End-to-end pipeline
+## <img src="docs/readme/icons/pipeline.svg" width="27" align="absmiddle" alt="" />End-to-end pipeline
 
 ![The pipeline, stage by stage](docs/readme/pipeline.svg)
 
@@ -376,7 +372,7 @@ See [`backend/skutruth/verification/README.md`](backend/skutruth/verification/RE
 
 ---
 
-## <img src="docs/readme/icons/evidence.svg" width="22" align="absmiddle" alt="" /> Three real cases
+## <img src="docs/readme/icons/evidence.svg" width="27" align="absmiddle" alt="" />Three real cases
 
 ![Ten proposals, seven facts](docs/readme/evidence-funnel.svg)
 
@@ -444,9 +440,7 @@ normalization that produces a confident enrichment against the wrong SKU.
 
 ---
 
-<a id="architecture"></a>
-
-## <img src="docs/readme/icons/architecture.svg" width="22" align="absmiddle" alt="" /> Architecture
+## <img src="docs/readme/icons/architecture.svg" width="27" align="absmiddle" alt="" />Architecture
 
 ![SKUTruth architecture](docs/readme/architecture.svg)
 
@@ -491,9 +485,7 @@ reproduce the counts with `python scripts/etim_stats.py`.
 
 ---
 
-<a id="the-submission-api"></a>
-
-## <img src="docs/readme/icons/api.svg" width="22" align="absmiddle" alt="" /> The submission API
+## <img src="docs/readme/icons/api.svg" width="27" align="absmiddle" alt="" />The submission API
 
 Five routes, deliberately. Every one answers a question somebody watching the demo
 actually asks, and none exposes a lever that could spend budget, fetch an arbitrary URL,
@@ -611,7 +603,7 @@ One failure shape — `code`, `stage`, `message`, `retryable`, `details` — acr
 
 ---
 
-## <img src="docs/readme/icons/workbench.svg" width="22" align="absmiddle" alt="" /> Frontend routes
+## <img src="docs/readme/icons/workbench.svg" width="27" align="absmiddle" alt="" />Frontend routes
 
 | Route | What it is |
 |---|---|
@@ -631,7 +623,7 @@ One failure shape — `code`, `stage`, `message`, `retryable`, `details` — acr
 
 ---
 
-## <img src="docs/readme/icons/security.svg" width="22" align="absmiddle" alt="" /> Security model
+## <img src="docs/readme/icons/security.svg" width="27" align="absmiddle" alt="" />Security model
 
 Verified controls, each implemented and tested:
 
@@ -660,7 +652,7 @@ system.
 
 ---
 
-## <img src="docs/readme/icons/delivery.svg" width="22" align="absmiddle" alt="" /> Record and replay
+## <img src="docs/readme/icons/delivery.svg" width="27" align="absmiddle" alt="" />Record and replay
 
 Every external and model interaction goes through one wrapper.
 
@@ -692,9 +684,7 @@ if the committed file has drifted.
 
 ---
 
-<a id="quick-start"></a>
-
-## <img src="docs/readme/icons/pipeline.svg" width="22" align="absmiddle" alt="" /> Quick start
+## <img src="docs/readme/icons/pipeline.svg" width="27" align="absmiddle" alt="" />Quick start
 
 **Prerequisites:** Python 3.12 and Node.js 20+. That is all — the default mode needs no
 cloud credentials, no environment variables, and no organizer data pack.
@@ -792,7 +782,7 @@ secret value appears anywhere in this repository or in any API response.**
 
 ---
 
-## <img src="docs/readme/icons/testing.svg" width="22" align="absmiddle" alt="" /> Testing
+## <img src="docs/readme/icons/testing.svg" width="27" align="absmiddle" alt="" />Testing
 
 ```
 1,596 passed                 backend · 46 test files · pytest
@@ -833,7 +823,7 @@ node frontend/scripts/shoot.mjs / /platform /solutions /workbench /demo /demo/ki
 
 ---
 
-## <img src="docs/readme/icons/testing.svg" width="22" align="absmiddle" alt="" /> What the metrics mean
+## <img src="docs/readme/icons/testing.svg" width="27" align="absmiddle" alt="" />What the metrics mean
 
 The **Evaluation framework** — manifests, scoring and reporting — is implemented and
 tested. It deliberately refuses to produce a single composite score
@@ -851,9 +841,7 @@ mappings. Those are counts, not scores.
 
 ---
 
-<a id="codebase-atlas"></a>
-
-## <img src="docs/readme/icons/api.svg" width="22" align="absmiddle" alt="" /> Codebase atlas
+## <img src="docs/readme/icons/api.svg" width="27" align="absmiddle" alt="" />Codebase atlas
 
 24,799 lines of backend Python across 113 modules, and 5,903 lines of frontend TypeScript.
 Grouped by trust role.
@@ -1130,9 +1118,7 @@ fuzzy matching, no content generation.
 
 ---
 
-<a id="limitations"></a>
-
-## <img src="docs/readme/icons/limitations.svg" width="22" align="absmiddle" alt="" /> Limitations
+## <img src="docs/readme/icons/limitations.svg" width="27" align="absmiddle" alt="" />Limitations
 
 Stated plainly, because a submission that hides these is harder to trust than one that
 does not.
@@ -1178,7 +1164,7 @@ manufacturers, so no manufacturer site exists to find for them at all.
 
 ---
 
-## <img src="docs/readme/icons/roadmap.svg" width="22" align="absmiddle" alt="" /> Roadmap
+## <img src="docs/readme/icons/roadmap.svg" width="27" align="absmiddle" alt="" />Roadmap
 
 Not built yet. Listed as future work, not as capability.
 
@@ -1195,7 +1181,7 @@ Not built yet. Listed as future work, not as capability.
 
 ---
 
-## <img src="docs/readme/icons/catalog.svg" width="22" align="absmiddle" alt="" /> Documentation
+## <img src="docs/readme/icons/catalog.svg" width="27" align="absmiddle" alt="" />Documentation
 
 Each subsystem carries its own README explaining the reasoning, not just the API:
 
@@ -1216,7 +1202,7 @@ Research notes: [organizer data-pack audit](research/unilog_data_pack_audit.md) 
 
 ---
 
-## <img src="docs/readme/icons/security.svg" width="22" align="absmiddle" alt="" /> Licence and attribution
+## <img src="docs/readme/icons/security.svg" width="27" align="absmiddle" alt="" />Licence and attribution
 
 - **ETIM 10.0** is vendored in `data/etim/` and redistributed under
   [ODC-BY 1.0](https://opendatacommons.org/licenses/by/1-0/). Attribution and the pinned
