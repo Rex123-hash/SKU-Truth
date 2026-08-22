@@ -8,6 +8,10 @@ SKUTruth turns messy industrial catalogue rows into Unilog-ready product content
 requires every enriched fact to be backed by the manufacturer's own document — or refuses
 to state it.
 
+**[Live product](https://skutruth.web.app)** &nbsp;·&nbsp; [Analyze Catalog](https://skutruth.web.app/workbench/) &nbsp;·&nbsp; [Public API](https://skutruth-api-680305457743.us-central1.run.app/api/health) &nbsp;·&nbsp; [API docs](https://skutruth-api-680305457743.us-central1.run.app/docs) &nbsp;·&nbsp; [GitHub](https://github.com/Rex123-hash/SKU-Truth)
+
+---
+
 [Judge path](#60-second-judge-path) ·
 [Screenshots](#the-product) ·
 [Architecture](#architecture) ·
@@ -76,13 +80,13 @@ Everything else is withheld with a reason a person can act on.
 
 The fastest way to see the thing that makes SKUTruth different.
 
-1. Start the API and the frontend — see [Quick start](#quick-start). No credentials, no
-   cloud account, no organizer data pack needed.
-2. Open **Analyze Catalog** at `http://localhost:3000/workbench`.
-3. Click **Try the sample catalog instantly**, then **Prepare catalog**.
-4. Find Kichler `45297BK` — it carries a *Full replay available* badge — and click **Analyze**.
-5. Read the journey counts: **10 proposals → 10 source-bound → 7 verified → 3 withheld → 0 delivery-mapped**.
-6. Open the **Withheld** tab and read `3-Light`.
+1. Open **[Analyze Catalog](https://skutruth.web.app/workbench/)** on the live site — nothing to
+   install. (Running it locally works too: see [Quick start](#quick-start). No credentials,
+   no cloud account, no organizer data pack needed.)
+2. Click **Try the sample catalog instantly**, then **Prepare catalog**.
+3. Find Kichler `45297BK` — it carries a *Full replay available* badge — and click **Analyze**.
+4. Read the journey counts: **10 proposals → 10 source-bound → 7 verified → 3 withheld → 0 delivery-mapped**.
+5. Open the **Withheld** tab and read `3-Light`.
 
 That last one is the point. The model proposed `3-Light`. The manufacturer's own page
 contains the literal string `3-Light`. SKUTruth **refuses it anyway**, because the source

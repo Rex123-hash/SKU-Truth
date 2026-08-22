@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 const REPO = "https://github.com/Rex123-hash/SKU-Truth";
+const API = "https://skutruth-api-680305457743.us-central1.run.app";
 
 const START = [
   { title: "How SKUTruth works", body: "Follow the eight stages and the boundary each one enforces.", href: "/platform#pipeline", Icon: PlayCircle },
@@ -24,7 +25,7 @@ const START = [
 
 const TECHNICAL = [
   { title: "Architecture", href: `${REPO}#pipeline`, note: "README pipeline and trust boundaries", Icon: Braces },
-  { title: "API reference", href: `${REPO}/blob/main/backend/skutruth/api/README.md#routes`, note: "Submission API contract", Icon: Code2 },
+  { title: "API reference", href: `${API}/docs`, note: "Live interactive docs for the deployed API", Icon: Code2 },
   { title: "Delivery schema", href: "/proof#api", note: "252 columns and 50 triplets", Icon: FileJson },
   { title: "Evidence & verification", href: "/proof#evidence", note: "Evidence bases and factual checks", Icon: ShieldCheck },
   { title: "Replay design", href: `${REPO}/blob/main/backend/skutruth/api/README.md#why-the-demo-record-is-committed`, note: "Why recorded cases remain deterministic", Icon: RotateCcw },
@@ -73,7 +74,7 @@ export default function ResourcesPage() {
     </StorySection>
 
     <StorySection index={5} title="Submission API overview" subtitle="A small typed surface. Unknown analysis gets deterministic stages and honest NOT_RUN downstream results.">
-      <div className="card-surface overflow-hidden"><ul className="divide-y divide-line-soft">{ENDPOINTS.map((endpoint) => <li key={endpoint} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><code className="break-all font-mono text-[13px] text-green">{endpoint}</code><span className="text-[11.5px] text-muted">typed JSON · explicit failure</span></li>)}</ul></div>
+      <div className="card-surface overflow-hidden"><ul className="divide-y divide-line-soft">{ENDPOINTS.map((endpoint) => <li key={endpoint} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><code className="break-all font-mono text-[13px] text-green">{endpoint}</code><a href={`${API}/docs`} target="_blank" rel="noreferrer" className="text-[11.5px] font-semibold text-green underline decoration-sage underline-offset-4">typed JSON · try it live</a></li>)}</ul></div>
     </StorySection>
 
     <StorySection index={6} title="Trust glossary" subtitle="The vocabulary used by the backend and the user interface.">

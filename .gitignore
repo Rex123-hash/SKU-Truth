@@ -27,3 +27,6 @@ data/artifacts/runtime/
 # Unilog organizer challenge data pack. Third-party competition material with no stated
 # redistribution grant; read locally, never committed. Derived findings live in research/.
 data/unilog_source/
+
+# Firebase CLI deploy cache (hashes of uploaded files). Local only.
+.firebase/
