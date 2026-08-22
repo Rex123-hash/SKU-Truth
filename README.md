@@ -201,28 +201,52 @@ column.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/readme/shot-home.png" alt="SKUTruth home page"><br><sub><b>Home.</b> The problem, the pipeline, and the three real cases.</sub></td>
-<td width="50%"><img src="docs/readme/shot-workbench-upload.png" alt="Catalog upload"><br><sub><b>Catalog upload.</b> CSV or XLSX, parsed in the browser. Manual single-row entry beside it.</sub></td>
+<td width="50%"><img src="docs/readme/shot-home.png" alt="SKUTruth home page" /></td>
+<td width="50%"><img src="docs/readme/shot-platform.png" alt="Platform page" /></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/readme/shot-workbench-schema.png" alt="Schema mapping"><br><sub><b>Schema review.</b> Columns auto-detected by alias, always editable before anything runs.</sub></td>
-<td width="50%"><img src="docs/readme/shot-workbench-catalog.png" alt="Catalog grid"><br><sub><b>Catalog grid.</b> Row status, replay-evidence badges, search, filters, multi-select.</sub></td>
+<td width="50%" valign="top"><b>Home</b><br /><sub>The problem, the pipeline, and the three real cases.</sub></td>
+<td width="50%" valign="top"><b>Platform</b><br /><sub>How the system works, stage by stage, and what each one may conclude.</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/readme/shot-workbench-result.png" alt="Analysis result"><br><sub><b>Result workspace.</b> The stage timeline and the journey counts for one row.</sub></td>
-<td width="50%"><img src="docs/readme/shot-workbench-withheld.png" alt="Withheld proposals"><br><sub><b>Withheld.</b> 10 → 10 → 7 → 3 → 0, and the reason each refusal happened.</sub></td>
+<td width="50%"><img src="docs/readme/shot-workbench-upload.png" alt="Catalog upload" /></td>
+<td width="50%"><img src="docs/readme/shot-workbench-schema.png" alt="Schema review" /></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/readme/shot-demo-kichler.png" alt="Kichler case"><br><sub><b>Kichler 45297BK.</b> The complete journey, stage by stage.</sub></td>
-<td width="50%"><img src="docs/readme/shot-kichler-identity.png" alt="Discovery and identity"><br><sub><b>Discovery and identity.</b> Authority, source kind, artifact hash, exact-SKU scope.</sub></td>
+<td width="50%" valign="top"><b>Catalog upload</b><br /><sub>CSV or XLSX, parsed in the browser. Manual single-row entry sits beside it.</sub></td>
+<td width="50%" valign="top"><b>Schema review</b><br /><sub>Columns auto-detected by alias, and always editable before anything runs.</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/readme/shot-demo-satco.png" alt="SATCO case"><br><sub><b>SATCO 62-1875.</b> Blocked at acquisition, and honest about why.</sub></td>
-<td width="50%"><img src="docs/readme/shot-demo-feit.png" alt="Feit case"><br><sub><b>Feit SHOP/4X2/840/V1.</b> A representation gap, not a match.</sub></td>
+<td width="50%"><img src="docs/readme/shot-workbench-catalog.png" alt="Catalog grid" /></td>
+<td width="50%"><img src="docs/readme/shot-workbench-result.png" alt="Analysis result" /></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/readme/shot-proof.png" alt="Proof page"><br><sub><b>Proof.</b> What the system checks, and what it refuses to claim.</sub></td>
-<td width="50%"><img src="docs/readme/shot-workbench-api-down.png" alt="API unavailable state"><br><sub><b>API unreachable.</b> The row is marked. No fallback result is fabricated.</sub></td>
+<td width="50%" valign="top"><b>Catalog grid</b><br /><sub>Row status, replay-evidence badges, search, filters and multi-select.</sub></td>
+<td width="50%" valign="top"><b>Result workspace</b><br /><sub>The stage timeline and the journey counts for a single row.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/readme/shot-workbench-withheld.png" alt="Withheld proposals" /></td>
+<td width="50%"><img src="docs/readme/shot-demo-kichler.png" alt="Kichler case" /></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Withheld proposals</b><br /><sub>10 &#8594; 10 &#8594; 7 &#8594; 3 &#8594; 0, and the typed reason behind every refusal.</sub></td>
+<td width="50%" valign="top"><b>Kichler 45297BK</b><br /><sub>The complete journey, stage by stage, to seven verified facts.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/readme/shot-kichler-identity.png" alt="Discovery and identity" /></td>
+<td width="50%"><img src="docs/readme/shot-demo-satco.png" alt="SATCO case" /></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Discovery and identity</b><br /><sub>Authority, source kind, artifact hash and exact-SKU scope.</sub></td>
+<td width="50%" valign="top"><b>SATCO 62-1875</b><br /><sub>Blocked at acquisition by an HTTP 429, and honest about why.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/readme/shot-demo-feit.png" alt="Feit case" /></td>
+<td width="50%"><img src="docs/readme/shot-proof.png" alt="Proof page" /></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><b>Feit SHOP/4X2/840/V1</b><br /><sub>Official pages found. A slash is not a hyphen, so no match was claimed.</sub></td>
+<td width="50%" valign="top"><b>Proof</b><br /><sub>What the system checks, and what it deliberately refuses to claim.</sub></td>
 </tr>
 </table>
 
@@ -301,6 +325,15 @@ and [`frontend/src/lib/catalog.ts`](frontend/src/lib/catalog.ts).
 | Unknown-row handling | deterministic stages still run; the rest report `NOT_RUN` honestly |
 
 </details>
+
+<table>
+<tr>
+<td><img src="docs/readme/shot-workbench-api-down.png" alt="The Workbench with the API unreachable" /></td>
+</tr>
+<tr>
+<td valign="top"><b>When the API cannot be reached</b><br /><sub>The row is marked with its typed error code and nothing else happens. No fallback result is fabricated to fill the gap, and the other rows stay analyzable. This capture is real: the frontend was served from a port outside the CORS allowlist, so the browser refused the call.</sub></td>
+</tr>
+</table>
 
 **Where the data goes.** Parsing, validation, filtering, sorting and both CSV exports run
 entirely in the browser. The only thing sent to the server is the six organizer-shaped
