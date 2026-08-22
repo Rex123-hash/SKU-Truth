@@ -1,0 +1,21 @@
+# Runtime dependencies for the public submission API container.
+#
+# This is deliberately a SUBSET of the dependencies declared in pyproject.toml, not a
+# different set. The public service runs in DEMO_REPLAY, where the import graph reached
+# by `skutruth.api.asgi` never touches Vertex AI, Agent Search, or the table-extraction
+# fallback. Shipping `google-genai`, `google-cloud-discoveryengine` and `pdfplumber` into
+# a public container that is structurally incapable of calling them would add provider
+# SDKs and credential-handling code to the attack surface for no behaviour in return, and
+# would slow every cold start.
+#
+# The Dockerfile imports the app and asserts the demo record loads at BUILD time, so a
+# missing dependency fails the build rather than a judge's first request.
+#
+# Versions are pinned to the ones this submission was verified against locally.
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
+pydantic==2.13.4
+httpx==0.28.1
+orjson==3.12.0
+pypdf==6.16.1

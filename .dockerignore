@@ -1,0 +1,29 @@
+# Build context hygiene. The Dockerfile copies explicit paths rather than the tree, so
+# this is defence in depth: even a mistaken `COPY . .` cannot pull third-party material
+# or a developer's virtualenv into a public image.
+
+.git/
+.claude/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+node_modules/
+.next/
+
+frontend/
+docs/
+research/
+tests/
+scripts/
+Assets/
+*.md
+
+data/unilog_source/
+data/artifacts/
+data/replay/
+data/etim/
+data/eval/
+data/demo_classes/
+data/mappings/

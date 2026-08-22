@@ -1,0 +1,39 @@
+# What may be uploaded to Cloud Build and baked into the public API image.
+#
+# Strict on purpose. A `.gcloudignore` REPLACES `.gitignore` for upload decisions, so the
+# third-party exclusions below are restated here rather than inherited: the organizer data
+# pack, the manufacturer artifacts and the runtime cassettes carry no redistribution grant
+# and must not travel into a public container.
+
+.git/
+.gitignore
+.claude/
+
+# Local environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+node_modules/
+.next/
+
+# Not part of the API image
+frontend/
+docs/
+research/
+tests/
+scripts/
+Assets/
+*.md
+
+# Third-party material with no redistribution grant. Never upload, never bake in.
+data/unilog_source/
+data/artifacts/
+data/replay/
+
+# Committed but unused by the API's five routes; excluded to keep the public image minimal.
+data/etim/
+data/eval/
+data/demo_classes/
+data/mappings/
