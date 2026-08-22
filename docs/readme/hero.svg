@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="SKUTruth — evidence-first product intelligence for industrial commerce">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#faf6ee"/>
+      <stop offset="1" stop-color="#f2ece0"/>
+    </linearGradient>
+    <linearGradient id="forestPanel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#204d35"/>
+      <stop offset="1" stop-color="#0f2c1d"/>
+    </linearGradient>
+    <clipPath id="frame"><rect x="0" y="0" width="1200" height="340" rx="18"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="340" fill="url(#ground)"/>
+
+    <!-- quiet structural rules, the paper-grain stand-in -->
+    <g stroke="#ddd5c7" stroke-width="1" opacity=".55">
+      <path d="M0 84h1200M0 256h1200"/>
+    </g>
+    <g stroke="#e6ece0" stroke-width="1" opacity=".9">
+      <path d="M0 128h1200M0 170h1200M0 212h1200"/>
+    </g>
+
+    <!-- forest panel on the right, carrying the verdict column -->
+    <path d="M812 0h388v340H812z" fill="url(#forestPanel)"/>
+    <path d="M812 0h2v340h-2z" fill="#466a50" opacity=".8"/>
+
+    <!-- mark -->
+    <g transform="translate(64 52)">
+      <path d="M22 4 42 15v22L22 48 2 37V15z" fill="#173f2a"/>
+      <path d="M22 4 42 15 22 26 2 15z" fill="#2f6b4a"/>
+      <path d="M11 20.5 19 25l12-7" fill="none" stroke="#a5b995" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="120" y="88" font-family="Georgia, 'Times New Roman', serif" font-size="40" font-weight="700" fill="#173f2a" letter-spacing="-.4">SKUTruth</text>
+
+    <!-- headline -->
+    <text x="64" y="166" font-family="Georgia, 'Times New Roman', serif" font-size="41" font-weight="700" fill="#172019">Evidence-first product intelligence</text>
+    <text x="64" y="214" font-family="Georgia, 'Times New Roman', serif" font-size="41" font-weight="700" fill="#172019">for <tspan fill="#173f2a">industrial commerce</tspan>.</text>
+    <path d="M126 227c118-9 235-9 352 2" fill="none" stroke="#e7a62b" stroke-width="5" stroke-linecap="round"/>
+
+    <text x="64" y="278" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="17" fill="#6c736c">AI proposes. SKUTruth verifies against the manufacturer&#8217;s own document</text>
+    <text x="64" y="303" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="17" fill="#6c736c">&#8212; and refuses anything the evidence does not support.</text>
+
+    <!-- the verdict column: one proposal, three outcomes -->
+    <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+      <text x="856" y="58" font-size="11.5" font-weight="700" fill="#b9cdaa" letter-spacing="1.6">ONE ROW, THREE VERDICTS</text>
+
+      <g transform="translate(856 78)">
+        <rect width="292" height="62" rx="11" fill="#1b472f" stroke="#466a50"/>
+        <circle cx="26" cy="31" r="9" fill="none" stroke="#b9cdaa" stroke-width="2.4"/>
+        <path d="m21.5 31 3.6 3.6 6.4-7.2" fill="none" stroke="#b9cdaa" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="50" y="27" font-size="14.5" font-weight="600" fill="#fffaf0">Wattage 100 W</text>
+        <text x="50" y="47" font-size="12" fill="#dfe6d8">VERIFIED &#183; source states it</text>
+      </g>
+
+      <g transform="translate(856 150)">
+        <rect width="292" height="62" rx="11" fill="#1b472f" stroke="#f2c15b" stroke-opacity=".7"/>
+        <path d="M26 22.5 35 38H17z" fill="none" stroke="#f2c15b" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M26 28.5v4.2" stroke="#f2c15b" stroke-width="2.4" stroke-linecap="round"/>
+        <text x="50" y="27" font-size="14.5" font-weight="600" fill="#fffaf0">3-Light</text>
+        <text x="50" y="47" font-size="12" fill="#f2c15b">WITHHELD &#183; property not authorized</text>
+      </g>
+
+      <g transform="translate(856 222)">
+        <rect width="292" height="62" rx="11" fill="#1b472f" stroke="#466a50"/>
+        <circle cx="26" cy="31" r="9" fill="none" stroke="#dfe6d8" stroke-width="2.4"/>
+        <path d="M22 35 30 27" stroke="#dfe6d8" stroke-width="2.4" stroke-linecap="round"/>
+        <text x="50" y="27" font-size="14.5" font-weight="600" fill="#fffaf0">HTTP 429</text>
+        <text x="50" y="47" font-size="12" fill="#dfe6d8">BLOCKED &#183; nothing downstream ran</text>
+      </g>
+
+      <text x="856" y="308" font-size="11.5" fill="#a5b995">Refusal is a result, and it carries a reason.</text>
+    </g>
+  </g>
+  <rect x=".5" y=".5" width="1199" height="339" rx="18" fill="none" stroke="#ddd5c7"/>
+</svg>

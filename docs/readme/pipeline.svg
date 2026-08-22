@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 786" width="1200" height="786" role="img" aria-label="The eight SKUTruth pipeline stages, what each one does, and the typed reason that can stop it">
+  <rect width="1200" height="786" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="46" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">The pipeline, stage by stage</text>
+    <text x="40" y="70" font-size="13.5" fill="#6c736c">Every stage can stop. When it does, it says why in a typed reason &#8212; never a score, never a bare &#8220;unverified&#8221;.</text>
+
+    <!-- column headings -->
+    <text x="40" y="112" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">STAGE</text>
+    <text x="356" y="112" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">WHAT IT ESTABLISHES</text>
+    <text x="836" y="112" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">WHAT STOPS IT</text>
+    <path d="M40 122h1120" stroke="#ddd5c7"/>
+
+    <!-- the spine -->
+    <path d="M64 150v560" stroke="#e6ece0" stroke-width="2"/>
+
+    <!-- 1 NORMALIZATION -->
+    <g transform="translate(0 136)">
+      <circle cx="64" cy="30" r="15" fill="#6f8e45"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">1</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Normalization</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">deterministic</text>
+      <text x="356" y="26" font-size="13" fill="#172019">&#8220;Kichler Lighting (KICLI)&#8221; split into a name and a supplier code.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">Placeholders mean empty, not unbranded. Nothing is spell-corrected.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">REVIEW &#183; no authority covers this name</text>
+    </g>
+
+    <!-- 2 CLASSIFICATION -->
+    <g transform="translate(0 206)">
+      <circle cx="64" cy="30" r="15" fill="#6f8e45"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">2</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Classification</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">deterministic</text>
+      <text x="356" y="26" font-size="13" fill="#172019">Exact lexical cues in the description give an internal routing family.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">An internal family is never a Unilog classpath.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">WITHHOLD &#183; no cue matched</text>
+    </g>
+
+    <!-- 3 DISCOVERY -->
+    <g transform="translate(0 276)">
+      <circle cx="64" cy="30" r="15" fill="#173f2a"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">3</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Discovery</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">reviewed domains</text>
+      <text x="356" y="26" font-size="13" fill="#172019">Site-restricted search over human-reviewed manufacturer domains only.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">The search corpus <tspan font-style="italic">is</tspan> the reviewed set. Results are locators, never evidence.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">NO_EXACT_SOURCE &#183; 27 typed rejections</text>
+    </g>
+
+    <!-- 4 ACQUISITION -->
+    <g transform="translate(0 346)">
+      <circle cx="64" cy="30" r="15" fill="#173f2a"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">4</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Acquisition</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">SSRF-bounded</text>
+      <text x="356" y="26" font-size="13" fill="#172019">Every resolved address checked before connecting; redirects must keep authority.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">Bytes are hashed and stored page-addressably, or not stored at all.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">SOURCE_RATE_LIMITED &#183; HTTP 429</text>
+    </g>
+
+    <!-- 5 IDENTITY -->
+    <g transform="translate(0 416)">
+      <circle cx="64" cy="30" r="15" fill="#173f2a"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">5</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Identity</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">the hard gate</text>
+      <text x="356" y="26" font-size="13" fill="#172019">The stored document must prove it covers <tspan font-weight="700">this exact SKU</tspan>.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">EXACT / FAMILY_OR_INCOMPLETE_REFERENCE / UNKNOWN / CONTRADICTORY.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">NOT_RUN &#183; no artifact to read</text>
+    </g>
+
+    <!-- 6 AI PROPOSAL -->
+    <g transform="translate(0 486)">
+      <circle cx="64" cy="30" r="15" fill="#e7a62b"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#0f2c1d" text-anchor="middle">6</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">AI proposal</text>
+      <text x="94" y="45" font-size="11.5" fill="#8a6410">the only model step</text>
+      <text x="356" y="26" font-size="13" fill="#172019">Gemini reads the stored document under a schema-constrained response.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">Every proposal must carry a locator into that document, or it is discarded.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">gated on EXACT identity, never run first</text>
+    </g>
+
+    <!-- 7 VERIFICATION -->
+    <g transform="translate(0 556)">
+      <circle cx="64" cy="30" r="15" fill="#173f2a"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">7</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Verification</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">mechanical</text>
+      <text x="356" y="26" font-size="13" fill="#172019">One coherent unit of the artifact must state the value on its own &#8212;</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">right magnitude, right unit, right relation, every condition supported.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">13 typed failures, e.g. OPERATOR_MISMATCH</text>
+    </g>
+
+    <!-- 8 DELIVERY -->
+    <g transform="translate(0 626)">
+      <circle cx="64" cy="30" r="15" fill="#6c736c"/>
+      <text x="64" y="35" font-size="13" font-weight="700" fill="#faf6ee" text-anchor="middle">8</text>
+      <text x="94" y="26" font-size="15" font-weight="700" fill="#172019">Delivery mapping</text>
+      <text x="94" y="45" font-size="11.5" fill="#6c736c">authority-gated</text>
+      <text x="356" y="26" font-size="13" fill="#172019">A verified manufacturer fact still needs a rule that authorises where it goes.</text>
+      <text x="356" y="45" font-size="13" fill="#6c736c">Mapping rules are injected and recorded, never inferred from a column name.</text>
+      <rect x="836" y="12" width="324" height="34" rx="8" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="852" y="34" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">UNAUTHORIZED &#183; no official vocabulary</text>
+    </g>
+
+    <path d="M40 712h1120" stroke="#ddd5c7"/>
+    <text x="40" y="738" font-size="12.5" fill="#6c736c">Stages 1&#8211;2 need nothing but the row. Stages 3&#8211;5 need evidence <tspan font-style="italic">about that product</tspan>. Stage 6 is the only place a model speaks,</text>
+    <text x="40" y="758" font-size="12.5" fill="#6c736c">and stage 7 is where what it said is checked against the document it claims to have read.</text>
+  </g>
+</svg>

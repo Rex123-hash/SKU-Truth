@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="SKUTruth">
+  <!-- A cream plate so the mark holds its shape against both light and dark browser
+       chrome; the crate itself is the header lockup, thickened for 16px legibility. -->
+  <rect width="64" height="64" rx="14" fill="#F7F1E7"/>
+  <path d="M32 11 52 21.4v21.2L32 53 12 42.6V21.4z" fill="#2F6B4A" stroke="#173F2A" stroke-width="3.4" stroke-linejoin="round"/>
+  <path d="M12 21.4 32 31.8l20-10.4" fill="none" stroke="#173F2A" stroke-width="3.4" stroke-linejoin="round"/>
+  <path d="M32 31.8V53" fill="none" stroke="#173F2A" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M21.6 26.4 42 15.8" fill="none" stroke="#A5B995" stroke-width="3" stroke-linecap="round"/>
+</svg>

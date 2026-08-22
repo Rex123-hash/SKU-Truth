@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="1200" height="520" role="img" aria-label="The Kichler 45297BK funnel: ten model proposals, ten source-bound, seven verified, three withheld, zero authorised for delivery">
+  <defs>
+    <marker id="f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#a5b995"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="520" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="44" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">Ten proposals, seven facts</text>
+    <text x="40" y="68" font-size="13.5" fill="#6c736c">Kichler <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">45297BK</tspan> &#183; organizer row 371 &#183; every number below is re-derived from the stored artifact, not asserted.</text>
+
+    <!-- funnel -->
+    <g>
+      <rect x="40" y="102" width="212" height="118" rx="12" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="146" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#8a6410" text-anchor="middle">10</text>
+      <text x="146" y="164" font-size="13" font-weight="700" fill="#8a6410" text-anchor="middle">AI proposals</text>
+      <text x="146" y="186" font-size="11" fill="#8a6410" text-anchor="middle">gemini-2.5-flash</text>
+      <text x="146" y="202" font-size="11" fill="#8a6410" text-anchor="middle">schema-constrained</text>
+
+      <path d="M258 161h30" stroke="#a5b995" stroke-width="2" marker-end="url(#f)"/>
+
+      <rect x="294" y="102" width="212" height="118" rx="12" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="400" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#173f2a" text-anchor="middle">10</text>
+      <text x="400" y="164" font-size="13" font-weight="700" fill="#172019" text-anchor="middle">source-bound</text>
+      <text x="400" y="186" font-size="11" fill="#6c736c" text-anchor="middle">each carries a locator into</text>
+      <text x="400" y="202" font-size="11" fill="#6c736c" text-anchor="middle">the stored document</text>
+
+      <path d="M512 161h30" stroke="#a5b995" stroke-width="2" marker-end="url(#f)"/>
+
+      <rect x="548" y="102" width="212" height="118" rx="12" fill="#e6ece0" stroke="#2f6b4a" stroke-width="1.6"/>
+      <text x="654" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#173f2a" text-anchor="middle">7</text>
+      <text x="654" y="164" font-size="13" font-weight="700" fill="#173f2a" text-anchor="middle">verified facts</text>
+      <text x="654" y="186" font-size="11" fill="#2f6b4a" text-anchor="middle">the source&#8217;s own words</text>
+      <text x="654" y="202" font-size="11" fill="#2f6b4a" text-anchor="middle">state this value</text>
+
+      <path d="M766 161h30" stroke="#a5b995" stroke-width="2" marker-end="url(#f)"/>
+
+      <rect x="802" y="102" width="164" height="118" rx="12" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="884" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#8a6410" text-anchor="middle">3</text>
+      <text x="884" y="164" font-size="13" font-weight="700" fill="#8a6410" text-anchor="middle">withheld</text>
+      <text x="884" y="186" font-size="11" fill="#8a6410" text-anchor="middle">bound, and still</text>
+      <text x="884" y="202" font-size="11" fill="#8a6410" text-anchor="middle">not a fact</text>
+
+      <path d="M972 161h30" stroke="#a5b995" stroke-width="2" marker-end="url(#f)"/>
+
+      <rect x="1008" y="102" width="152" height="118" rx="12" fill="#f7f1e7" stroke="#ddd5c7" stroke-dasharray="5 4"/>
+      <text x="1084" y="140" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#6c736c" text-anchor="middle">0</text>
+      <text x="1084" y="164" font-size="13" font-weight="700" fill="#6c736c" text-anchor="middle">delivery-mapped</text>
+      <text x="1084" y="186" font-size="11" fill="#6c736c" text-anchor="middle">UNAUTHORIZED</text>
+      <text x="1084" y="202" font-size="11" fill="#6c736c" text-anchor="middle">by design</text>
+    </g>
+
+    <!-- the interesting refusal -->
+    <text x="40" y="264" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">THE REFUSAL WORTH READING</text>
+
+    <rect x="40" y="278" width="1120" height="152" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+
+    <g transform="translate(64 300)">
+      <text x="0" y="14" font-size="10.5" font-weight="700" fill="#8a6410" letter-spacing="1.2">THE MODEL PROPOSED</text>
+      <rect x="0" y="26" width="300" height="46" rx="9" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="16" y="45" font-size="11" fill="#8a6410">Light count descriptor</text>
+      <text x="16" y="63" font-size="14" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#172019">3-Light</text>
+      <text x="0" y="94" font-size="11.5" fill="#6c736c">Bound to a JSON-LD pointer in the stored page.</text>
+    </g>
+
+    <text x="404" y="352" font-size="22" fill="#a5b995">&#8594;</text>
+
+    <g transform="translate(444 300)">
+      <text x="0" y="14" font-size="10.5" font-weight="700" fill="#2f6b4a" letter-spacing="1.2">THE SOURCE LITERALLY SAYS</text>
+      <rect x="0" y="26" width="300" height="46" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="16" y="45" font-size="11" fill="#2f6b4a">property name: &#8220;Attribute&#8221;</text>
+      <text x="16" y="63" font-size="14" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#172019">3-Light</text>
+      <text x="0" y="94" font-size="11.5" fill="#6c736c">The text matches exactly. That is not the question.</text>
+    </g>
+
+    <text x="784" y="352" font-size="22" fill="#a5b995">&#8594;</text>
+
+    <g transform="translate(824 300)">
+      <text x="0" y="14" font-size="10.5" font-weight="700" fill="#8a6410" letter-spacing="1.2">SKUTRUTH DECIDED</text>
+      <rect x="0" y="26" width="312" height="46" rx="9" fill="#fdf3dd" stroke="#e7a62b" stroke-width="1.6"/>
+      <text x="16" y="45" font-size="13" font-weight="700" fill="#8a6410">WITHHELD</text>
+      <text x="16" y="63" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">SOURCE_PROPERTY_NOT_AUTHORIZED</text>
+      <text x="0" y="94" font-size="11.5" fill="#6c736c">A generic &#8220;Attribute&#8221; label does not prove <tspan font-style="italic">which</tspan></text>
+      <text x="0" y="110" font-size="11.5" fill="#6c736c">property the value belongs to.</text>
+    </g>
+
+    <rect x="40" y="452" width="1120" height="44" rx="10" fill="#173f2a"/>
+    <text x="64" y="479" font-size="13.5" fill="#fffaf0">Matching text is not the same as a correct semantic property. This is the distinction most enrichment pipelines quietly skip.</text>
+  </g>
+</svg>

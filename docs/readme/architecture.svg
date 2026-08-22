@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 880" width="1200" height="880" role="img" aria-label="SKUTruth system architecture, showing the browser, the submission API, the deterministic and evidence layers, the model boundary, and the external services">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#6f8e45"/>
+    </marker>
+    <marker id="aDark" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#a5b995"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="880" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="44" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">Architecture</text>
+    <text x="40" y="68" font-size="13.5" fill="#6c736c">Dashed amber rules are trust boundaries. Nothing crosses one without a typed decision behind it.</text>
+
+    <!-- ================= CLIENT ================= -->
+    <rect x="40" y="92" width="1120" height="96" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+    <text x="60" y="116" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">BROWSER &#183; NEXT.JS 15 / REACT 19</text>
+    <g font-size="12.5" fill="#172019">
+      <rect x="60" y="128" width="200" height="42" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="76" y="147">Catalog Workbench</text>
+      <text x="76" y="163" font-size="11" fill="#6c736c">CSV / XLSX parsed locally</text>
+
+      <rect x="274" y="128" width="182" height="42" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="290" y="147">Evidence Inspector</text>
+      <text x="290" y="163" font-size="11" fill="#6c736c">proposal beside source</text>
+
+      <rect x="470" y="128" width="164" height="42" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="486" y="147">Review Queue</text>
+      <text x="486" y="163" font-size="11" fill="#6c736c">every refusal, listed</text>
+
+      <rect x="648" y="128" width="164" height="42" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="664" y="147">CSV exports</text>
+      <text x="664" y="163" font-size="11" fill="#6c736c">analysis &#183; verified facts</text>
+
+      <rect x="826" y="128" width="314" height="42" rx="9" fill="#f7f1e7" stroke="#ddd5c7"/>
+      <text x="842" y="147">11 static routes &#183; marketing + 3 case pages</text>
+      <text x="842" y="163" font-size="11" fill="#6c736c">no secrets, no catalog data leaves the browser un-analysed</text>
+    </g>
+
+    <!-- boundary 1 -->
+    <path d="M40 206h1120" stroke="#e7a62b" stroke-width="1.6" stroke-dasharray="7 6"/>
+    <rect x="452" y="196" width="296" height="21" rx="10" fill="#fdf3dd" stroke="#f2c15b"/>
+    <text x="600" y="211" font-size="11" font-weight="700" fill="#8a6410" text-anchor="middle">HTTP &#183; typed request, typed error, no URLs</text>
+
+    <!-- ================= API ================= -->
+    <rect x="40" y="232" width="1120" height="80" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+    <text x="60" y="256" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">SUBMISSION API &#183; FASTAPI</text>
+    <g font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#173f2a">
+      <rect x="60" y="266" width="176" height="30" rx="8" fill="#e6ece0" stroke="#a5b995"/><text x="74" y="286">GET  /api/health</text>
+      <rect x="248" y="266" width="212" height="30" rx="8" fill="#e6ece0" stroke="#a5b995"/><text x="262" y="286">GET  /api/demo/products</text>
+      <rect x="472" y="266" width="248" height="30" rx="8" fill="#e6ece0" stroke="#a5b995"/><text x="486" y="286">GET  /api/demo/products/{mpn}</text>
+      <rect x="732" y="266" width="164" height="30" rx="8" fill="#e6ece0" stroke="#a5b995"/><text x="746" y="286">POST /api/analyze</text>
+      <rect x="908" y="266" width="164" height="30" rx="8" fill="#e6ece0" stroke="#a5b995"/><text x="922" y="286">GET  /api/schema</text>
+    </g>
+    <text x="1088" y="256" font-size="11" fill="#6c736c" text-anchor="end">mode fixed at startup</text>
+
+    <!-- boundary 2 -->
+    <path d="M40 330h1120" stroke="#e7a62b" stroke-width="1.6" stroke-dasharray="7 6"/>
+    <rect x="404" y="320" width="392" height="21" rx="10" fill="#fdf3dd" stroke="#f2c15b"/>
+    <text x="600" y="335" font-size="11" font-weight="700" fill="#8a6410" text-anchor="middle">the API renders decisions &#183; it cannot make or promote one</text>
+
+    <!-- ================= DETERMINISTIC CORE ================= -->
+    <rect x="40" y="356" width="546" height="212" rx="14" fill="#e6ece0" stroke="#a5b995"/>
+    <text x="60" y="380" font-size="10.5" font-weight="700" fill="#2f6b4a" letter-spacing="1.4">DETERMINISTIC CORE &#183; NO MODEL, NO NETWORK</text>
+    <g font-size="12.5" fill="#172019">
+      <rect x="60" y="392" width="240" height="38" rx="8" fill="#fffdf8" stroke="#a5b995"/>
+      <text x="74" y="409">Unilog adapter</text><text x="74" y="423" font-size="10.5" fill="#6c736c">input &#183; placeholders &#183; Part_Manuf parse</text>
+      <rect x="312" y="392" width="254" height="38" rx="8" fill="#fffdf8" stroke="#a5b995"/>
+      <text x="326" y="409">Normalization &amp; classification</text><text x="326" y="423" font-size="10.5" fill="#6c736c">injected authorities only</text>
+
+      <rect x="60" y="440" width="240" height="38" rx="8" fill="#fffdf8" stroke="#a5b995"/>
+      <text x="74" y="457">Frozen contracts</text><text x="74" y="471" font-size="10.5" fill="#6c736c">identity &#183; value &#183; evidence &#183; conditions</text>
+      <rect x="312" y="440" width="254" height="38" rx="8" fill="#fffdf8" stroke="#a5b995"/>
+      <text x="326" y="457">ETIM 10.0 &#183; units &#183; validators</text><text x="326" y="471" font-size="10.5" fill="#6c736c">exact-decimal conversion, picklists</text>
+
+      <rect x="60" y="488" width="240" height="38" rx="8" fill="#fffdf8" stroke="#a5b995"/>
+      <text x="74" y="505">Adjudication &amp; mapping</text><text x="74" y="519" font-size="10.5" fill="#6c736c">commit / withhold / review / unmapped</text>
+      <rect x="312" y="488" width="254" height="38" rx="8" fill="#fffdf8" stroke="#a5b995"/>
+      <text x="326" y="505">Delivery schema &#183; 252 headers</text><text x="326" y="519" font-size="10.5" fill="#6c736c">derived at runtime, fingerprinted</text>
+    </g>
+    <text x="60" y="550" font-size="11.5" fill="#2f6b4a">Runs for every row, including rows with no evidence at all.</text>
+
+    <!-- ================= EVIDENCE LAYER ================= -->
+    <rect x="614" y="356" width="546" height="212" rx="14" fill="#173f2a"/>
+    <text x="634" y="380" font-size="10.5" font-weight="700" fill="#b9cdaa" letter-spacing="1.4">EVIDENCE LAYER &#183; NEEDS A REAL DOCUMENT</text>
+    <g font-size="12.5" fill="#fffaf0">
+      <rect x="634" y="392" width="248" height="38" rx="8" fill="#1b472f" stroke="#466a50"/>
+      <text x="648" y="409">Domain review &#183; authority</text><text x="648" y="423" font-size="10.5" fill="#dfe6d8">a human signs each binding</text>
+      <rect x="894" y="392" width="248" height="38" rx="8" fill="#1b472f" stroke="#466a50"/>
+      <text x="908" y="409">Agent Search discovery</text><text x="908" y="423" font-size="10.5" fill="#dfe6d8">one siteSearch filter per domain</text>
+
+      <rect x="634" y="440" width="248" height="38" rx="8" fill="#1b472f" stroke="#466a50"/>
+      <text x="648" y="457">Safe acquisition</text><text x="648" y="471" font-size="10.5" fill="#dfe6d8">SSRF checks &#183; MIME &#183; redirect authority</text>
+      <rect x="894" y="440" width="248" height="38" rx="8" fill="#1b472f" stroke="#466a50"/>
+      <text x="908" y="457">ArtifactStore</text><text x="908" y="471" font-size="10.5" fill="#dfe6d8">content-addressed, validates, never repairs</text>
+
+      <rect x="634" y="488" width="248" height="38" rx="8" fill="#1b472f" stroke="#466a50"/>
+      <text x="648" y="505">Identity resolution</text><text x="648" y="519" font-size="10.5" fill="#dfe6d8">EXACT_SKU or nothing downstream</text>
+      <rect x="894" y="488" width="248" height="38" rx="8" fill="#1b472f" stroke="#466a50"/>
+      <text x="908" y="505">Mechanical verification</text><text x="908" y="519" font-size="10.5" fill="#dfe6d8">one coherent unit must state it</text>
+    </g>
+    <text x="634" y="550" font-size="11.5" fill="#a5b995">Absent evidence produces NOT_RUN, never a plausible guess.</text>
+
+    <!-- arrows between the two -->
+    <path d="M586 462h28" stroke="#6f8e45" stroke-width="2" marker-end="url(#a)"/>
+
+    <!-- boundary 3 -->
+    <path d="M40 586h1120" stroke="#e7a62b" stroke-width="1.6" stroke-dasharray="7 6"/>
+    <rect x="386" y="576" width="428" height="21" rx="10" fill="#fdf3dd" stroke="#f2c15b"/>
+    <text x="600" y="591" font-size="11" font-weight="700" fill="#8a6410" text-anchor="middle">the model boundary &#183; a proposal is not a fact until stage 7 says so</text>
+
+    <!-- ================= MODEL + REPLAY ================= -->
+    <rect x="40" y="612" width="546" height="130" rx="14" fill="#fdf3dd" stroke="#f2c15b"/>
+    <text x="60" y="636" font-size="10.5" font-weight="700" fill="#8a6410" letter-spacing="1.4">MODEL LAYER &#183; PROPOSES ONLY</text>
+    <g font-size="12.5" fill="#172019">
+      <rect x="60" y="648" width="248" height="38" rx="8" fill="#fffdf8" stroke="#f2c15b"/>
+      <text x="74" y="665">Gemini via Vertex AI</text><text x="74" y="679" font-size="10.5" fill="#6c736c">response schema &#183; gated on exact identity</text>
+      <rect x="320" y="648" width="246" height="38" rx="8" fill="#fffdf8" stroke="#f2c15b"/>
+      <text x="334" y="665">Source binding</text><text x="334" y="679" font-size="10.5" fill="#6c736c">no locator &#8594; discarded before verification</text>
+    </g>
+    <text x="60" y="712" font-size="11.5" fill="#8a6410">The model never decides, never scores, and never sees a row it has no document for.</text>
+    <text x="60" y="730" font-size="11.5" fill="#8a6410">Identifier folding, unit conversion and span matching are ordinary code.</text>
+
+    <!-- REPLAY -->
+    <rect x="614" y="612" width="546" height="130" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+    <text x="634" y="636" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">RECORD / REPLAY &#183; EVERY EXTERNAL CALL</text>
+    <g font-size="12.5" fill="#172019">
+      <rect x="634" y="648" width="248" height="38" rx="8" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="648" y="665">Cassette store</text><text x="648" y="679" font-size="10.5" fill="#6c736c">versioned keys &#183; redacted before write</text>
+      <rect x="894" y="648" width="248" height="38" rx="8" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="908" y="665">DEMO_REPLAY (default)</text><text x="908" y="679" font-size="10.5" fill="#6c736c">fail-closed &#183; zero external calls</text>
+    </g>
+    <text x="634" y="712" font-size="11.5" fill="#2f6b4a">A replay miss is an error, never a silent live call. LIVE never falls back to replay.</text>
+    <text x="634" y="730" font-size="11.5" fill="#2f6b4a">An HTTP 429 cannot be replayed, so it is labelled RECORDED_OBSERVATION instead.</text>
+
+    <!-- boundary 4 -->
+    <path d="M40 760h1120" stroke="#e7a62b" stroke-width="1.6" stroke-dasharray="7 6"/>
+    <rect x="428" y="750" width="344" height="21" rx="10" fill="#fdf3dd" stroke="#f2c15b"/>
+    <text x="600" y="765" font-size="11" font-weight="700" fill="#8a6410" text-anchor="middle">the network boundary &#183; operator-driven, never client-driven</text>
+
+    <!-- ================= EXTERNAL ================= -->
+    <rect x="40" y="786" width="1120" height="72" rx="14" fill="#f7f1e7" stroke="#ddd5c7" stroke-dasharray="5 4"/>
+    <text x="60" y="810" font-size="10.5" font-weight="700" fill="#6c736c" letter-spacing="1.4">OUTSIDE THE TRUST BOUNDARY</text>
+    <g font-size="12.5" fill="#6c736c">
+      <rect x="60" y="820" width="248" height="28" rx="8" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="74" y="839">Manufacturer sites &#183; HTML, PDF</text>
+      <rect x="320" y="820" width="248" height="28" rx="8" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="334" y="839">Google Agent Search</text>
+      <rect x="580" y="820" width="248" height="28" rx="8" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="594" y="839">Vertex AI &#183; Gemini</text>
+      <rect x="840" y="820" width="300" height="28" rx="8" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="854" y="839">Organizer data pack &#183; local, never committed</text>
+    </g>
+  </g>
+</svg>

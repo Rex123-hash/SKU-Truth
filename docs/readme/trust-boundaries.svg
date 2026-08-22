@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 452" width="1200" height="452" role="img" aria-label="Three distinctions SKUTruth keeps separate: search relevance is not artifact identity, a model proposal is not a verified fact, and a verified fact is not an authorised delivery value">
+  <rect width="1200" height="452" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="44" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">Three things that look alike and are not</text>
+    <text x="40" y="68" font-size="13.5" fill="#6c736c">Collapsing any one of these is how a catalog fills up with confident, unfalsifiable content.</text>
+
+    <!-- 1 -->
+    <g transform="translate(40 98)">
+      <rect width="360" height="242" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="24" y="34" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">DISTINCTION 1</text>
+
+      <rect x="24" y="48" width="312" height="52" rx="10" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="40" y="70" font-size="12.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#173f2a">search relevance EXACT</text>
+      <text x="40" y="89" font-size="11.5" fill="#2f6b4a">a URL and title mention this reference</text>
+
+      <text x="180" y="126" font-size="26" font-weight="700" fill="#e7a62b" text-anchor="middle">&#8800;</text>
+
+      <rect x="24" y="140" width="312" height="52" rx="10" fill="#173f2a"/>
+      <text x="40" y="162" font-size="12.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#fffaf0">artifact scope EXACT_SKU</text>
+      <text x="40" y="181" font-size="11.5" fill="#dfe6d8">the stored document proves it is this SKU</text>
+
+      <text x="24" y="216" font-size="11.5" fill="#6c736c">A search engine ranks pages. Only the document</text>
+      <text x="24" y="232" font-size="11.5" fill="#6c736c">itself can say which product it is about.</text>
+    </g>
+
+    <!-- 2 -->
+    <g transform="translate(420 98)">
+      <rect width="360" height="242" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="24" y="34" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">DISTINCTION 2</text>
+
+      <rect x="24" y="48" width="312" height="52" rx="10" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="40" y="70" font-size="12.5" font-weight="700" fill="#8a6410">a Gemini proposal</text>
+      <text x="40" y="89" font-size="11.5" fill="#8a6410">schema-valid, locator-bound, plausible</text>
+
+      <text x="180" y="126" font-size="26" font-weight="700" fill="#e7a62b" text-anchor="middle">&#8800;</text>
+
+      <rect x="24" y="140" width="312" height="52" rx="10" fill="#173f2a"/>
+      <text x="40" y="162" font-size="12.5" font-weight="700" fill="#fffaf0">a verified fact</text>
+      <text x="40" y="181" font-size="11.5" fill="#dfe6d8">the artifact&#8217;s own text states this value</text>
+
+      <text x="24" y="216" font-size="11.5" fill="#6c736c">Verification re-reads the document mechanically.</text>
+      <text x="24" y="232" font-size="11.5" fill="#6c736c">The model&#8217;s paraphrase is never the evidence.</text>
+    </g>
+
+    <!-- 3 -->
+    <g transform="translate(800 98)">
+      <rect width="360" height="242" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+      <text x="24" y="34" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">DISTINCTION 3</text>
+
+      <rect x="24" y="48" width="312" height="52" rx="10" fill="#e6ece0" stroke="#2f6b4a"/>
+      <text x="40" y="70" font-size="12.5" font-weight="700" fill="#173f2a">a verified manufacturer fact</text>
+      <text x="40" y="89" font-size="11.5" fill="#2f6b4a">true, sourced, and re-derivable</text>
+
+      <text x="180" y="126" font-size="26" font-weight="700" fill="#e7a62b" text-anchor="middle">&#8800;</text>
+
+      <rect x="24" y="140" width="312" height="52" rx="10" fill="#f7f1e7" stroke="#ddd5c7" stroke-dasharray="5 4"/>
+      <text x="40" y="162" font-size="12.5" font-weight="700" fill="#6c736c">an authorised delivery value</text>
+      <text x="40" y="181" font-size="11.5" fill="#6c736c">a rule says which column it belongs in</text>
+
+      <text x="24" y="216" font-size="11.5" fill="#6c736c">Without the official Unilog vocabulary, the</text>
+      <text x="24" y="232" font-size="11.5" fill="#6c736c">mapping stays UNAUTHORIZED rather than guessed.</text>
+    </g>
+
+    <rect x="40" y="362" width="1120" height="56" rx="12" fill="#173f2a"/>
+    <text x="64" y="386" font-size="13.5" fill="#fffaf0">Each boundary is enforced in code, not in a prompt: a separate stage, a separate typed decision, and a test that fails if it merges.</text>
+    <text x="64" y="406" font-size="12.5" fill="#a5b995">The verification engine is vocabulary-agnostic &#8212; a test asserts it imports no classification machinery at all.</text>
+  </g>
+</svg>

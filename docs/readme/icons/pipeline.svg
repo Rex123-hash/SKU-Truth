@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#173f2a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Pipeline">
+  <circle cx="4.6" cy="12" r="2.5"/>
+  <circle cx="12" cy="12" r="2.5" stroke="#6f8e45"/>
+  <circle cx="19.4" cy="12" r="2.5" stroke="#e7a62b"/>
+  <path d="M7.1 12h2.4M14.5 12h2.4" stroke="#a5b995"/>
+</svg>

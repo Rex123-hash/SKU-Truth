@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="1200" height="560" role="img" aria-label="How SKUTruth uses the organizer dataset: 1000 rows deterministically for breadth, three real rows through the full evidence path for depth">
+  <defs>
+    <marker id="d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#6f8e45"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="560" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="44" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">Breadth and depth, from one real catalog</text>
+    <text x="40" y="68" font-size="13.5" fill="#6c736c">Everything below starts from the organizer&#8217;s own file. Nothing here is a hand-written toy product.</text>
+
+    <!-- source file -->
+    <rect x="40" y="98" width="290" height="176" rx="14" fill="#fffdf8" stroke="#ddd5c7"/>
+    <text x="60" y="122" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">ORGANIZER INPUT</text>
+    <text x="60" y="148" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#173f2a">Unihack_ Sample Dataset</text>
+    <text x="60" y="165" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#173f2a">- Input.csv</text>
+    <g font-size="12.5">
+      <text x="60" y="192" fill="#172019"><tspan font-weight="700" font-size="15">1,000</tspan> rows</text>
+      <text x="60" y="212" fill="#172019"><tspan font-weight="700" font-size="15">999</tspan> distinct part numbers</text>
+      <text x="60" y="232" fill="#172019"><tspan font-weight="700" font-size="15">6</tspan> columns</text>
+      <text x="60" y="252" fill="#6c736c" font-size="11.5">76 distinct Part_Manuf spellings</text>
+    </g>
+
+    <path d="M330 150h44" stroke="#6f8e45" stroke-width="2" marker-end="url(#d)"/>
+    <path d="M330 232h44" stroke="#6f8e45" stroke-width="2" marker-end="url(#d)"/>
+
+    <!-- BREADTH -->
+    <rect x="382" y="98" width="778" height="132" rx="14" fill="#e6ece0" stroke="#a5b995"/>
+    <text x="404" y="122" font-size="10.5" font-weight="700" fill="#2f6b4a" letter-spacing="1.4">BREADTH &#183; ALL 1,000 ROWS, DETERMINISTICALLY</text>
+    <g font-size="12" fill="#172019">
+      <rect x="404" y="134" width="168" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="418" y="155">Placeholder policy</text>
+      <rect x="584" y="134" width="168" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="598" y="155">Part_Manuf parsing</text>
+      <rect x="764" y="134" width="168" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="778" y="155">Normalization</text>
+      <rect x="944" y="134" width="194" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="958" y="155">Family classification</text>
+      <rect x="404" y="176" width="168" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="418" y="197">Row validation</text>
+      <rect x="584" y="176" width="168" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="598" y="197">Duplicate detection</text>
+      <rect x="764" y="176" width="168" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="778" y="197">Workbench grid</text>
+      <rect x="944" y="176" width="194" height="34" rx="8" fill="#fffdf8" stroke="#a5b995"/><text x="958" y="197">252-column schema</text>
+    </g>
+
+    <!-- DEPTH -->
+    <rect x="382" y="246" width="778" height="196" rx="14" fill="#173f2a"/>
+    <text x="404" y="270" font-size="10.5" font-weight="700" fill="#b9cdaa" letter-spacing="1.4">DEPTH &#183; THREE REAL ROWS THROUGH THE FULL EVIDENCE PATH</text>
+
+    <g font-size="12.5">
+      <rect x="404" y="284" width="238" height="140" rx="10" fill="#1b472f" stroke="#466a50"/>
+      <text x="420" y="306" font-size="11" fill="#a5b995">row 371</text>
+      <text x="420" y="326" font-size="15" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#fffaf0">45297BK</text>
+      <text x="420" y="345" font-size="12" fill="#dfe6d8">Kichler Lighting</text>
+      <rect x="420" y="356" width="118" height="22" rx="11" fill="#2f6b4a"/>
+      <text x="479" y="371" font-size="10.5" font-weight="700" fill="#fffaf0" text-anchor="middle">7 VERIFIED FACTS</text>
+      <text x="420" y="396" font-size="11.5" fill="#dfe6d8">official page &#8594; exact SKU</text>
+      <text x="420" y="412" font-size="11.5" fill="#dfe6d8">&#8594; 10 proposals &#8594; 3 refused</text>
+
+      <rect x="654" y="284" width="238" height="140" rx="10" fill="#1b472f" stroke="#466a50"/>
+      <text x="670" y="306" font-size="11" fill="#a5b995">row 408</text>
+      <text x="670" y="326" font-size="15" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#fffaf0">62-1875</text>
+      <text x="670" y="345" font-size="12" fill="#dfe6d8">SATCO Products, Inc.</text>
+      <rect x="670" y="356" width="150" height="22" rx="11" fill="#8a6410"/>
+      <text x="745" y="371" font-size="10.5" font-weight="700" fill="#fdf3dd" text-anchor="middle">BLOCKED AT ACQUISITION</text>
+      <text x="670" y="396" font-size="11.5" fill="#dfe6d8">trusted source found, then</text>
+      <text x="670" y="412" font-size="11.5" fill="#dfe6d8">HTTP 429. Nothing downstream.</text>
+
+      <rect x="904" y="284" width="238" height="140" rx="10" fill="#1b472f" stroke="#466a50"/>
+      <text x="920" y="306" font-size="11" fill="#a5b995">row 447</text>
+      <text x="920" y="326" font-size="14" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#fffaf0">SHOP/4X2/840/V1</text>
+      <text x="920" y="345" font-size="12" fill="#dfe6d8">Feit Electric Company</text>
+      <rect x="920" y="356" width="150" height="22" rx="11" fill="#8a6410"/>
+      <text x="995" y="371" font-size="10.5" font-weight="700" fill="#fdf3dd" text-anchor="middle">NO EXACT REFERENCE</text>
+      <text x="920" y="396" font-size="11.5" fill="#dfe6d8">site spells it shop-4x2-840-v1.</text>
+      <text x="920" y="412" font-size="11.5" fill="#dfe6d8">A slash is not a hyphen.</text>
+    </g>
+
+    <!-- honesty strip -->
+    <rect x="40" y="466" width="1120" height="62" rx="12" fill="#fdf3dd" stroke="#f2c15b"/>
+    <text x="62" y="491" font-size="13" font-weight="700" fill="#8a6410">What this is not: the 1,000 rows are not all externally enriched.</text>
+    <text x="62" y="512" font-size="12.5" fill="#8a6410">Deep enrichment needs a reviewed manufacturer domain and a document about <tspan font-style="italic">that</tspan> product. One row currently reaches verified facts.</text>
+  </g>
+</svg>

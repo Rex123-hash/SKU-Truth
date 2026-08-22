@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#173f2a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Delivery contract">
+  <rect x="2.8" y="3.6" width="18.4" height="16.8" rx="2.4"/>
+  <path d="M2.8 8.2h18.4"/>
+  <path d="M8.7 8.2v12.2M14.3 8.2v12.2" stroke="#a5b995"/>
+  <rect x="15.6" y="10.4" width="4.2" height="2.2" rx="0.8" fill="#e7a62b" stroke="none"/>
+  <path d="M4.5 11.5h2.6M4.5 15.2h2.6M10.4 15.2h2.6" stroke="#6f8e45"/>
+</svg>

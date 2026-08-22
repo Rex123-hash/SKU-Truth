@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" role="img" aria-label="The Catalog Workbench state machine, from an empty workspace through schema review and analysis to results or a partial result">
+  <defs>
+    <marker id="w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#6f8e45"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="420" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="44" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">The Catalog Workbench</text>
+    <text x="40" y="68" font-size="13.5" fill="#6c736c">Parsing happens in the browser. Only the six organizer-shaped fields of a row you choose to analyze are ever sent.</text>
+
+    <!-- states -->
+    <g font-size="12.5">
+      <g transform="translate(40 104)">
+        <rect width="172" height="76" rx="11" fill="#fffdf8" stroke="#ddd5c7"/>
+        <text x="16" y="26" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#6f8e45">EMPTY</text>
+        <text x="16" y="46" fill="#172019">Drop a catalog</text>
+        <text x="16" y="63" font-size="11" fill="#6c736c">CSV &#183; XLSX &#183; manual row</text>
+      </g>
+      <path d="M220 142h32" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+
+      <g transform="translate(260 104)">
+        <rect width="172" height="76" rx="11" fill="#fffdf8" stroke="#ddd5c7"/>
+        <text x="16" y="26" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#6f8e45">PARSING</text>
+        <text x="16" y="46" fill="#172019">Limits enforced</text>
+        <text x="16" y="63" font-size="11" fill="#6c736c">5 MB &#183; 5 sheets &#183; 5,000 rows</text>
+      </g>
+      <path d="M440 142h32" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+
+      <g transform="translate(480 104)">
+        <rect width="172" height="76" rx="11" fill="#e6ece0" stroke="#a5b995"/>
+        <text x="16" y="26" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#2f6b4a">SCHEMA_REVIEW</text>
+        <text x="16" y="46" fill="#172019">Confirm the mapping</text>
+        <text x="16" y="63" font-size="11" fill="#2f6b4a">auto-detected, always editable</text>
+      </g>
+      <path d="M660 142h32" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+
+      <g transform="translate(700 104)">
+        <rect width="172" height="76" rx="11" fill="#e6ece0" stroke="#a5b995"/>
+        <text x="16" y="26" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#2f6b4a">READY</text>
+        <text x="16" y="46" fill="#172019">READY / REVIEW / INVALID</text>
+        <text x="16" y="63" font-size="11" fill="#2f6b4a">search &#183; sort &#183; filter &#183; select</text>
+      </g>
+      <path d="M880 142h32" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+
+      <g transform="translate(920 104)">
+        <rect width="240" height="76" rx="11" fill="#173f2a"/>
+        <text x="16" y="26" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#b9cdaa">ANALYZING</text>
+        <text x="16" y="46" fill="#fffaf0">One row, or up to 25</text>
+        <text x="16" y="63" font-size="11" fill="#dfe6d8">sequential &#183; per-row typed failure</text>
+      </g>
+    </g>
+
+    <!-- outcomes -->
+    <path d="M1040 188v26" stroke="#6f8e45" stroke-width="2"/>
+    <path d="M300 214h740" stroke="#6f8e45" stroke-width="2"/>
+    <path d="M300 214v22" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+    <path d="M700 214v22" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+    <path d="M1040 214v22" stroke="#6f8e45" stroke-width="2" marker-end="url(#w)"/>
+
+    <g font-size="12.5">
+      <g transform="translate(40 244)">
+        <rect width="520" height="130" rx="12" fill="#e6ece0" stroke="#2f6b4a"/>
+        <text x="20" y="28" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#2f6b4a">RESULTS</text>
+        <text x="20" y="50" font-weight="700" fill="#173f2a">Every stage passed</text>
+        <text x="20" y="72" font-size="11.5" fill="#2f6b4a">Five result tabs: Verified &#183; Withheld &#183; Blocked &#183; Delivery &#183; Raw input.</text>
+        <text x="20" y="90" font-size="11.5" fill="#2f6b4a">Evidence Inspector puts each proposal beside the source line it was checked against.</text>
+        <text x="20" y="112" font-size="11.5" fill="#2f6b4a">Exports: analysis report CSV, verified-facts CSV. Both carry the delivery authority column.</text>
+      </g>
+
+      <g transform="translate(580 244)">
+        <rect width="290" height="130" rx="12" fill="#fdf3dd" stroke="#f2c15b"/>
+        <text x="20" y="28" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#8a6410">PARTIAL</text>
+        <text x="20" y="50" font-weight="700" fill="#8a6410">Something stopped</text>
+        <text x="20" y="72" font-size="11.5" fill="#8a6410">The Review Queue collects every</text>
+        <text x="20" y="90" font-size="11.5" fill="#8a6410">withheld fact and blocked stage,</text>
+        <text x="20" y="108" font-size="11.5" fill="#8a6410">each with its typed reason.</text>
+      </g>
+
+      <g transform="translate(890 244)">
+        <rect width="270" height="130" rx="12" fill="#fffdf8" stroke="#ddd5c7" stroke-dasharray="5 4"/>
+        <text x="20" y="28" font-size="10.5" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" fill="#6c736c">ERROR</text>
+        <text x="20" y="50" font-weight="700" fill="#172019">The API was unreachable</text>
+        <text x="20" y="72" font-size="11.5" fill="#6c736c">The row is marked, and that is</text>
+        <text x="20" y="90" font-size="11.5" fill="#6c736c">all. No fallback result is</text>
+        <text x="20" y="108" font-size="11.5" fill="#6c736c">fabricated to fill the gap.</text>
+      </g>
+    </g>
+
+    <text x="40" y="398" font-size="12" fill="#6c736c">A row with no replay evidence still gets normalization and classification, and honest <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5">NOT_RUN</tspan> for everything that needs a document.</text>
+  </g>
+</svg>

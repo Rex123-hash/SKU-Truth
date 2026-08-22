@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#173f2a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Dataset">
+  <ellipse cx="12" cy="5.9" rx="7.6" ry="3"/>
+  <path d="M4.4 5.9v6c0 1.66 3.4 3 7.6 3s7.6-1.34 7.6-3v-6"/>
+  <path d="M4.4 11.9v6c0 1.66 3.4 3 7.6 3s7.6-1.34 7.6-3v-6" stroke="#6f8e45"/>
+  <path d="M9.4 18.1h1.6" stroke="#e7a62b"/>
+</svg>

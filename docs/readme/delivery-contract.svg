@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 488" width="1200" height="488" role="img" aria-label="The organizer delivery format: 252 ordered columns, 102 non-attribute fields and 50 label-value-UOM attribute triplets, supplied with two specimen rows">
+  <rect width="1200" height="488" fill="#faf6ee"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+    <text x="40" y="44" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" fill="#173f2a">The delivery contract</text>
+    <text x="40" y="68" font-size="13.5" fill="#6c736c"><tspan font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Unihack_ Expected Output - Delivery Format.csv</tspan> &#183; read at runtime, never committed, fingerprinted by SHA-256.</text>
+
+    <!-- totals -->
+    <g>
+      <g transform="translate(40 98)">
+        <rect width="272" height="104" rx="12" fill="#173f2a"/>
+        <text x="22" y="46" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#fffaf0">252</text>
+        <text x="94" y="46" font-size="12.5" fill="#dfe6d8">ordered columns</text>
+        <text x="22" y="72" font-size="11.5" fill="#a5b995">Headers are immutable: never sorted,</text>
+        <text x="22" y="89" font-size="11.5" fill="#a5b995">never renamed, never tidied.</text>
+      </g>
+
+      <g transform="translate(328 98)">
+        <rect width="272" height="104" rx="12" fill="#e6ece0" stroke="#a5b995"/>
+        <text x="22" y="46" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#173f2a">102</text>
+        <text x="94" y="46" font-size="12.5" fill="#2f6b4a">non-attribute fields</text>
+        <text x="22" y="72" font-size="11.5" fill="#2f6b4a">Identity, brand, classpath, the five</text>
+        <text x="22" y="89" font-size="11.5" fill="#2f6b4a">description forms, assets, reference URLs.</text>
+      </g>
+
+      <g transform="translate(616 98)">
+        <rect width="272" height="104" rx="12" fill="#fdf3dd" stroke="#f2c15b"/>
+        <text x="22" y="46" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#8a6410">50</text>
+        <text x="76" y="46" font-size="12.5" fill="#8a6410">attribute triplets</text>
+        <text x="22" y="72" font-size="11.5" fill="#8a6410">Discovered, not assumed &#8212; a template of</text>
+        <text x="22" y="89" font-size="11.5" fill="#8a6410">another depth loads without a code change.</text>
+      </g>
+
+      <g transform="translate(904 98)">
+        <rect width="256" height="104" rx="12" fill="#fffdf8" stroke="#ddd5c7"/>
+        <text x="22" y="46" font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" fill="#172019">2</text>
+        <text x="52" y="46" font-size="12.5" fill="#6c736c">specimen rows</text>
+        <text x="22" y="72" font-size="11.5" font-weight="700" fill="#8a6410">A schema specimen, not a</text>
+        <text x="22" y="89" font-size="11.5" font-weight="700" fill="#8a6410">labelled accuracy benchmark.</text>
+      </g>
+    </g>
+
+    <!-- triplet anatomy -->
+    <text x="40" y="242" font-size="10.5" font-weight="700" fill="#6f8e45" letter-spacing="1.4">ONE ATTRIBUTE SLOT, THREE CELLS</text>
+
+    <g transform="translate(40 256)">
+      <rect width="1120" height="88" rx="12" fill="#fffdf8" stroke="#ddd5c7"/>
+      <g font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+        <rect x="24" y="18" width="342" height="52" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+        <text x="40" y="38" fill="#2f6b4a" font-size="10.5">ATTRIBUTE_LABEL n</text>
+        <text x="40" y="58" fill="#172019" font-size="13">Wattage</text>
+
+        <rect x="390" y="18" width="342" height="52" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+        <text x="406" y="38" fill="#2f6b4a" font-size="10.5">ATTRIBUTE_VALUE n</text>
+        <text x="406" y="58" fill="#172019" font-size="13">100</text>
+
+        <rect x="756" y="18" width="340" height="52" rx="9" fill="#e6ece0" stroke="#a5b995"/>
+        <text x="772" y="38" fill="#2f6b4a" font-size="10.5">ATTRIBUTE_UOM n</text>
+        <text x="772" y="58" fill="#172019" font-size="13">W</text>
+      </g>
+    </g>
+
+    <!-- blank semantics -->
+    <g transform="translate(40 360)">
+      <rect width="548" height="106" rx="12" fill="#e6ece0" stroke="#a5b995"/>
+      <text x="24" y="30" font-size="13" font-weight="700" fill="#173f2a">Blank is not absent</text>
+      <text x="24" y="54" font-size="12" fill="#2f6b4a">A declared label with an empty value means &#8220;the template says this</text>
+      <text x="24" y="72" font-size="12" fill="#2f6b4a">attribute applies, and the source did not establish it.&#8221;</text>
+      <text x="24" y="92" font-size="12" fill="#2f6b4a">Slots are never compacted, so <tspan font-style="italic">not applicable</tspan> stays distinct from <tspan font-style="italic">not found</tspan>.</text>
+    </g>
+
+    <g transform="translate(612 360)">
+      <rect width="548" height="106" rx="12" fill="#fdf3dd" stroke="#f2c15b"/>
+      <text x="24" y="30" font-size="13" font-weight="700" fill="#8a6410">A missing triplet member invalidates the schema</text>
+      <text x="24" y="54" font-size="12" fill="#8a6410">A label with nowhere to put its value is a broken contract, so the</text>
+      <text x="24" y="72" font-size="12" fill="#8a6410">loader refuses it rather than compensating.</text>
+      <text x="24" y="92" font-size="12" fill="#8a6410">The fingerprint catches the organizer quietly changing the format.</text>
+    </g>
+  </g>
+</svg>
